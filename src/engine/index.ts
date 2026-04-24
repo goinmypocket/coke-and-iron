@@ -1,6 +1,8 @@
 export { Engine } from "./Engine";
 export { initialState } from "./initialState";
 export { reduce } from "./reduce";
+export { makeRng, shuffle, randomInt } from "./rng";
+export type { Rng } from "./rng";
 export type {
   Card,
   DistrictCity,

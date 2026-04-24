@@ -11,6 +11,8 @@
 //   - discriminated unions for variant types (cards, results)
 // =============================================================================
 
+import type { Rng } from "./rng";
+
 
 // -----------------------------------------------------------------------------
 // Primitives
@@ -342,6 +344,14 @@ export interface GameState {
   readonly merchantCities: readonly MerchantCity[];
   readonly lines: readonly Line[];
   readonly tileCatalogue: readonly IndustryTileSpec[];
+
+  /**
+   * Seeded PRNG used for every random draw in the engine (deck shuffle,
+   * merchant bag, future tie-breakers). Mutated in place by the reducer;
+   * its internal state is serialisable via rng.getState() for save / load.
+   * The reducer must never call Math.random() — it would lose determinism.
+   */
+  rng: Rng;
 
   // -- Era + turn flow --
   era: Era;

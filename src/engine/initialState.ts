@@ -1,3 +1,4 @@
+import { makeRng } from "./rng";
 import type {
   EngineConfig,
   GameState,
@@ -24,6 +25,8 @@ export function initialState(config: EngineConfig): GameState {
     merchantCities: [],
     lines: [],
     tileCatalogue: [],
+
+    rng: makeRng(config.seed),
 
     era: "CANAL",
     round: 1,
