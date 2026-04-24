@@ -25,7 +25,7 @@ editors persist their changes back into `config/ui.json`,
 `config/layout.json`, and parts of `config/cities.json` (board
 positions and slot edits). The remaining seed values —
 `config/cards.json`, `config/links.json`,
-`config/industry_tiles.csv`, and the spec-defined fields of
+`config/industry_tiles.json`, and the spec-defined fields of
 `config/cities.json` — are spec-owned; don't edit them outside an
 explicit task.
 

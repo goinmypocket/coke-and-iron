@@ -716,7 +716,7 @@ For each seat the engine creates a Player with:
 - Unique id and display name.
 - £17, VP 0, income step 10 (income level 0), loans_taken 0,
   spent_this_round 0.
-- Mat stacks populated from `config/industry_tiles.csv`, ordered
+- Mat stacks populated from `config/industry_tiles.json`, ordered
   lowest-level-first.
 - 14 link tiles in the seat's colour.
 - Empty hand, empty discard pile.
@@ -1166,7 +1166,7 @@ independent rule that appears *only* here.
   is a specific Location or Wild Location card. *(Restates §5.1
   step 1.)*
 - Pottery level-1 has no canal-only flag: buildable in either
-  era. *(Data-driven — the authority is `config/industry_tiles.csv`.)*
+  era. *(Data-driven — the authority is `config/industry_tiles.json`.)*
 - The first Build / Network of the game is exempt from the
   network requirement. *(Vacuous case of §5.1 step 1 and §5.2
   step 3: when the player's network is empty, the adjacency
@@ -1207,10 +1207,13 @@ files use a `"_comment"` string key for free-form notes.
 - **`config/layout.json`** — panel grid: columns / rows and their
   weights, per-panel placement and orientation. Written live by
   the in-game layout editor (§10.8).
-- **`config/industry_tiles.csv`** — one row per tile (industry,
-  level, money cost, coal cost, iron cost, VP, income, link
-  points, beer-to-sell, canal-only, rail-only, light-bulb,
-  resource capacity).
+- **`config/industry_tiles.json`** — one entry per tile in a
+  `tiles` array, ordered industry-then-level-ascending. Each entry
+  carries: industry, level, qty (mat-stack count), money cost,
+  coal cost, iron cost, VP, income bonus, link points,
+  beer-to-sell, canal-only flag, rail-only flag, light-bulb flag,
+  resource capacity, and an optional rail-era resource-capacity
+  override (`null` when none).
 - **`config/cities.json`** — district and merchant city
   definitions: name, district tag, position, slot list,
   farm-brewery flag, activePlayerCounts (merchants only),
