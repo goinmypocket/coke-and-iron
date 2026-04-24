@@ -26,17 +26,6 @@ describe("reduce — intent taxonomy", () => {
 
   const rejectCases: { name: string; intent: Intent }[] = [
     {
-      name: "NETWORK",
-      intent: {
-        type: "NETWORK",
-        playerId: 0,
-        cardIndex: 0,
-        lineIndex: 0,
-        coalSources: [],
-        secondLink: null,
-      },
-    },
-    {
       name: "SELL",
       intent: {
         type: "SELL",

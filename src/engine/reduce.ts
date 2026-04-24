@@ -1,6 +1,7 @@
 import { reduceBuild } from "./actions/build";
 import { reduceDevelop } from "./actions/develop";
 import { reduceLoan } from "./actions/loan";
+import { reduceNetwork } from "./actions/network";
 import { reducePass } from "./actions/pass";
 import { reduceScout } from "./actions/scout";
 import type { GameState, Intent, Result } from "./types";
@@ -26,6 +27,7 @@ export function reduce(state: GameState, intent: Intent): Result {
     case "BUILD":
       return reduceBuild(state, intent);
     case "NETWORK":
+      return reduceNetwork(state, intent);
     case "SELL":
       return NOT_IMPLEMENTED;
     default:
