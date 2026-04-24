@@ -1,5 +1,5 @@
 import type { EngineConfig, GameState, Intent, Result } from "./types";
-import { initialState } from "./initialState";
+import { initialState, type EngineConfigBundle } from "./initialState";
 import { reduce } from "./reduce";
 
 type Subscriber = () => void;
@@ -9,8 +9,8 @@ export class Engine {
   private readonly subscribers = new Set<Subscriber>();
   private readonly intentLog: Intent[] = [];
 
-  constructor(config: EngineConfig) {
-    this.state = initialState(config);
+  constructor(config: EngineConfig, bundle: EngineConfigBundle = {}) {
+    this.state = initialState(config, bundle);
   }
 
   getState = (): GameState => this.state;
