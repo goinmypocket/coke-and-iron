@@ -553,12 +553,16 @@ export type FailureReason =
   | "not_in_network"
   | "slot_does_not_accept_industry"
   | "specific_slot_available"
-  | "slot_occupied_overbuild_invalid"
   | "mat_stack_empty"
   | "tile_wrong_era"
   | "insufficient_funds"
-  | "farm_brewery_wrong_card"       // §5.1.2
-  | "one_tile_per_city_canal"       // §5.1.4
+  | "farm_brewery_wrong_card"          // §5.1.2
+  | "one_tile_per_city_canal"          // §5.1.4
+  // --- Build overbuild §5.1.3 ---
+  | "overbuild_industry_mismatch"
+  | "overbuild_not_higher_level"
+  | "overbuild_has_resources"
+  | "overbuild_ownership_blocked"
   // --- Resource sources §5.6 ---
   | "coal_source_invalid"
   | "iron_source_invalid"

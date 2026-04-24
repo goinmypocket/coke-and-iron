@@ -446,35 +446,50 @@ describe("§5.1 Build — slot + city rejects", () => {
     if (!r.ok) expect(r.reason).toBe("specific_slot_available");
   });
 
-  it("rejects an occupied slot (overbuild not yet implemented)", () => {
+  it("rejects overbuild of opponent's non-coal/iron tile (ownership_blocked)", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
     const id = activeSeatId(base);
     const other: PlayerId = id === 0 ? 1 : 0;
+    // Opponent's Cotton Mill at Stone slot 1 (wildcard), flipped + drained.
     let state = withTile(base, {
-      id: "existing",
+      id: "opp-cotton",
       owner: other,
-      cityName: "Dudley",
-      slotIndex: 0,
-      industry: "COAL_MINE",
+      cityName: "Stone",
+      slotIndex: 1,
+      industry: "COTTON_MILL",
       level: 1,
+      resources: 0,
+      flipped: true,
     });
-    state = withCardAt(state, id, 0, {
-      kind: "LOCATION",
-      cityName: "Dudley",
-    });
+    // Force player's COTTON_MILL stack top to level 2 (strictly higher).
+    const cotton2Idx = state.tileCatalogue.findIndex(
+      (s) => s.industry === "COTTON_MILL" && s.level === 2,
+    );
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === id
+          ? {
+              ...p,
+              mat: { stacks: { ...p.mat.stacks, COTTON_MILL: [cotton2Idx] } },
+            }
+          : p,
+      ),
+    };
+    state = withCardAt(state, id, 0, { kind: "WILD_LOCATION" });
     const engine = engineFromState(state);
     const r = engine.dispatch({
       type: "BUILD",
       playerId: id,
       cardIndex: 0,
-      cityName: "Dudley",
-      slotIndex: 0,
-      industry: "COAL_MINE",
+      cityName: "Stone",
+      slotIndex: 1,
+      industry: "COTTON_MILL",
       coalSources: [],
       ironSources: [],
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("slot_occupied_overbuild_invalid");
+    if (!r.ok) expect(r.reason).toBe("overbuild_ownership_blocked");
   });
 
   it("rejects Canal-era double-build in the same city for the same player (§5.1.4)", () => {
@@ -720,5 +735,257 @@ describe("§5.1 Build — turn-flow rejects", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("card_not_in_hand");
+  });
+});
+
+// ---------- overbuild §5.1.3 ----------
+
+function withMatTop(
+  state: GameState,
+  id: PlayerId,
+  industry: IndustryName,
+  level: number,
+): GameState {
+  const idx = state.tileCatalogue.findIndex(
+    (s) => s.industry === industry && s.level === level,
+  );
+  if (idx === -1) throw new Error(`no ${industry} level ${level}`);
+  return {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === id
+        ? { ...p, mat: { stacks: { ...p.mat.stacks, [industry]: [idx] } } }
+        : p,
+    ),
+  };
+}
+
+describe("§5.1.3 Overbuild — happy paths", () => {
+  it("player overbuilds their OWN drained Coal Mine with a higher-level one (canal, net-zero swap)", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    // Own level-1 Coal Mine at Dudley slot 0, drained + flipped.
+    let state = withTile(base, {
+      id: "own-cm1",
+      owner: id,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      level: 1,
+      resources: 0,
+      flipped: true,
+    });
+    state = withMatTop(state, id, "COAL_MINE", 2);
+    state = withCardAt(state, id, 0, {
+      kind: "LOCATION",
+      cityName: "Dudley",
+    });
+
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
+    expect(r.ok).toBe(true);
+
+    const after = engine.getState();
+    // Old tile gone, new tile at same slot.
+    expect(after.builtTiles.find((t) => t.id === "own-cm1")).toBeUndefined();
+    const placed = after.builtTiles.find((t) => t.cityName === "Dudley")!;
+    expect(placed.owner).toBe(id);
+    const spec = after.tileCatalogue[placed.catalogueIndex]!;
+    expect(spec.level).toBe(2);
+    // Coal Mine level 2: £7, capacity 3. No merchant connection → cubes stay.
+    expect(placed.resources).toBe(3);
+    expect(after.players[id]!.money).toBe(17 - 7);
+    expect(after.players[id]!.spentThisRound).toBe(7);
+  });
+
+  it("player overbuilds OPPONENT's Coal Mine when coal is globally exhausted", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    const other: PlayerId = id === 0 ? 1 : 0;
+    // Opponent's level-1 Coal Mine at Dudley, drained + flipped.
+    let state = withTile(base, {
+      id: "opp-cm1",
+      owner: other,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      level: 1,
+      resources: 0,
+      flipped: true,
+    });
+    // Globally exhaust coal: empty the coal market.
+    state = {
+      ...state,
+      coalMarket: {
+        ...state.coalMarket,
+        filled: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+    };
+    state = withMatTop(state, id, "COAL_MINE", 2);
+    state = withCardAt(state, id, 0, {
+      kind: "LOCATION",
+      cityName: "Dudley",
+    });
+
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
+    expect(r.ok).toBe(true);
+    const after = engine.getState();
+    expect(after.builtTiles.find((t) => t.id === "opp-cm1")).toBeUndefined();
+    const placed = after.builtTiles.find((t) => t.cityName === "Dudley")!;
+    expect(placed.owner).toBe(id);
+  });
+});
+
+describe("§5.1.3 Overbuild — rejects", () => {
+  it("rejects overbuild_not_higher_level when the incoming tile is the same level", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    let state = withTile(base, {
+      id: "own-cm1",
+      owner: id,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      level: 1,
+      resources: 0,
+      flipped: true,
+    });
+    // Default mat top for COAL_MINE is level 1 → same level as existing.
+    state = withCardAt(state, id, 0, {
+      kind: "LOCATION",
+      cityName: "Dudley",
+    });
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("overbuild_not_higher_level");
+  });
+
+  it("rejects overbuild_has_resources when the existing tile still has cubes", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    let state = withTile(base, {
+      id: "own-cm1",
+      owner: id,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      level: 1,
+      resources: 2, // still full
+    });
+    state = withMatTop(state, id, "COAL_MINE", 2);
+    state = withCardAt(state, id, 0, {
+      kind: "LOCATION",
+      cityName: "Dudley",
+    });
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("overbuild_has_resources");
+  });
+
+  it("rejects overbuild_ownership_blocked for opponent's Coal Mine when the market still has cubes", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    const other: PlayerId = id === 0 ? 1 : 0;
+    let state = withTile(base, {
+      id: "opp-cm1",
+      owner: other,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      level: 1,
+      resources: 0,
+      flipped: true,
+    });
+    // Coal market NOT exhausted (default setup has cubes).
+    state = withMatTop(state, id, "COAL_MINE", 2);
+    state = withCardAt(state, id, 0, {
+      kind: "LOCATION",
+      cityName: "Dudley",
+    });
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: "Dudley",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("overbuild_ownership_blocked");
+  });
+
+  it("rejects overbuild_industry_mismatch when a different industry would be placed in the same slot", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    // Own Cotton Mill at Stone slot 1 (wildcard, so accepts both cotton
+    // and coal; specific-before-combo only applies to combo slots).
+    let state = withTile(base, {
+      id: "own-cot",
+      owner: id,
+      cityName: "Stone",
+      slotIndex: 1,
+      industry: "COTTON_MILL",
+      level: 1,
+      resources: 0,
+      flipped: true,
+    });
+    // Default Coal Mine stack top is level 1 — irrelevant because the
+    // mismatch fires before the level check.
+    state = withCardAt(state, id, 0, { kind: "WILD_LOCATION" });
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: "Stone",
+      slotIndex: 1,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("overbuild_industry_mismatch");
   });
 });

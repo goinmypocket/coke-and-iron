@@ -1,5 +1,5 @@
 // =============================================================================
-// §5.1 Build — place an industry tile from the mat onto an empty city slot.
+// §5.1 Build — place an industry tile from the mat onto a city slot.
 //
 // Engine steps mirror the spec §5.1:
 //   1. Verify the card authorises the build (location vs. industry + network)
@@ -7,18 +7,13 @@
 //      before-combo
 //   3. Pop the lowest-level tile of that industry from the mat, respecting
 //      era restrictions
-//   4. Deduct the money cost (reject on insufficient funds)
-//   5. Consume coal then iron per §5.6
-//   6. Place the tile (stamp owner, location, live resource count)
-//   7. Move-to-market for Coal Mine / Iron Works (§5.1.1)
-//   8. If the tile is now at 0 resources, flip it and advance income
-//
-// Subsections covered here:
-//   §5.1.2 — farm-brewery card restriction
-//   §5.1.4 — one-tile-per-location (Canal era only)
-//
-// Deferred to the next milestone:
-//   §5.1.3 — overbuild; for now any occupied slot rejects
+//   4. If the slot is occupied, validate overbuild (§5.1.3)
+//   5. Enforce canal one-tile-per-city, factoring in the overbuild (§5.1.4)
+//   6. Consume coal then iron per §5.6; accumulate cost; verify funds
+//   7. Remove the overbuilt tile (if any) and place the new tile
+//   8. Move-to-market auto-sell for Coal Mine / Iron Works (§5.1.1)
+//      — the flip + income advance happens inside the helper when the tile
+//      drains to zero
 // =============================================================================
 
 import {
@@ -90,48 +85,75 @@ export function reduceBuild(state: GameState, intent: IntentBuild): Result {
   );
   if (slotFail !== null) return { ok: false, reason: slotFail };
 
-  // Slot occupancy: this milestone rejects any occupied slot (overbuild
-  // comes later).
-  if (slotOccupied(state, intent.cityName, intent.slotIndex)) {
-    return { ok: false, reason: "slot_occupied_overbuild_invalid" };
-  }
-
-  // --- §5.1.4: one-tile-per-city in Canal era ---
-  if (state.era === "CANAL" && playerOwnsTileIn(state, intent.playerId, intent.cityName)) {
-    return { ok: false, reason: "one_tile_per_city_canal" };
-  }
-
-  // --- Step 3: pop mat tile ---
+  // --- Step 3: pop mat tile (read-only at this stage; mutation below) ---
   const stack = player.mat.stacks[intent.industry];
   if (stack.length === 0) {
     return { ok: false, reason: "mat_stack_empty" };
   }
   const catalogueIndex = stack[0]!;
-  const spec = state.tileCatalogue[catalogueIndex];
-  if (spec === undefined) return { ok: false, reason: "mat_stack_empty" };
-  if (!isTileEligibleForEra(spec, state.era)) {
+  const incomingSpec = state.tileCatalogue[catalogueIndex];
+  if (incomingSpec === undefined) {
+    return { ok: false, reason: "mat_stack_empty" };
+  }
+  if (!isTileEligibleForEra(incomingSpec, state.era)) {
     return { ok: false, reason: "tile_wrong_era" };
   }
 
-  // --- Steps 4 + 5: consume resources, compute total cost, verify funds ---
+  // --- Step 4: slot-occupancy → overbuild validation (§5.1.3) ---
+  const existingTile = findTileAt(state, intent.cityName, intent.slotIndex);
+  if (existingTile !== undefined) {
+    const overbuildFail = validateOverbuild(
+      state,
+      existingTile,
+      intent.industry,
+      incomingSpec,
+      intent.playerId,
+    );
+    if (overbuildFail !== null) {
+      return { ok: false, reason: overbuildFail };
+    }
+  }
+
+  // --- Step 5: §5.1.4 one-tile-per-city in Canal era ---
+  // "An overbuild of the player's OWN tile is a net-zero swap and is
+  // therefore exempt." The rule is: after the build, the player must not
+  // exceed 1 tile at this city. If the overbuilt tile was theirs, swapping
+  // keeps the count; else the new tile adds one.
+  if (state.era === "CANAL") {
+    const priorCount = countPlayerTilesAt(
+      state,
+      intent.playerId,
+      intent.cityName,
+    );
+    const overbuiltOwnTile =
+      existingTile !== undefined && existingTile.owner === intent.playerId;
+    const afterCount = priorCount - (overbuiltOwnTile ? 1 : 0) + 1;
+    if (afterCount > 1) {
+      return { ok: false, reason: "one_tile_per_city_canal" };
+    }
+  }
+
+  // --- Step 6: consume coal then iron; accumulate cost; verify funds ---
   let working = state;
   const coalResult = consumeCoal(
     working,
-    spec.coalCost,
+    incomingSpec.coalCost,
     intent.coalSources,
     [intent.cityName],
   );
   if (!coalResult.ok) return coalResult;
   working = coalResult.state;
 
-  const ironResult = consumeIron(working, spec.ironCost, intent.ironSources);
+  const ironResult = consumeIron(
+    working,
+    incomingSpec.ironCost,
+    intent.ironSources,
+  );
   if (!ironResult.ok) return ironResult;
   working = ironResult.state;
 
   const totalSpent =
-    spec.costMoney + coalResult.moneySpent + ironResult.moneySpent;
-  // Re-read acting player from working state — coal/iron consumption can
-  // have advanced their income if they drained their own tile.
+    incomingSpec.costMoney + coalResult.moneySpent + ironResult.moneySpent;
   const playerAfterConsumption = working.players.find(
     (p) => p.id === intent.playerId,
   );
@@ -142,9 +164,10 @@ export function reduceBuild(state: GameState, intent: IntentBuild): Result {
     return { ok: false, reason: "insufficient_funds" };
   }
 
-  // --- Step 6: place the tile ---
+  // --- Step 7: remove overbuilt tile (§5.1.3 "returns to the box"), then
+  // place the new tile ---
   const tileId = `tile-${working.nextTileId}`;
-  const resourceCapacity = pickResourceCapacity(spec, working.era);
+  const resourceCapacity = pickResourceCapacity(incomingSpec, working.era);
   const placedTile: PlacedIndustryTile = {
     id: tileId,
     owner: intent.playerId,
@@ -155,13 +178,17 @@ export function reduceBuild(state: GameState, intent: IntentBuild): Result {
     flipped: false,
   };
 
-  // Pop from mat, deduct money, credit spent_this_round, dispose card.
   const disposed = disposeCard(
     playerAfterConsumption.hand,
     playerAfterConsumption.discardPile,
     working.wildReserve,
     intent.cardIndex,
   );
+
+  const remainingBuiltTiles =
+    existingTile !== undefined
+      ? working.builtTiles.filter((t) => t.id !== existingTile.id)
+      : working.builtTiles;
 
   working = {
     ...working,
@@ -179,12 +206,15 @@ export function reduceBuild(state: GameState, intent: IntentBuild): Result {
       },
     })),
     wildReserve: disposed.wildReserve,
-    builtTiles: [...working.builtTiles, placedTile],
+    builtTiles: [...remainingBuiltTiles, placedTile],
     nextTileId: working.nextTileId + 1,
   };
 
-  // --- Step 7: move-to-market auto-sell for resource producers ---
-  if (spec.industry === "COAL_MINE") {
+  // --- Step 8: move-to-market auto-sell (§5.1.1). Non-resource tiles
+  // (Cotton / Manufacturer / Pottery) have resourceCapacity 0 so they skip
+  // this entirely; they flip only on Sell per §2.10. Breweries keep their
+  // barrels until consumed. ---
+  if (incomingSpec.industry === "COAL_MINE") {
     if (isConnectedToAnyMerchantCity(working, intent.cityName)) {
       const moved = moveCubesToMarket(working, tileId, "coalMarket");
       working = {
@@ -196,7 +226,7 @@ export function reduceBuild(state: GameState, intent: IntentBuild): Result {
         ),
       };
     }
-  } else if (spec.industry === "IRON_WORKS") {
+  } else if (incomingSpec.industry === "IRON_WORKS") {
     const moved = moveCubesToMarket(working, tileId, "ironMarket");
     working = {
       ...moved.state,
@@ -207,11 +237,6 @@ export function reduceBuild(state: GameState, intent: IntentBuild): Result {
       ),
     };
   }
-  // Non-resource tiles (Cotton / Manufacturer / Pottery) have
-  // resourceCapacity 0 so they are "already drained" — the §5.1 step 8
-  // flip-if-zero rule would fire, but per §2.10 those tiles flip only on
-  // Sell, not on placement. So we do NOT auto-flip them here. Breweries
-  // keep their barrels until consumed.
 
   return {
     ok: true,
@@ -301,24 +326,81 @@ function slotAccepts(slot: SlotSpec, industry: IndustryName): boolean {
   return slot.acceptList.length === 0 || slot.acceptList.includes(industry);
 }
 
-function slotOccupied(
+function findTileAt(
   state: GameState,
   cityName: string,
   slotIndex: number,
-): boolean {
-  return state.builtTiles.some(
+): PlacedIndustryTile | undefined {
+  return state.builtTiles.find(
     (t) => t.cityName === cityName && t.slotIndex === slotIndex,
   );
 }
 
-function playerOwnsTileIn(
+function countPlayerTilesAt(
   state: GameState,
   playerId: PlayerId,
   cityName: string,
-): boolean {
-  return state.builtTiles.some(
-    (t) => t.owner === playerId && t.cityName === cityName,
+): number {
+  return state.builtTiles.reduce(
+    (n, t) => n + (t.owner === playerId && t.cityName === cityName ? 1 : 0),
+    0,
   );
+}
+
+function validateOverbuild(
+  state: GameState,
+  existingTile: PlacedIndustryTile,
+  incomingIndustry: IndustryName,
+  incomingSpec: IndustryTileSpec,
+  playerId: PlayerId,
+): FailureReason | null {
+  const existingSpec = state.tileCatalogue[existingTile.catalogueIndex];
+  if (existingSpec === undefined) return "overbuild_industry_mismatch";
+
+  // Same industry required (§5.1.3).
+  if (existingSpec.industry !== incomingIndustry) {
+    return "overbuild_industry_mismatch";
+  }
+  // Strictly higher level.
+  if (incomingSpec.level <= existingSpec.level) {
+    return "overbuild_not_higher_level";
+  }
+  // Existing tile has zero resources (always true for non-producers;
+  // producers must be fully drained).
+  if (existingTile.resources > 0) {
+    return "overbuild_has_resources";
+  }
+
+  // Ownership rule. Own tile: always legal. Otherwise only Coal Mine /
+  // Iron Works, AND only when every cube of that resource is globally
+  // exhausted (board + market).
+  if (existingTile.owner === playerId) return null;
+  if (
+    existingSpec.industry !== "COAL_MINE" &&
+    existingSpec.industry !== "IRON_WORKS"
+  ) {
+    return "overbuild_ownership_blocked";
+  }
+  if (!isResourceGloballyExhausted(state, existingSpec.industry)) {
+    return "overbuild_ownership_blocked";
+  }
+  return null;
+}
+
+function isResourceGloballyExhausted(
+  state: GameState,
+  industry: "COAL_MINE" | "IRON_WORKS",
+): boolean {
+  let boardCubes = 0;
+  for (const t of state.builtTiles) {
+    const spec = state.tileCatalogue[t.catalogueIndex];
+    if (spec && spec.industry === industry) boardCubes += t.resources;
+  }
+  if (boardCubes > 0) return false;
+  const market =
+    industry === "COAL_MINE" ? state.coalMarket : state.ironMarket;
+  for (const n of market.filled) if (n > 0) return false;
+  return true;
 }
 
 function isTileEligibleForEra(
