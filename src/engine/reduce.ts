@@ -1,3 +1,4 @@
+import { reduceDevelop } from "./actions/develop";
 import { reduceLoan } from "./actions/loan";
 import { reducePass } from "./actions/pass";
 import { reduceScout } from "./actions/scout";
@@ -19,9 +20,10 @@ export function reduce(state: GameState, intent: Intent): Result {
       return reduceLoan(state, intent);
     case "SCOUT":
       return reduceScout(state, intent);
+    case "DEVELOP":
+      return reduceDevelop(state, intent);
     case "BUILD":
     case "NETWORK":
-    case "DEVELOP":
     case "SELL":
       return NOT_IMPLEMENTED;
     default:

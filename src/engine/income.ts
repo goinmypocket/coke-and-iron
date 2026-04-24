@@ -82,3 +82,15 @@ export function moveBackLevels(
   const clampedStep = levelToHighestStep(Math.max(target, MIN_INCOME_LEVEL));
   return { level: target, step: clampedStep };
 }
+
+/**
+ * Advance the income step by N raw ladder steps (not levels), clamped to
+ * [0, 99]. Used on tile flip (§2.10 / §5.1 step 8) and for merchant
+ * INCOME bonuses — both measured in steps, not levels, per §6.3 note.
+ */
+export function advanceSteps(step: number, delta: number): number {
+  return Math.max(
+    MIN_INCOME_STEP,
+    Math.min(MAX_INCOME_STEP, step + delta),
+  );
+}

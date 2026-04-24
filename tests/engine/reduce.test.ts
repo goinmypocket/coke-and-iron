@@ -47,16 +47,6 @@ describe("reduce — intent taxonomy (not yet implemented)", () => {
       },
     },
     {
-      name: "DEVELOP",
-      intent: {
-        type: "DEVELOP",
-        playerId: 0,
-        cardIndex: 0,
-        industries: ["COAL_MINE"],
-        ironSources: [[]],
-      },
-    },
-    {
       name: "SELL",
       intent: {
         type: "SELL",
