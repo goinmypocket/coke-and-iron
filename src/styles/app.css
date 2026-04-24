@@ -1,0 +1,54 @@
+:root {
+  --ink: #1a1a1a;
+  --paper: #fafaf7;
+  --warm-gold: #c79b3f;
+  --muted: #6b6b66;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.panel {
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-title {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ink);
+  font-weight: 600;
+  text-align: left;
+}
+
+.panel-body {
+  padding: 8px;
+  flex: 1;
+  overflow: auto;
+}
+
+.panel-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  gap: 8px;
+  padding: 8px;
+}
+
+.prompt {
+  text-align: center;
+  padding: 8px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.context-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--ink);
+}

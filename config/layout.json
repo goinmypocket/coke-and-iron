@@ -1,0 +1,6 @@
+{
+  "_comment": "Grid placement for named panels. Each entry names a panel id and assigns it to grid rows/columns. Populated during UI scaffold per docs/game-spec.md §11.",
+  "columns": "1fr 2fr 1fr",
+  "rows": "auto 1fr auto",
+  "panels": []
+}
