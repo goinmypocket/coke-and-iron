@@ -1,5 +1,6 @@
 import { reduceBuild } from "./actions/build";
 import { reduceDevelop } from "./actions/develop";
+import { reduceEndTurn, runEndOfTurn } from "./actions/end-turn";
 import { reduceLoan } from "./actions/loan";
 import { reduceNetwork } from "./actions/network";
 import { reducePass } from "./actions/pass";
@@ -9,7 +10,11 @@ import type { GameState, Intent, Result } from "./types";
 
 /**
  * Top-level reducer. Dispatches on intent.type to the per-action handler.
- * Unimplemented actions return { ok: false, reason: "not_implemented" }.
+ * After any §5 action succeeds, if the new state's actionsRemaining is 0
+ * AND state.autoEndTurn is true, the reducer inlines runEndOfTurn() —
+ * this makes replay faithful regardless of whether the intent log
+ * includes explicit END_TURN entries (§3.5).
+ *
  * The default branch's `assertNever` ensures TypeScript fails the build
  * the moment a new Intent variant is added without a case.
  */
@@ -17,23 +22,38 @@ export function reduce(state: GameState, intent: Intent): Result {
   switch (intent.type) {
     case "noop":
       return { ok: true, state };
+    case "END_TURN":
+      return reduceEndTurn(state, intent);
     case "PASS":
-      return reducePass(state, intent);
+      return maybeAutoAdvance(reducePass(state, intent));
     case "LOAN":
-      return reduceLoan(state, intent);
+      return maybeAutoAdvance(reduceLoan(state, intent));
     case "SCOUT":
-      return reduceScout(state, intent);
+      return maybeAutoAdvance(reduceScout(state, intent));
     case "DEVELOP":
-      return reduceDevelop(state, intent);
+      return maybeAutoAdvance(reduceDevelop(state, intent));
     case "BUILD":
-      return reduceBuild(state, intent);
+      return maybeAutoAdvance(reduceBuild(state, intent));
     case "NETWORK":
-      return reduceNetwork(state, intent);
+      return maybeAutoAdvance(reduceNetwork(state, intent));
     case "SELL":
-      return reduceSell(state, intent);
+      return maybeAutoAdvance(reduceSell(state, intent));
     default:
       return assertNever(intent);
   }
+}
+
+function maybeAutoAdvance(result: Result): Result {
+  if (!result.ok) return result;
+  const s = result.state;
+  if (
+    s.autoEndTurn &&
+    s.actionsRemaining === 0 &&
+    s.phase === "PLAYER_TURNS"
+  ) {
+    return { ok: true, state: runEndOfTurn(s) };
+  }
+  return result;
 }
 
 function assertNever(x: never): never {

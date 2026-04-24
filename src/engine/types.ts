@@ -326,6 +326,14 @@ export interface WildReserve {
 export interface EngineConfig {
   readonly seed: Seed;
   readonly playerCount: PlayerCount;
+  /**
+   * When true, the reducer automatically advances the turn whenever an
+   * action brings actionsRemaining to 0 — callers don't need to dispatch
+   * END_TURN explicitly. Spec §3.5 specifies default `true`; we default
+   * `false` in code because individual action tests are self-contained
+   * single-dispatches. The UI should set this explicitly.
+   */
+  readonly autoEndTurn?: boolean;
 }
 
 /**
@@ -383,6 +391,11 @@ export interface GameState {
    * id onto each PlacedIndustryTile at Build time. Starts at 0, increments
    * on every successful Build (including overbuild replacements). */
   nextTileId: number;
+
+  /** Spec §3.5. When true, the reducer auto-advances the turn when an
+   * action exhausts actionsRemaining. Persisted on state so replay is
+   * faithful. */
+  autoEndTurn: boolean;
 }
 
 
@@ -520,6 +533,17 @@ export interface IntentPass {
   readonly cardIndex: number;
 }
 
+/**
+ * §4.2 step 6 — explicitly end the dispatching seat's turn once
+ * actionsRemaining hits 0. Triggers end-of-round processing when the last
+ * seat in the round ends (§4.3). When state.autoEndTurn is true the
+ * engine fires this implicitly on behalf of the UI.
+ */
+export interface IntentEndTurn {
+  readonly type: "END_TURN";
+  readonly playerId: PlayerId;
+}
+
 export type Intent =
   | IntentNoop
   | IntentBuild
@@ -528,7 +552,8 @@ export type Intent =
   | IntentSell
   | IntentLoan
   | IntentScout
-  | IntentPass;
+  | IntentPass
+  | IntentEndTurn;
 
 
 // -----------------------------------------------------------------------------
@@ -546,6 +571,7 @@ export type FailureReason =
   | "not_current_turn"
   | "game_over"
   | "no_actions_remaining"
+  | "actions_still_remaining"     // §4.2 step 6 — can't END_TURN yet
   // --- Card selection (common) ---
   | "card_not_in_hand"
   | "card_does_not_authorise"

@@ -23,6 +23,7 @@ export type {
   Intent,
   IntentBuild,
   IntentDevelop,
+  IntentEndTurn,
   IntentLoan,
   IntentNetwork,
   IntentNoop,

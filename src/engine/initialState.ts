@@ -152,6 +152,8 @@ export function initialState(
     developedLinks: [],
     merchantSlots,
     nextTileId: 0,
+
+    autoEndTurn: config.autoEndTurn ?? false,
   };
 }
 
