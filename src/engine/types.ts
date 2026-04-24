@@ -383,15 +383,207 @@ export interface GameState {
 
 
 // -----------------------------------------------------------------------------
-// Intents and results
+// Resource source lists (§5.6)
 //
-// Placeholder Intent + FailureReason. The next milestone expands these to
-// discriminated unions covering every §5 action and every reject path.
+// Every coal / iron / beer consumer spec in §5 takes a declared source
+// list from the dispatching player. The engine is the sole validator: it
+// walks the list in order, verifies each source is legal per §5.6's
+// priority rules, and fails the whole dispatch if the list doesn't meet
+// the requirement.
 // -----------------------------------------------------------------------------
 
-export type Intent = { type: "noop" };
+/** One coal cube for a consumer. Either from an unflipped Coal Mine tile
+ * (free, §5.6.1 pri 1) or the Coal Market (paid, §5.6.1 pri 2). */
+export type CoalSource =
+  | { readonly kind: "TILE"; readonly tileId: string }
+  | { readonly kind: "MARKET" };
 
-export type FailureReason = "not_implemented";
+/** One iron cube. Unflipped Iron Works (free, §5.6.2 pri 1) or Iron Market
+ * (paid, no connection requirement, §5.6.2 pri 2). */
+export type IronSource =
+  | { readonly kind: "TILE"; readonly tileId: string }
+  | { readonly kind: "MARKET" };
+
+/** One beer barrel. BREWERY sources cover both own and opponent brewery
+ * (§5.6.3 pri 1 / pri 2) — the reducer decides which sub-rule applies
+ * from the tile owner. MERCHANT is Sell-only (§5.6.3 pri 3) and implicitly
+ * references the buying merchant tile named on the enclosing SellOrder. */
+export type BeerSource =
+  | { readonly kind: "BREWERY"; readonly tileId: string }
+  | { readonly kind: "MERCHANT" };
+
+
+// -----------------------------------------------------------------------------
+// Intents — one variant per §5 action + a test/admin noop.
+//
+// Each intent carries playerId so multiplayer transports can deliver from
+// any seat and the engine can verify authorisation. cardIndex indexes into
+// the dispatching seat's hand.
+// -----------------------------------------------------------------------------
+
+/** Admin / test escape hatch; NOT a §5 action. Succeeds unconditionally
+ * without mutating state. Lets engine infrastructure (dispatch log, state
+ * plumbing) be exercised before the real actions are implemented. */
+export interface IntentNoop {
+  readonly type: "noop";
+}
+
+/** §5.1 Build. */
+export interface IntentBuild {
+  readonly type: "BUILD";
+  readonly playerId: PlayerId;
+  readonly cardIndex: number;
+  readonly cityName: string;
+  readonly slotIndex: number;
+  readonly industry: IndustryName;
+  readonly coalSources: readonly CoalSource[];
+  readonly ironSources: readonly IronSource[];
+}
+
+/** §5.2 Network — second link is Rail-era only and optional. */
+export interface SecondRailLink {
+  readonly lineIndex: number;
+  readonly coalSources: readonly CoalSource[];
+  /** Second rail beer per §5.6.3: BREWERY only. Merchant beer is never a
+   * valid Network source. Typed to the brewery variant so the compiler
+   * forbids {kind:"MERCHANT"} here. */
+  readonly beerSource: { readonly kind: "BREWERY"; readonly tileId: string };
+}
+
+export interface IntentNetwork {
+  readonly type: "NETWORK";
+  readonly playerId: PlayerId;
+  readonly cardIndex: number;
+  readonly lineIndex: number;
+  /** Canal era: []. Rail era: [one coal]. */
+  readonly coalSources: readonly CoalSource[];
+  readonly secondLink: SecondRailLink | null;
+}
+
+/** §5.3 Develop — remove 1 or 2 industry tiles from the mat, paying 1 iron
+ * per removal. `industries[k]` is the k-th removal; `ironSources[k]` is
+ * the iron list for that removal. */
+export interface IntentDevelop {
+  readonly type: "DEVELOP";
+  readonly playerId: PlayerId;
+  readonly cardIndex: number;
+  readonly industries: readonly IndustryName[];
+  readonly ironSources: readonly (readonly IronSource[])[];
+}
+
+/** §5.4 Sell — one order per tile flipped in this action. */
+export interface SellOrder {
+  /** Id of an own unflipped Cotton / Manufacturer / Pottery tile on the
+   * board. */
+  readonly tileId: string;
+  readonly merchantCityName: string;
+  readonly merchantSlotIndex: number;
+  /** Exactly tile.beerToSell entries. MERCHANT sources are permitted
+   * here, but ONLY consume from this order's own (merchantCityName,
+   * merchantSlotIndex) slot — see §5.6.3 pri 3 / §5.4 step 2. */
+  readonly beerSources: readonly BeerSource[];
+}
+
+export interface IntentSell {
+  readonly type: "SELL";
+  readonly playerId: PlayerId;
+  readonly cardIndex: number;
+  readonly orders: readonly SellOrder[];
+  /** One industry per Gloucester merchant-beer consumed across the orders
+   * (§5.4 step 3). Empty when no Gloucester beer was used. */
+  readonly gloucesterDevelops: readonly IndustryName[];
+}
+
+/** §5.5 Loan. */
+export interface IntentLoan {
+  readonly type: "LOAN";
+  readonly playerId: PlayerId;
+  readonly cardIndex: number;
+}
+
+/** §5.7 Scout — discard 3 non-wild cards from hand for 1 Wild Location +
+ * 1 Wild Industry. Indices must be distinct. */
+export interface IntentScout {
+  readonly type: "SCOUT";
+  readonly playerId: PlayerId;
+  readonly cardIndices: readonly [number, number, number];
+}
+
+/** §5.8 Pass. */
+export interface IntentPass {
+  readonly type: "PASS";
+  readonly playerId: PlayerId;
+  readonly cardIndex: number;
+}
+
+export type Intent =
+  | IntentNoop
+  | IntentBuild
+  | IntentNetwork
+  | IntentDevelop
+  | IntentSell
+  | IntentLoan
+  | IntentScout
+  | IntentPass;
+
+
+// -----------------------------------------------------------------------------
+// FailureReason — typed inventory of every dispatch reject path.
+//
+// Grouped by the spec section that introduces the check. Action milestones
+// add entries here as they cover more rules; unimplemented actions reject
+// with "not_implemented".
+// -----------------------------------------------------------------------------
+
+export type FailureReason =
+  // --- Infrastructure ---
+  | "not_implemented"
+  // --- Turn flow (§4.2) ---
+  | "not_current_turn"
+  | "game_over"
+  | "no_actions_remaining"
+  // --- Card selection (common) ---
+  | "card_not_in_hand"
+  | "card_does_not_authorise"
+  // --- Build §5.1 ---
+  | "not_in_network"
+  | "slot_does_not_accept_industry"
+  | "specific_slot_available"
+  | "slot_occupied_overbuild_invalid"
+  | "mat_stack_empty"
+  | "tile_wrong_era"
+  | "insufficient_funds"
+  | "farm_brewery_wrong_card"       // §5.1.2
+  | "one_tile_per_city_canal"       // §5.1.4
+  // --- Resource sources §5.6 ---
+  | "coal_source_invalid"
+  | "iron_source_invalid"
+  | "beer_source_invalid"
+  | "coal_market_not_connected"     // §5.6.1 pri 2
+  | "brewery_not_connected"         // §5.6.3 pri 2
+  | "merchant_beer_not_from_buyer"  // §5.6.3 pri 3 scope
+  | "merchant_beer_in_network"      // §5.6.3 pri 3 exclusion
+  // --- Network §5.2 ---
+  | "line_already_developed"
+  | "line_wrong_era"
+  | "line_not_adjacent"
+  | "link_supply_empty"
+  // --- Develop §5.3 ---
+  | "develop_count_invalid"
+  | "develop_tile_has_lightbulb"
+  // --- Sell §5.4 ---
+  | "sell_tile_not_owned"
+  | "sell_tile_wrong_industry"
+  | "sell_tile_already_flipped"
+  | "sell_merchant_invalid"
+  | "sell_not_connected_to_merchant"
+  // --- Loan §5.5 ---
+  | "loan_income_floor"
+  // --- Scout §5.7 ---
+  | "scout_has_wild_in_hand"
+  | "scout_duplicate_indices"
+  | "scout_wild_reserve_exhausted";
+
 
 export type Result =
   | { ok: true; state: GameState }
