@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Coal mine industry icon: minecart piled with coal, scaled to fill
+       the 128x128 viewBox. No rail underneath — the horizontal rail
+       line read as clutter against the tight tile corners, so the cart
+       sits on a soft ground shadow only. -->
+
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7A5030"/>
+      <stop offset="0.55" stop-color="#4E3218"/>
+      <stop offset="1" stop-color="#281404"/>
+    </linearGradient>
+    <linearGradient id="iron" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5A5A5A"/>
+      <stop offset="1" stop-color="#0A0A0A"/>
+    </linearGradient>
+    <radialGradient id="coal-lump" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#454545"/>
+      <stop offset="0.6" stop-color="#141414"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <linearGradient id="wheel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6A6A6A"/>
+      <stop offset="1" stop-color="#1A1A1A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Soft ground shadow (no rail strip) -->
+  <ellipse cx="64" cy="122" rx="62" ry="5" fill="#1A1A1A" opacity="0.32"/>
+
+  <!-- Coal heap — spills over the cart's top lip; bigger footprint so
+       the pile dominates the upper third of the icon. -->
+  <path d="M12 46 L26 24 L44 34 L62 14 L80 30 L98 22 L118 38 L120 48
+           L12 48 Z"
+        fill="url(#coal-lump)" stroke="#050505" stroke-width="1.8"/>
+  <g fill="url(#coal-lump)" stroke="#000" stroke-width="1">
+    <circle cx="36" cy="40" r="7"/>
+    <circle cx="58" cy="28" r="8"/>
+    <circle cx="80" cy="36" r="7"/>
+    <circle cx="102" cy="40" r="6"/>
+  </g>
+  <g fill="#5E5E5E" opacity="0.7">
+    <circle cx="34" cy="36" r="1.8"/>
+    <circle cx="56" cy="24" r="2"/>
+    <circle cx="80" cy="32" r="1.8"/>
+    <circle cx="102" cy="36" r="1.5"/>
+    <circle cx="22" cy="42" r="1.2"/>
+  </g>
+
+  <!-- Wooden tub — trapezoidal, now much taller and wider so it fills
+       the middle and bottom of the icon. -->
+  <path d="M8 50 L120 50 L110 110 L18 110 Z"
+        fill="url(#wood)" stroke="#18080A" stroke-width="2.6"/>
+  <!-- Top lip highlight -->
+  <line x1="8" y1="50" x2="120" y2="50" stroke="#9A7048"
+        stroke-width="2.6"/>
+
+  <!-- Vertical frame strips with rivets -->
+  <g fill="#1A0A02">
+    <rect x="32" y="52" width="4" height="56"/>
+    <rect x="62" y="52" width="4" height="56"/>
+    <rect x="92" y="52" width="4" height="56"/>
+  </g>
+  <g fill="#C08840">
+    <circle cx="34" cy="60" r="1.6"/>
+    <circle cx="34" cy="100" r="1.6"/>
+    <circle cx="64" cy="60" r="1.6"/>
+    <circle cx="64" cy="100" r="1.6"/>
+    <circle cx="94" cy="60" r="1.6"/>
+    <circle cx="94" cy="100" r="1.6"/>
+  </g>
+
+  <!-- Iron bottom hoop -->
+  <rect x="14" y="104" width="100" height="8" fill="url(#iron)"/>
+
+  <!-- Wheels (larger, dominate the lower third) -->
+  <circle cx="36" cy="118" r="12" fill="url(#wheel)"
+          stroke="#000" stroke-width="2"/>
+  <circle cx="36" cy="118" r="3.5" fill="#9A9A9A"/>
+  <line x1="36" y1="107" x2="36" y2="129" stroke="#9A9A9A" stroke-width="1.6"/>
+  <line x1="25" y1="118" x2="47" y2="118" stroke="#9A9A9A" stroke-width="1.6"/>
+  <line x1="28" y1="110" x2="44" y2="126" stroke="#9A9A9A" stroke-width="1.4"/>
+  <line x1="44" y1="110" x2="28" y2="126" stroke="#9A9A9A" stroke-width="1.4"/>
+
+  <circle cx="92" cy="118" r="12" fill="url(#wheel)"
+          stroke="#000" stroke-width="2"/>
+  <circle cx="92" cy="118" r="3.5" fill="#9A9A9A"/>
+  <line x1="92" y1="107" x2="92" y2="129" stroke="#9A9A9A" stroke-width="1.6"/>
+  <line x1="81" y1="118" x2="103" y2="118" stroke="#9A9A9A" stroke-width="1.6"/>
+  <line x1="84" y1="110" x2="100" y2="126" stroke="#9A9A9A" stroke-width="1.4"/>
+  <line x1="100" y1="110" x2="84" y2="126" stroke="#9A9A9A" stroke-width="1.4"/>
+</svg>

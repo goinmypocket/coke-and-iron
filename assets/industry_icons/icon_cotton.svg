@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Cotton mill industry icon: brick multi-storey factory with a red
+       pitched roof, arched central door, grid of tall lit windows, and
+       subtle brick pattern. No chimney (brewery/iron contrast). -->
+
+  <defs>
+    <linearGradient id="brick" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#CDC4B4"/>
+      <stop offset="0.6" stop-color="#B8B0A0"/>
+      <stop offset="1" stop-color="#8A8070"/>
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A04848"/>
+      <stop offset="1" stop-color="#5A2828"/>
+    </linearGradient>
+    <linearGradient id="window" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EACF72"/>
+      <stop offset="1" stop-color="#7A5018"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="118" rx="48" ry="4" fill="#1A1A1A" opacity="0.25"/>
+
+  <!-- Roof: pitched, double pitched shape -->
+  <polygon points="10,40 118,40 104,18 24,18"
+           fill="url(#roof)" stroke="#2A1410" stroke-width="2"/>
+  <!-- Ridge highlight -->
+  <line x1="24" y1="18" x2="104" y2="18" stroke="#C86868" stroke-width="1.5"/>
+  <!-- Eaves line -->
+  <line x1="10" y1="40" x2="118" y2="40" stroke="#3A1C1C" stroke-width="2"/>
+  <!-- Roof tile rows -->
+  <g stroke="#7A2828" stroke-width="0.8" opacity="0.55">
+    <line x1="12" y1="27" x2="116" y2="27"/>
+    <line x1="12" y1="34" x2="116" y2="34"/>
+  </g>
+
+  <!-- Main body -->
+  <rect x="10" y="40" width="108" height="72"
+        fill="url(#brick)" stroke="#2A2620" stroke-width="2.2"/>
+
+  <!-- Brick courses -->
+  <g stroke="#948870" stroke-width="0.8" opacity="0.8">
+    <line x1="11" y1="52" x2="117" y2="52"/>
+    <line x1="11" y1="64" x2="117" y2="64"/>
+    <line x1="11" y1="76" x2="117" y2="76"/>
+    <line x1="11" y1="88" x2="117" y2="88"/>
+    <line x1="11" y1="100" x2="117" y2="100"/>
+  </g>
+  <!-- Vertical brick joints offset per row -->
+  <g stroke="#948870" stroke-width="0.6" opacity="0.7">
+    <line x1="28" y1="40" x2="28" y2="52"/>
+    <line x1="48" y1="40" x2="48" y2="52"/>
+    <line x1="68" y1="40" x2="68" y2="52"/>
+    <line x1="88" y1="40" x2="88" y2="52"/>
+    <line x1="108" y1="40" x2="108" y2="52"/>
+    <line x1="18" y1="52" x2="18" y2="64"/>
+    <line x1="38" y1="52" x2="38" y2="64"/>
+    <line x1="58" y1="52" x2="58" y2="64"/>
+    <line x1="78" y1="52" x2="78" y2="64"/>
+    <line x1="98" y1="52" x2="98" y2="64"/>
+  </g>
+
+  <!-- Arched central door with keystone -->
+  <path d="M52 112 L52 84 A12 12 0 0 1 76 84 L76 112 Z"
+        fill="#2A1410" stroke="#0A0604" stroke-width="1.8"/>
+  <!-- Door planks -->
+  <line x1="64" y1="84" x2="64" y2="112" stroke="#6A4A30" stroke-width="1"/>
+  <circle cx="70" cy="98" r="1.3" fill="#E8B84A"/>
+  <!-- Keystone above the arch -->
+  <polygon points="60,72 68,72 66,76 62,76" fill="#7A7260"/>
+
+  <!-- Window grid (4 cols × 3 rows, skipping the middle col for the door) -->
+  <g>
+    <!-- Row 1 -->
+    <rect x="16" y="44" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="36" y="44" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="80" y="44" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="100" y="44" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <!-- Row 2 -->
+    <rect x="16" y="62" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="36" y="62" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="80" y="62" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="100" y="62" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <!-- Row 3 (flanks of door) -->
+    <rect x="16" y="82" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="36" y="82" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="80" y="82" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+    <rect x="100" y="82" width="12" height="12" fill="url(#window)"
+          stroke="#1F160A" stroke-width="1"/>
+  </g>
+  <!-- Window frames (cross) -->
+  <g stroke="#EEDAA0" stroke-width="0.9" opacity="0.8">
+    <line x1="22" y1="44" x2="22" y2="56"/>
+    <line x1="16" y1="50" x2="28" y2="50"/>
+    <line x1="42" y1="44" x2="42" y2="56"/>
+    <line x1="36" y1="50" x2="48" y2="50"/>
+    <line x1="86" y1="44" x2="86" y2="56"/>
+    <line x1="80" y1="50" x2="92" y2="50"/>
+    <line x1="106" y1="44" x2="106" y2="56"/>
+    <line x1="100" y1="50" x2="112" y2="50"/>
+    <line x1="22" y1="62" x2="22" y2="74"/>
+    <line x1="16" y1="68" x2="28" y2="68"/>
+    <line x1="42" y1="62" x2="42" y2="74"/>
+    <line x1="36" y1="68" x2="48" y2="68"/>
+    <line x1="86" y1="62" x2="86" y2="74"/>
+    <line x1="80" y1="68" x2="92" y2="68"/>
+    <line x1="106" y1="62" x2="106" y2="74"/>
+    <line x1="100" y1="68" x2="112" y2="68"/>
+    <line x1="22" y1="82" x2="22" y2="94"/>
+    <line x1="16" y1="88" x2="28" y2="88"/>
+    <line x1="42" y1="82" x2="42" y2="94"/>
+    <line x1="36" y1="88" x2="48" y2="88"/>
+    <line x1="86" y1="82" x2="86" y2="94"/>
+    <line x1="80" y1="88" x2="92" y2="88"/>
+    <line x1="106" y1="82" x2="106" y2="94"/>
+    <line x1="100" y1="88" x2="112" y2="88"/>
+  </g>
+
+  <!-- Foundation stone at the base -->
+  <rect x="10" y="108" width="108" height="6" fill="#5A5246"
+        stroke="#2A2620" stroke-width="1.5"/>
+</svg>

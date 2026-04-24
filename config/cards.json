@@ -1,0 +1,48 @@
+{
+    "_comment": "Card deck composition by player count. Each count (2/3/4) has its own column; a value of 0 means the card is absent at that player count. Wild cards are a fixed 4+4 regardless of player count and are tracked separately — see 'wild' below.",
+
+    "startingHandSize": 8,
+
+    "location": {
+        "_comment": "Counts of each Location card in the deck. Keys are the printed city name (as it appears on the physical card). Cities not listed (Farm Breweries, Merchant towns) have no Location cards — they're built via Brewery / Wild Location only.",
+        "Birmingham":      { "2": 3, "3": 3, "4": 3 },
+        "Coventry":        { "2": 3, "3": 3, "4": 3 },
+        "Nuneaton":        { "2": 1, "3": 1, "4": 1 },
+        "Redditch":        { "2": 1, "3": 1, "4": 1 },
+        "Coalbrookdale":   { "2": 3, "3": 3, "4": 3 },
+        "Dudley":          { "2": 2, "3": 2, "4": 2 },
+        "Kidderminster":   { "2": 2, "3": 2, "4": 2 },
+        "Wolverhampton":   { "2": 2, "3": 2, "4": 2 },
+        "Worcester":       { "2": 2, "3": 2, "4": 2 },
+        "Stafford":        { "2": 2, "3": 2, "4": 2 },
+        "Burton-on-Trent": { "2": 2, "3": 2, "4": 2 },
+        "Cannock":         { "2": 2, "3": 2, "4": 2 },
+        "Tamworth":        { "2": 1, "3": 1, "4": 1 },
+        "Walsall":         { "2": 1, "3": 1, "4": 1 },
+        "Leek":            { "2": 0, "3": 2, "4": 2 },
+        "Stoke-on-Trent":  { "2": 0, "3": 3, "4": 3 },
+        "Stone":           { "2": 0, "3": 2, "4": 2 },
+        "Uttoxeter":       { "2": 0, "3": 1, "4": 2 },
+        "Belper":          { "2": 0, "3": 0, "4": 2 },
+        "Derby":           { "2": 0, "3": 0, "4": 3 }
+    },
+
+    "industry": {
+        "_comment": "Single-industry cards (unique to one industry type).",
+        "IRON_WORKS":   { "2": 4, "3": 4, "4": 4 },
+        "COAL_MINE":    { "2": 2, "3": 2, "4": 3 },
+        "POTTERY":      { "2": 2, "3": 2, "4": 3 },
+        "BREWERY":      { "2": 5, "3": 5, "4": 5 }
+    },
+
+    "dualCottonManufacturer": {
+        "_comment": "Combined Cotton Mill / Manufacturer card — one card, either industry may spend it.",
+        "2": 0, "3": 6, "4": 8
+    },
+
+    "wild": {
+        "_comment": "Wild cards are fixed across all player counts (rulebook p.3). Wilds return to their own reserve when discarded rather than going to the player's discard pile.",
+        "location": 4,
+        "industry": 4
+    }
+}

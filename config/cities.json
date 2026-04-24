@@ -1,0 +1,415 @@
+{
+	"_comment": "City definitions. 'slots' is an array — each entry is either a single industry name (only that industry can build there) or an array of industry names (any listed industry may build, i.e. a combo slot). 'ANY' means wildcard. 'position' is the [x, y] centre of the city on the 900×900 board canvas; the in-game edit mode (press E, drag a city) overwrites this field on mouse-release so your tweaks persist without touching the game code.",
+	"cities": [
+		{
+			"district": "purple",
+			"name": "Birmingham",
+			"position": [
+				569.288330078125,
+				609.98486328125
+			],
+			"slots": [
+				[
+					"COTTON_MILL",
+					"MANUFACTURER"
+				],
+				"MANUFACTURER",
+				"MANUFACTURER",
+				"IRON_WORKS"
+			]
+		},
+		{
+			"district": "purple",
+			"name": "Coventry",
+			"position": [
+				722.199951171875,
+				652.554748535156
+			],
+			"slots": [
+				"POTTERY",
+				[
+					"MANUFACTURER",
+					"COAL_MINE"
+				],
+				[
+					"IRON_WORKS",
+					"MANUFACTURER"
+				]
+			]
+		},
+		{
+			"district": "purple",
+			"name": "Nuneaton",
+			"position": [
+				733.329345703125,
+				518.027160644531
+			],
+			"slots": [
+				[
+					"MANUFACTURER",
+					"BREWERY"
+				],
+				[
+					"COTTON_MILL",
+					"COAL_MINE"
+				]
+			]
+		},
+		{
+			"district": "purple",
+			"name": "Redditch",
+			"position": [
+				479.939697265625,
+				707.248657226563
+			],
+			"slots": [
+				[
+					"MANUFACTURER",
+					"COAL_MINE"
+				],
+				"IRON_WORKS"
+			]
+		},
+		{
+			"district": "brown",
+			"name": "Dudley",
+			"position": [
+				370.901611328125,
+				594.021118164063
+			],
+			"slots": [
+				"COAL_MINE",
+				"IRON_WORKS"
+			]
+		},
+		{
+			"district": "brown",
+			"name": "Wolverhampton",
+			"position": [
+				363.647216796875,
+				489.02490234375
+			],
+			"slots": [
+				"COAL_MINE",
+				"IRON_WORKS",
+				"COTTON_MILL"
+			]
+		},
+		{
+			"district": "brown",
+			"name": "Coalbrookdale",
+			"position": [
+				213.64697265625,
+				482.690856933594
+			],
+			"slots": [
+				"COAL_MINE",
+				"IRON_WORKS",
+				"IRON_WORKS"
+			]
+		},
+		{
+			"district": "brown",
+			"name": "Kidderminster",
+			"position": [
+				236.3974609375,
+				612.426330566406
+			],
+			"slots": [
+				"COAL_MINE",
+				"MANUFACTURER"
+			]
+		},
+		{
+			"district": "brown",
+			"name": "Worcester",
+			"position": [
+				233.9873046875,
+				730.944763183594
+			],
+			"slots": [
+				"IRON_WORKS",
+				"MANUFACTURER"
+			]
+		},
+		{
+			"district": "red",
+			"name": "Cannock",
+			"position": [
+				386.389892578125,
+				390.317443847656
+			],
+			"slots": [
+				"COAL_MINE",
+				"COAL_MINE"
+			]
+		},
+		{
+			"district": "red",
+			"name": "Stafford",
+			"position": [
+				351.552978515625,
+				312.411193847656
+			],
+			"slots": [
+				"POTTERY",
+				"MANUFACTURER"
+			]
+		},
+		{
+			"district": "red",
+			"name": "Burton-on-Trent",
+			"position": [
+				564.4560546875,
+				338.049926757813
+			],
+			"slots": [
+				"BREWERY"
+			]
+		},
+		{
+			"district": "red",
+			"name": "Walsall",
+			"position": [
+				496.712158203125,
+				494.34619140625
+			],
+			"slots": [
+				"COAL_MINE",
+				"MANUFACTURER"
+			]
+		},
+		{
+			"district": "red",
+			"name": "Tamworth",
+			"position": [
+				626.386474609375,
+				456.591064453125
+			],
+			"slots": [
+				[
+					"COTTON_MILL",
+					"COAL_MINE"
+				],
+				[
+					"COTTON_MILL",
+					"COAL_MINE"
+				]
+			]
+		},
+		{
+			"district": "blue",
+			"name": "Stone",
+			"position": [
+				321.06298828125,
+				219.508666992188
+			],
+			"slots": [
+				"MANUFACTURER",
+				"ANY"
+			]
+		},
+		{
+			"district": "blue",
+			"name": "Stoke-on-Trent",
+			"position": [
+				350.092529296875,
+				117.898712158203
+			],
+			"slots": [
+				"COAL_MINE",
+				"POTTERY",
+				"MANUFACTURER"
+			]
+		},
+		{
+			"district": "blue",
+			"name": "Uttoxeter",
+			"position": [
+				492.35888671875,
+				216.122436523438
+			],
+			"slots": [
+				"BREWERY",
+				"COTTON_MILL"
+			]
+		},
+		{
+			"district": "blue",
+			"name": "Leek",
+			"position": [
+				502.03076171875,
+				116.447463989258
+			],
+			"slots": [
+				"COTTON_MILL",
+				"POTTERY"
+			]
+		},
+		{
+			"district": "teal",
+			"name": "Derby",
+			"position": [
+				638.4912109375,
+				220.9599609375
+			],
+			"slots": [
+				"IRON_WORKS",
+				"COTTON_MILL"
+			]
+		},
+		{
+			"district": "teal",
+			"name": "Belper",
+			"position": [
+				623.97216796875,
+				116.931198120117
+			],
+			"slots": [
+				"COTTON_MILL",
+				"COTTON_MILL"
+			]
+		},
+		{
+			"district": "farm",
+			"farmBrewery": true,
+			"name": "Farm Brewery 1",
+			"position": [
+				271.21875,
+				386.953918457031
+			],
+			"slots": [
+				"BREWERY"
+			]
+		},
+		{
+			"district": "farm",
+			"farmBrewery": true,
+			"name": "Farm Brewery 2",
+			"position": [
+				151.705810546875,
+				672.894958496094
+			],
+			"slots": [
+				"BREWERY"
+			]
+		}
+	],
+	"industryNames": [
+		"COAL_MINE",
+		"IRON_WORKS",
+		"BREWERY",
+		"COTTON_MILL",
+		"MANUFACTURER",
+		"POTTERY"
+	],
+	"marketPlace": {
+		"position": [
+			778.38818359375,
+			312.705932617188
+		]
+	},
+	"merchantBag": {
+		"2": {
+			"any": 1.0,
+			"cotton": 1.0,
+			"empty": 2.0,
+			"manufacturer": 1.0,
+			"pottery": 0.0
+		},
+		"3": {
+			"any": 1.0,
+			"cotton": 1.0,
+			"empty": 3.0,
+			"manufacturer": 1.0,
+			"pottery": 1.0
+		},
+		"4": {
+			"any": 1.0,
+			"cotton": 2.0,
+			"empty": 3.0,
+			"manufacturer": 2.0,
+			"pottery": 1.0
+		},
+		"_comment": "Composition of the bag of merchant tiles drawn into the slots above, keyed by player count. Totals must equal the sum of slots across the active merchant cities at that count."
+	},
+	"merchantCities": [
+		{
+			"activePlayerCounts": [
+				2.0,
+				3.0,
+				4.0
+			],
+			"bonus": "VP",
+			"bonusValue": 4.0,
+			"linkPoints": 2.0,
+			"name": "Shrewsbury",
+			"position": [
+				105.73974609375,
+				476.885864257813
+			],
+			"slots": 1.0
+		},
+		{
+			"activePlayerCounts": [
+				3.0,
+				4.0
+			],
+			"bonus": "VP",
+			"bonusValue": 3.0,
+			"linkPoints": 2.0,
+			"name": "Nottingham",
+			"position": [
+				771.0693359375,
+				212.71354675293
+			],
+			"slots": 2.0
+		},
+		{
+			"activePlayerCounts": [
+				2.0,
+				3.0,
+				4.0
+			],
+			"bonus": "DEVELOP",
+			"bonusValue": 1.0,
+			"linkPoints": 2.0,
+			"name": "Gloucester",
+			"position": [
+				363.1552734375,
+				774.021240234375
+			],
+			"slots": 2.0
+		},
+		{
+			"activePlayerCounts": [
+				2.0,
+				3.0,
+				4.0
+			],
+			"bonus": "INCOME",
+			"bonusValue": 2.0,
+			"linkPoints": 2.0,
+			"name": "Oxford",
+			"position": [
+				604.14013671875,
+				759.992431640625
+			],
+			"slots": 2.0
+		},
+		{
+			"activePlayerCounts": [
+				4.0
+			],
+			"bonus": "MONEY",
+			"bonusValue": 5.0,
+			"linkPoints": 2.0,
+			"name": "Warrington",
+			"position": [
+				218.474853515625,
+				89.3575134277344
+			],
+			"slots": 2.0
+		}
+	]
+}

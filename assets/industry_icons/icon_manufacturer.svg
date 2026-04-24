@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Manufacturer industry icon: wooden shipping crate with visible
+       vertical planks, iron corner brackets, nails at each joint, and a
+       stencilled 'M' centred on the front. Gradients give warm top-lit
+       wood + shadowed bottom / side. -->
+
+  <defs>
+    <linearGradient id="plank" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D29868"/>
+      <stop offset="0.5" stop-color="#A07038"/>
+      <stop offset="1" stop-color="#5A3A18"/>
+    </linearGradient>
+    <linearGradient id="bracket" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A2812"/>
+      <stop offset="1" stop-color="#100805"/>
+    </linearGradient>
+    <linearGradient id="topBand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8B080"/>
+      <stop offset="1" stop-color="#B88650"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground shadow -->
+  <ellipse cx="64" cy="118" rx="52" ry="5" fill="#1A1A1A" opacity="0.28"/>
+
+  <!-- Main crate body -->
+  <rect x="16" y="32" width="96" height="78" rx="3"
+        fill="url(#plank)" stroke="#1F100A" stroke-width="2.2"/>
+
+  <!-- Top lit band -->
+  <rect x="16" y="32" width="96" height="10" fill="url(#topBand)"/>
+  <rect x="16" y="42" width="96" height="2" fill="#2A1507"/>
+
+  <!-- Bottom darker band -->
+  <rect x="16" y="102" width="96" height="8" fill="#6A4020"
+        stroke="#1A0A04" stroke-width="1"/>
+
+  <!-- Vertical plank separators -->
+  <g stroke="#1A0A04" stroke-width="1.4">
+    <line x1="36" y1="32" x2="36" y2="110"/>
+    <line x1="56" y1="32" x2="56" y2="110"/>
+    <line x1="76" y1="32" x2="76" y2="110"/>
+    <line x1="96" y1="32" x2="96" y2="110"/>
+  </g>
+  <!-- Plank inner highlight -->
+  <g stroke="#E8B080" stroke-width="0.8" opacity="0.5">
+    <line x1="26" y1="46" x2="26" y2="100"/>
+    <line x1="46" y1="46" x2="46" y2="100"/>
+    <line x1="66" y1="46" x2="66" y2="100"/>
+    <line x1="86" y1="46" x2="86" y2="100"/>
+    <line x1="104" y1="46" x2="104" y2="100"/>
+  </g>
+
+  <!-- Wood grain knots -->
+  <g fill="#3A1F08" opacity="0.55">
+    <ellipse cx="28" cy="62" rx="3" ry="1.4"/>
+    <ellipse cx="68" cy="54" rx="2.6" ry="1.2"/>
+    <ellipse cx="88" cy="80" rx="3" ry="1.3"/>
+    <ellipse cx="46" cy="86" rx="2.5" ry="1"/>
+  </g>
+
+  <!-- Iron corner brackets -->
+  <g fill="url(#bracket)">
+    <rect x="16" y="32" width="12" height="12"/>
+    <rect x="100" y="32" width="12" height="12"/>
+    <rect x="16" y="98" width="12" height="12"/>
+    <rect x="100" y="98" width="12" height="12"/>
+  </g>
+  <!-- Corner rivets -->
+  <g fill="#C88C44">
+    <circle cx="22" cy="38" r="1.8"/>
+    <circle cx="106" cy="38" r="1.8"/>
+    <circle cx="22" cy="104" r="1.8"/>
+    <circle cx="106" cy="104" r="1.8"/>
+  </g>
+
+  <!-- Plank nails near each seam, top + bottom -->
+  <g fill="#3A2A12">
+    <circle cx="36" cy="48" r="1.4"/>
+    <circle cx="36" cy="98" r="1.4"/>
+    <circle cx="56" cy="48" r="1.4"/>
+    <circle cx="56" cy="98" r="1.4"/>
+    <circle cx="76" cy="48" r="1.4"/>
+    <circle cx="76" cy="98" r="1.4"/>
+    <circle cx="96" cy="48" r="1.4"/>
+    <circle cx="96" cy="98" r="1.4"/>
+  </g>
+
+  <!-- Stencilled 'M' on the front -->
+  <path d="M44 82 L44 60 L56 76 L68 60 L68 82"
+        fill="none" stroke="#2A1408" stroke-width="4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Faint stencil box outline -->
+  <rect x="40" y="56" width="32" height="32" fill="none"
+        stroke="#2A1408" stroke-width="1" opacity="0.25"
+        stroke-dasharray="2 2"/>
+</svg>
