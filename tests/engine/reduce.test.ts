@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { Engine, initialState, reduce } from "../../src/engine";
-import type { FailureReason, Intent, PlayerId } from "../../src/engine";
+import type { PlayerId } from "../../src/engine";
 
 /**
- * NETWORK and SELL are still not_implemented; every other §5 action has
- * its own test suite under tests/engine/actions/. This file retains
- * coverage for the taxonomy surface and engine-log discipline.
+ * All §5 actions now have their own test suites under tests/engine/actions/.
+ * This file keeps coverage on the generic reducer surface and the engine
+ * intent-log discipline.
  */
 
 function minimalState() {
@@ -13,54 +13,27 @@ function minimalState() {
 }
 
 function activeSeatId(): PlayerId {
-  return minimalState().turnOrder[0]!;
+  const s = minimalState();
+  return s.turnOrder[s.currentPlayerIndex]!;
 }
 
-describe("reduce — intent taxonomy", () => {
+describe("reduce — generic", () => {
   it("noop succeeds and returns the same state reference", () => {
     const state = minimalState();
     const r = reduce(state, { type: "noop" });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.state).toBe(state);
   });
-
-  const rejectCases: { name: string; intent: Intent }[] = [
-    {
-      name: "SELL",
-      intent: {
-        type: "SELL",
-        playerId: 0,
-        cardIndex: 0,
-        orders: [],
-        gloucesterDevelops: [],
-      },
-    },
-  ];
-
-  for (const c of rejectCases) {
-    it(`${c.name} returns not_implemented`, () => {
-      const r = reduce(minimalState(), c.intent);
-      expect(r.ok).toBe(false);
-      if (!r.ok) {
-        const reason: FailureReason = r.reason;
-        expect(reason).toBe("not_implemented");
-      }
-    });
-  }
 });
 
 describe("Engine — intent log discipline", () => {
   it("appends only on accepted intents", () => {
     const engine = new Engine({ seed: 1, playerCount: 2 });
     engine.dispatch({ type: "noop" });
-    // SELL is still not_implemented at this milestone → rejects.
-    engine.dispatch({
-      type: "SELL",
-      playerId: activeSeatId(),
-      cardIndex: 0,
-      orders: [],
-      gloucesterDevelops: [],
-    });
+    // PASS from a non-active seat rejects with not_current_turn.
+    const active = activeSeatId();
+    const other: PlayerId = active === 0 ? 1 : 0;
+    engine.dispatch({ type: "PASS", playerId: other, cardIndex: 0 });
     engine.dispatch({ type: "noop" });
     const log = engine.getIntentLog();
     expect(log).toHaveLength(2);
@@ -70,12 +43,12 @@ describe("Engine — intent log discipline", () => {
   it("does not advance state on a rejected intent", () => {
     const engine = new Engine({ seed: 1, playerCount: 2 });
     const before = engine.getState();
+    const active = activeSeatId();
+    const other: PlayerId = active === 0 ? 1 : 0;
     const r = engine.dispatch({
-      type: "SELL",
-      playerId: activeSeatId(),
+      type: "PASS",
+      playerId: other,
       cardIndex: 0,
-      orders: [],
-      gloucesterDevelops: [],
     });
     expect(r.ok).toBe(false);
     expect(engine.getState()).toBe(before);

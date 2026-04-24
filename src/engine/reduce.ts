@@ -4,6 +4,7 @@ import { reduceLoan } from "./actions/loan";
 import { reduceNetwork } from "./actions/network";
 import { reducePass } from "./actions/pass";
 import { reduceScout } from "./actions/scout";
+import { reduceSell } from "./actions/sell";
 import type { GameState, Intent, Result } from "./types";
 
 /**
@@ -29,13 +30,11 @@ export function reduce(state: GameState, intent: Intent): Result {
     case "NETWORK":
       return reduceNetwork(state, intent);
     case "SELL":
-      return NOT_IMPLEMENTED;
+      return reduceSell(state, intent);
     default:
       return assertNever(intent);
   }
 }
-
-const NOT_IMPLEMENTED: Result = { ok: false, reason: "not_implemented" };
 
 function assertNever(x: never): never {
   throw new Error(`reduce: unhandled intent ${JSON.stringify(x)}`);
