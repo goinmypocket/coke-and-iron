@@ -1,11 +1,9 @@
+import { reducePass } from "./actions/pass";
 import type { GameState, Intent, Result } from "./types";
 
 /**
  * Top-level reducer. Dispatches on intent.type to the per-action handler.
- * Every real §5 action has a case here; actions that are not yet
- * implemented return { ok: false, reason: "not_implemented" } so the
- * type-level wiring is exercised before behaviour lands.
- *
+ * Unimplemented actions return { ok: false, reason: "not_implemented" }.
  * The default branch's `assertNever` ensures TypeScript fails the build
  * the moment a new Intent variant is added without a case.
  */
@@ -13,13 +11,14 @@ export function reduce(state: GameState, intent: Intent): Result {
   switch (intent.type) {
     case "noop":
       return { ok: true, state };
+    case "PASS":
+      return reducePass(state, intent);
     case "BUILD":
     case "NETWORK":
     case "DEVELOP":
     case "SELL":
     case "LOAN":
     case "SCOUT":
-    case "PASS":
       return NOT_IMPLEMENTED;
     default:
       return assertNever(intent);

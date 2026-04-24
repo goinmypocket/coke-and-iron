@@ -78,10 +78,6 @@ describe("reduce — intent taxonomy (not yet implemented)", () => {
         cardIndices: [0, 1, 2],
       },
     },
-    {
-      name: "PASS",
-      intent: { type: "PASS", playerId: 0, cardIndex: 0 },
-    },
   ];
 
   for (const c of rejectCases) {
