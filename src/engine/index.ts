@@ -43,3 +43,4 @@ export type {
   WildLocationCard,
   WildReserve,
 } from "./types";
+export * from "./config";
