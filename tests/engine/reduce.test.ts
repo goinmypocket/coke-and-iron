@@ -66,14 +66,6 @@ describe("reduce — intent taxonomy (not yet implemented)", () => {
         gloucesterDevelops: [],
       },
     },
-    {
-      name: "SCOUT",
-      intent: {
-        type: "SCOUT",
-        playerId: 0,
-        cardIndices: [0, 1, 2],
-      },
-    },
   ];
 
   for (const c of rejectCases) {

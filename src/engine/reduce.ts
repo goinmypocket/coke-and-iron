@@ -1,5 +1,6 @@
 import { reduceLoan } from "./actions/loan";
 import { reducePass } from "./actions/pass";
+import { reduceScout } from "./actions/scout";
 import type { GameState, Intent, Result } from "./types";
 
 /**
@@ -16,11 +17,12 @@ export function reduce(state: GameState, intent: Intent): Result {
       return reducePass(state, intent);
     case "LOAN":
       return reduceLoan(state, intent);
+    case "SCOUT":
+      return reduceScout(state, intent);
     case "BUILD":
     case "NETWORK":
     case "DEVELOP":
     case "SELL":
-    case "SCOUT":
       return NOT_IMPLEMENTED;
     default:
       return assertNever(intent);
