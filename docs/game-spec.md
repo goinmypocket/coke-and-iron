@@ -547,8 +547,8 @@ Market. Neither stores beer — beer has no market.
 - **Setup fill** — cubes are placed from the most expensive tier
   downward, leaving exactly one £1 slot empty. Total at setup: 14
   cubes.
-- **Buy** — a player pays the cheapest empty slot's price and
-  takes one cube from that slot. When the market is empty, cubes
+- **Buy** — a player pays the cheapest filled slot's price and
+  takes the cube from that slot. When the market is empty, cubes
   may still be bought at the **overflow price £8** per cube.
 - **Sell** — when a Coal Mine auto-sells cubes on Build (§5.1.1),
   each cube fills the **most expensive empty slot first** and the
@@ -566,11 +566,11 @@ Market. Neither stores beer — beer has no market.
 - **2 slots per tier**, for 12 possible cubes.
 - **Setup fill** — from the most expensive tier downward, leaving
   both £1 slots empty. Total at setup: 10 cubes.
-- **Buy** — a player pays the cheapest empty slot's price and
-  takes one cube. **No connection requirement** — the Iron Market
-  is always reachable regardless of the consumer's network or
-  connection. Overflow price £6 per cube when the market is
-  empty.
+- **Buy** — a player pays the cheapest filled slot's price and
+  takes the cube from that slot. **No connection requirement** —
+  the Iron Market is always reachable regardless of the consumer's
+  network or connection. Overflow price £6 per cube when the
+  market is empty.
 - **Sell** — when an Iron Works auto-sells cubes on Build
   (§5.1.1), each cube fills the most expensive empty slot first
   and the owner collects that slot's price.
@@ -606,7 +606,7 @@ The widget's layout:
 - Above the two columns, a compact header strip that always
   displays the live **summary**:
   - **Coal** — `Buy £X · Sell £Y · N/14 cubes` (where X is the
-    cheapest empty slot's price, Y is the most expensive empty
+    cheapest filled slot's price, Y is the most expensive empty
     slot's price, N is the number of cubes currently in the
     market). When the coal market is empty, Buy reads `£8 (overflow)`;
     when it's full, Sell reads `—`.
