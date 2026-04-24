@@ -379,6 +379,10 @@ export interface GameState {
   builtTiles: PlacedIndustryTile[];
   developedLinks: PlacedLinkTile[];
   merchantSlots: MerchantSlot[];
+  /** Monotonically increasing counter used to stamp a unique, replay-stable
+   * id onto each PlacedIndustryTile at Build time. Starts at 0, increments
+   * on every successful Build (including overbuild replacements). */
+  nextTileId: number;
 }
 
 

@@ -151,6 +151,7 @@ export function initialState(
     builtTiles: [],
     developedLinks: [],
     merchantSlots,
+    nextTileId: 0,
   };
 }
 

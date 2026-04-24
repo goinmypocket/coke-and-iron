@@ -1,19 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { Engine, initialState, reduce } from "../../src/engine";
-import type { FailureReason, Intent } from "../../src/engine";
+import type { FailureReason, Intent, PlayerId } from "../../src/engine";
 
 /**
- * At this milestone the reducer knows how to branch over every §5 intent
- * but does not yet implement any of them. Each real action returns
- * not_implemented; noop succeeds. The engine's intent log must only grow
- * on success.
+ * NETWORK and SELL are still not_implemented; every other §5 action has
+ * its own test suite under tests/engine/actions/. This file retains
+ * coverage for the taxonomy surface and engine-log discipline.
  */
 
 function minimalState() {
   return initialState({ seed: 1, playerCount: 2 });
 }
 
-describe("reduce — intent taxonomy (not yet implemented)", () => {
+function activeSeatId(): PlayerId {
+  return minimalState().turnOrder[0]!;
+}
+
+describe("reduce — intent taxonomy", () => {
   it("noop succeeds and returns the same state reference", () => {
     const state = minimalState();
     const r = reduce(state, { type: "noop" });
@@ -22,19 +25,6 @@ describe("reduce — intent taxonomy (not yet implemented)", () => {
   });
 
   const rejectCases: { name: string; intent: Intent }[] = [
-    {
-      name: "BUILD",
-      intent: {
-        type: "BUILD",
-        playerId: 0,
-        cardIndex: 0,
-        cityName: "Birmingham",
-        slotIndex: 0,
-        industry: "COAL_MINE",
-        coalSources: [],
-        ironSources: [],
-      },
-    },
     {
       name: "NETWORK",
       intent: {
@@ -74,16 +64,13 @@ describe("Engine — intent log discipline", () => {
   it("appends only on accepted intents", () => {
     const engine = new Engine({ seed: 1, playerCount: 2 });
     engine.dispatch({ type: "noop" });
-    // BUILD is still not_implemented at this milestone → will reject.
+    // SELL is still not_implemented at this milestone → rejects.
     engine.dispatch({
-      type: "BUILD",
-      playerId: 0,
+      type: "SELL",
+      playerId: activeSeatId(),
       cardIndex: 0,
-      cityName: "Birmingham",
-      slotIndex: 0,
-      industry: "COAL_MINE",
-      coalSources: [],
-      ironSources: [],
+      orders: [],
+      gloucesterDevelops: [],
     });
     engine.dispatch({ type: "noop" });
     const log = engine.getIntentLog();
@@ -95,14 +82,11 @@ describe("Engine — intent log discipline", () => {
     const engine = new Engine({ seed: 1, playerCount: 2 });
     const before = engine.getState();
     const r = engine.dispatch({
-      type: "BUILD",
-      playerId: 0,
+      type: "SELL",
+      playerId: activeSeatId(),
       cardIndex: 0,
-      cityName: "Birmingham",
-      slotIndex: 0,
-      industry: "COAL_MINE",
-      coalSources: [],
-      ironSources: [],
+      orders: [],
+      gloucesterDevelops: [],
     });
     expect(r.ok).toBe(false);
     expect(engine.getState()).toBe(before);
