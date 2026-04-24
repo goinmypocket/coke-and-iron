@@ -67,10 +67,6 @@ describe("reduce — intent taxonomy (not yet implemented)", () => {
       },
     },
     {
-      name: "LOAN",
-      intent: { type: "LOAN", playerId: 0, cardIndex: 0 },
-    },
-    {
       name: "SCOUT",
       intent: {
         type: "SCOUT",
@@ -96,7 +92,17 @@ describe("Engine — intent log discipline", () => {
   it("appends only on accepted intents", () => {
     const engine = new Engine({ seed: 1, playerCount: 2 });
     engine.dispatch({ type: "noop" });
-    engine.dispatch({ type: "LOAN", playerId: 0, cardIndex: 0 });
+    // BUILD is still not_implemented at this milestone → will reject.
+    engine.dispatch({
+      type: "BUILD",
+      playerId: 0,
+      cardIndex: 0,
+      cityName: "Birmingham",
+      slotIndex: 0,
+      industry: "COAL_MINE",
+      coalSources: [],
+      ironSources: [],
+    });
     engine.dispatch({ type: "noop" });
     const log = engine.getIntentLog();
     expect(log).toHaveLength(2);
