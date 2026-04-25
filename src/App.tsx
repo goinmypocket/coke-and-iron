@@ -5,6 +5,7 @@ import { LoopbackTransport } from "./network/LoopbackTransport";
 import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { PanelGrid } from "./ui/layout/PanelGrid";
+import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
 import { ShortfallOverlay } from "./ui/overlays/ShortfallOverlay";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
@@ -33,19 +34,22 @@ export function App() {
   return (
     <EngineProvider engine={engine}>
       <WizardProvider>
-        <PanelGrid>
-          {{
-            game_state: <GameStatePanel />,
-            player_state: <PlayerStatePanel />,
-            players: <PlayersPanel />,
-            board: <BoardPanel />,
-            income: <IncomeTrackerPanel />,
-            hand: <HandPanel />,
-            actions: <ActionsPanel />,
-            recent_actions: <RecentActionsPanel />,
-            remaining_cards: <RemainingCardsPanel />,
-          }}
-        </PanelGrid>
+        <div className="app-shell">
+          <PromptStrip />
+          <PanelGrid>
+            {{
+              game_state: <GameStatePanel />,
+              player_state: <PlayerStatePanel />,
+              players: <PlayersPanel />,
+              board: <BoardPanel />,
+              income: <IncomeTrackerPanel />,
+              hand: <HandPanel />,
+              actions: <ActionsPanel />,
+              recent_actions: <RecentActionsPanel />,
+              remaining_cards: <RemainingCardsPanel />,
+            }}
+          </PanelGrid>
+        </div>
         <ShortfallOverlay />
         <EndGameOverlay />
         <Toaster position="bottom-center" duration={2000} />

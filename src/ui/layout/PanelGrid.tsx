@@ -33,8 +33,9 @@ export function PanelGrid({
         gridTemplateColumns: cfg.columns,
         gridTemplateRows: cfg.rows,
         gap: "0.5rem",
-        width: "100vw",
-        height: "100vh",
+        width: "100%",
+        flex: 1,
+        minHeight: 0,
         padding: "0.5rem",
         boxSizing: "border-box",
       }}

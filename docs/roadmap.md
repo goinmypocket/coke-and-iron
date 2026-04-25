@@ -42,12 +42,6 @@ Status keys:
 - **[engine] Spec §13 verification-checklist walk.** Confirm every
   item in the spec's verification checklist is covered by an
   automated test. Add what's missing.
-- **[engine] Hand-empty mid-turn.** If a player exhausts their hand
-  before `actionsRemaining` reaches 0, every action rejects with
-  `card_not_in_hand` and `END_TURN` rejects with
-  `actions_still_remaining` — the seat is stuck. Either auto-clear
-  remaining actions when hand is empty, or relax END_TURN to allow
-  it when hand is empty even with actions left.
 - **[engine] Repository visibility / `.claude/settings.json`.** Was
   pulled into a refactor commit by accident; consider whether it
   should live in `.gitignore`.
@@ -76,9 +70,11 @@ Status keys:
 - **[ui] Recent actions polish (§11.9).** Newest-first text list
   shipped. Still TODO: pawn-colour player names, district-colour
   city refs, era / round banners.
-- **[ui] Affordances (§11.10).** Prompt strip, context bar, toast
-  primitives — toast already lives via Sonner; the others are still
-  TODO.
+- **[ui] Affordances polish (§11.10).** Prompt strip + toast
+  shipped. Context bar (transient buttons populated by the current
+  sub-state for resource pickers, second-rail offer, Gloucester
+  follow-up, pick-list summary) still TODO once those sub-states
+  land.
 - **[ui] Overlays polish (§11.11).** End-game summary +
   shortfall sub-flow shipped. Still TODO: era flip / round
   transition banners (~1.5s transient), Gloucester follow-up
