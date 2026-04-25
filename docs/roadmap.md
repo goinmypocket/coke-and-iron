@@ -112,10 +112,6 @@ Status keys:
   follow-up sub-state (§5.4 step 3). Today's auto-resolver picks
   the first matching merchant and prefers own brewery > buying
   merchant beer > opponent brewery.
-- **[ui] RESOLVE_SHORTFALL UI.** When `state.pendingShortfalls` is
-  non-empty, prompt the head-of-queue player to pick tiles to
-  remove. Currently the engine accepts the intent but no UI surfaces
-  it.
 - **[ui] IDLE card-first polish.** Stash + auto-prefill shipped.
   Future polish: highlight only action buttons that the stashed
   card could legally authorise (e.g. a Brewery industry card

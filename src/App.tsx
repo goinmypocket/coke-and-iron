@@ -5,6 +5,7 @@ import { LoopbackTransport } from "./network/LoopbackTransport";
 import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { PanelGrid } from "./ui/layout/PanelGrid";
+import { ShortfallOverlay } from "./ui/overlays/ShortfallOverlay";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { BoardPanel } from "./ui/panels/BoardPanel";
 import { GameStatePanel } from "./ui/panels/GameStatePanel";
@@ -44,6 +45,7 @@ export function App() {
             remaining_cards: <RemainingCardsPanel />,
           }}
         </PanelGrid>
+        <ShortfallOverlay />
         <Toaster position="bottom-center" duration={2000} />
       </WizardProvider>
     </EngineProvider>

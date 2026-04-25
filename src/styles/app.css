@@ -322,6 +322,81 @@ body {
   fill: var(--muted);
 }
 
+/* ---------- Shortfall overlay (§4.3 step 2) ---------- */
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.shortfall-overlay {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  padding: 1rem;
+  width: min(36rem, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.shortfall-overlay__title {
+  font-weight: 700;
+  font-size: 1.1em;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.4rem;
+}
+.shortfall-overlay__lead {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.shortfall-overlay__totals {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.95em;
+}
+.shortfall-overlay__tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--soft-tint);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 6rem;
+}
+.shortfall-overlay__tile {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--soft-tint);
+}
+.shortfall-overlay__tile:hover {
+  background: var(--soft-tint);
+}
+.shortfall-overlay__tile--picked {
+  outline: 2px solid var(--warm-gold);
+  outline-offset: -2px;
+  background: var(--soft-tint);
+}
+.shortfall-overlay__empty {
+  padding: 0.5rem;
+  font-style: italic;
+  color: var(--muted);
+}
+.shortfall-overlay__buttons {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  border-top: 1px dashed var(--soft-tint);
+  padding-top: 0.5rem;
+}
+
 /* ---------- Income tracker (§11.1) ---------- */
 
 .income-ladder {
