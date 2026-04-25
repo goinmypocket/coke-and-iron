@@ -70,12 +70,15 @@ interface WizardApi {
   startScout(): void;
   startDevelop(): void;
   startBuild(): void;
+  startNetwork(): void;
   /** Click on a card from HandPanel. Routes to the active phase. */
   pickCard(cardIndex: number): void;
   /** Click on a mat top-tile from a player sub-panel. */
   pickIndustry(seatId: PlayerId, industry: IndustryName): void;
   /** Click on a city slot from BoardPanel. Build wizard only. */
   pickSlot(slot: BuildSlotPick): void;
+  /** Click on a canal/rail line from BoardPanel. Network wizard only. */
+  pickLine(lineIndex: number): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -99,6 +102,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "START_DEVELOP", developSeatId: seatId });
   }, [engine]);
   const startBuild = useCallback(() => dispatch({ type: "START_BUILD" }), []);
+  const startNetwork = useCallback(
+    () => dispatch({ type: "START_NETWORK" }),
+    [],
+  );
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
   const submitDevelop = useCallback(
@@ -178,6 +185,38 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     [engine],
   );
 
+  const submitNetwork = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_NETWORK_INPUTS") return;
+      if (live.cardIndex === null) {
+        toast.error("Pick a card to authorise Network.");
+        return;
+      }
+      if (live.lineIndex === null) {
+        toast.error("Pick a canal or rail line.");
+        return;
+      }
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const coalSources: CoalSource[] =
+        liveState.era === "RAIL" ? [{ kind: "MARKET" }] : [];
+      const result = engine.dispatch({
+        type: "NETWORK",
+        playerId,
+        cardIndex: live.cardIndex,
+        lineIndex: live.lineIndex,
+        coalSources,
+        secondLink: null,
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
   const pickCard = useCallback(
     (cardIndex: number) => {
       const live = state;
@@ -222,8 +261,16 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (live.phase === "AWAITING_NETWORK_INPUTS") {
+        const projected: WizardState = { ...live, cardIndex };
+        dispatch({ type: "NETWORK_SET_CARD", cardIndex });
+        if (projected.lineIndex !== null) {
+          submitNetwork(projected);
+        }
+        return;
+      }
     },
-    [engine, state, submitBuild, submitDevelop],
+    [engine, state, submitBuild, submitDevelop, submitNetwork],
   );
 
   const pickIndustry = useCallback(
@@ -285,6 +332,19 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     [state, submitBuild],
   );
 
+  const pickLine = useCallback(
+    (lineIndex: number) => {
+      const live = state;
+      if (live.phase !== "AWAITING_NETWORK_INPUTS") return;
+      const projected: WizardState = { ...live, lineIndex };
+      dispatch({ type: "NETWORK_SET_LINE", lineIndex });
+      if (projected.cardIndex !== null) {
+        submitNetwork(projected);
+      }
+    },
+    [state, submitNetwork],
+  );
+
   const endAction = useCallback(() => {
     const live = state;
     if (live.phase === "AWAITING_CARDS_SCOUT") {
@@ -315,7 +375,11 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitBuild(live);
       return;
     }
-  }, [engine, state, submitDevelop, submitBuild]);
+    if (live.phase === "AWAITING_NETWORK_INPUTS") {
+      submitNetwork(live);
+      return;
+    }
+  }, [engine, state, submitDevelop, submitBuild, submitNetwork]);
 
   const api = useMemo<WizardApi>(
     () => ({
@@ -326,9 +390,11 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       startScout,
       startDevelop,
       startBuild,
+      startNetwork,
       pickCard,
       pickIndustry,
       pickSlot,
+      pickLine,
       endAction,
       reset,
     }),
@@ -339,9 +405,11 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       startScout,
       startDevelop,
       startBuild,
+      startNetwork,
       pickCard,
       pickIndustry,
       pickSlot,
+      pickLine,
       endAction,
       reset,
     ],

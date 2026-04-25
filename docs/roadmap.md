@@ -72,10 +72,12 @@ Status keys:
   in the stats bar.
 - **[ui] Income tracker (§11.1).** Vertical ladder with pawn-coloured
   markers; re-renders on every state change.
-- **[ui] Remaining cards polish (§11.6).** Live drawDeck inventory +
-  canal-removed count shipped. Still TODO: muted zero-rows for cards
-  that have left the deck (need a deck catalogue on GameState),
-  district-colour labels.
+- **[ui] Remaining cards polish (§11.6).** Inventory + face-down
+  fold-in shipped (drawDeck and canal-removed cards mix in the
+  per-category counts so identities of removed cards stay hidden
+  while aggregate totals stay honest). Still TODO: muted zero-rows
+  for cards that have left the unseen pool, district-colour
+  labels.
 - **[ui] Recent actions polish (§11.9).** Newest-first text list
   shipped. Still TODO: pawn-colour player names, district-colour
   city refs, era / round banners.
@@ -101,9 +103,11 @@ Status keys:
   connectivity-aware free coal source picker (currently always
   market), explicit iron/coal source sub-states for ambiguity,
   visual narrowing of valid slots once card/industry is picked.
-- **[ui] Network wizard.** Line pick (canal or rail), coal sub-state
-  (rail), beer sub-state (rail-2nd). Second-rail-offer follow-up
-  per §10.1. Needs board panel first.
+- **[ui] Network wizard polish.** Card + line happy path shipped
+  (canal era + rail era first link). Coal source for rail era
+  always uses market — connectivity-aware free coal is TODO.
+  Second-rail-offer sub-state (Rail era only, per §10.1) still
+  TODO.
 - **[ui] Sell wizard.** Tile picks, merchant pick when ambiguous,
   beer-source sub-state per order, Gloucester follow-up. Needs
   board panel + mat panel.

@@ -1,16 +1,21 @@
 // =============================================================================
-// §11.6 Remaining cards — two-column inventory of state.drawDeck.
+// §11.6 Remaining cards — inventory of cards still "in the deck" from a
+// player's perspective.
 //
-// Groups entries by Location cards (by district tag), Industry cards (one
-// row per distinct industries-tuple), then Wild cards. Header shows
-// "N/total" where total = drawDeck + every player's hand + discards +
-// removedCards (canal-setup face-down — surfaced separately so the count
-// is visible without revealing identities).
+// The canal-era face-down removed cards (state.removedCards, identities
+// known to the engine but hidden from players) are FOLDED into the same
+// pool as state.drawDeck for category counts. That way:
 //
-// Polish deferred: alphabetical sort within district per spec, district
-// colour swatches, full muted-zero list (today only counts what's in the
-// live drawDeck — cards exhausted to discards / hands disappear from this
-// panel until reshuffled).
+//   - Players can't tell which specific card was removed (the removed
+//     identities mix in with the still-shuffled deck).
+//   - The aggregate per-category counts are honest: "Birmingham × 3"
+//     means there are 3 Birminghams nobody has seen yet, regardless of
+//     whether they're in the draw pile or face-down.
+//
+// Header ratio: (drawDeck + removedCards) / total non-wild deck size.
+// The denominator is constant for the duration of the game — every
+// non-wild card just moves between draw pile / removed / hands / discards;
+// none vanish or duplicate.
 // =============================================================================
 
 import { useMemo } from "react";
@@ -29,17 +34,17 @@ const DISTRICT_LABEL: Readonly<Record<(typeof DISTRICT_ORDER)[number], string>> 
 
 export function RemainingCardsPanel() {
   const view = useGameState((s) => {
-    const total =
-      s.drawDeck.length +
-      s.removedCards.length +
-      s.players.reduce(
-        (acc, p) => acc + p.hand.length + p.discardPile.length,
-        0,
-      );
+    const handsAndDiscards = s.players.reduce(
+      (acc, p) => acc + countNonWild(p.hand) + countNonWild(p.discardPile),
+      0,
+    );
+    const deckPoolSize = s.drawDeck.length + s.removedCards.length;
+    const total = deckPoolSize + handsAndDiscards;
     return {
       drawDeck: s.drawDeck,
-      removedCount: s.removedCards.length,
+      removedCards: s.removedCards,
       districtCities: s.districtCities,
+      deckPoolSize,
       total,
     };
   }, shallowEqual);
@@ -51,17 +56,20 @@ export function RemainingCardsPanel() {
     () => cityDistrictMap(view.districtCities),
     [view.districtCities],
   );
-  const groups = groupCards(view.drawDeck, cityToDistrict);
+  // Combine drawDeck + removedCards so face-down identities mix in with
+  // the rest of the unseen pool — players see aggregate counts only.
+  const deckPool = useMemo(
+    () => [...view.drawDeck, ...view.removedCards],
+    [view.drawDeck, view.removedCards],
+  );
+  const groups = groupCards(deckPool, cityToDistrict);
 
   return (
     <Panel
       id="remaining_cards"
-      title={`Remaining cards — ${view.drawDeck.length}/${view.total}`}
+      title={`Remaining cards — ${view.deckPoolSize}/${view.total}`}
       maximizable
     >
-      <div className="remaining-cards__meta">
-        Removed face-down (canal): {view.removedCount}
-      </div>
       <div className="remaining-cards__grid">
         {DISTRICT_ORDER.map((tag) => (
           <Group
@@ -71,10 +79,17 @@ export function RemainingCardsPanel() {
           />
         ))}
         <Group label="Industry" entries={groups.industries} />
-        <Group label="Wild" entries={groups.wilds} />
       </div>
     </Panel>
   );
+}
+
+function countNonWild(cards: readonly Card[]): number {
+  let n = 0;
+  for (const c of cards) {
+    if (c.kind === "LOCATION" || c.kind === "INDUSTRY") n++;
+  }
+  return n;
 }
 
 function Group({
@@ -126,12 +141,13 @@ function groupCards(
 ): {
   locations: Record<string, Entry[]>;
   industries: Entry[];
-  wilds: Entry[];
 } {
   const locByDistrict: Record<string, Map<string, number>> = {};
   const indByLabel = new Map<string, number>();
-  const wildByLabel = new Map<string, number>();
 
+  // Wild cards never enter the deck pool — they live in state.wildReserve
+  // and return there on use (§2.13). Skip defensively in case that
+  // invariant breaks.
   for (const card of deck) {
     if (card.kind === "LOCATION") {
       const tag = cityToDistrict.get(card.cityName) ?? "other";
@@ -141,10 +157,6 @@ function groupCards(
     } else if (card.kind === "INDUSTRY") {
       const label = card.industries.map(prettyIndustry).join(" / ");
       indByLabel.set(label, (indByLabel.get(label) ?? 0) + 1);
-    } else if (card.kind === "WILD_LOCATION") {
-      wildByLabel.set("Wild Location", (wildByLabel.get("Wild Location") ?? 0) + 1);
-    } else {
-      wildByLabel.set("Wild Industry", (wildByLabel.get("Wild Industry") ?? 0) + 1);
     }
   }
 
@@ -157,12 +169,8 @@ function groupCards(
   const industries = Array.from(indByLabel.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, count]) => ({ name, count }));
-  const wilds = Array.from(wildByLabel.entries()).map(([name, count]) => ({
-    name,
-    count,
-  }));
 
-  return { locations, industries, wilds };
+  return { locations, industries };
 }
 
 function prettyIndustry(name: string): string {

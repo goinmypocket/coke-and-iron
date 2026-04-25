@@ -42,6 +42,11 @@ export function ActionsPanel() {
     wizard.state.cardIndex !== null &&
     wizard.state.slot !== null &&
     wizard.state.industry !== null;
+  const isNetwork = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
+  const canEndNetwork =
+    wizard.state.phase === "AWAITING_NETWORK_INPUTS" &&
+    wizard.state.cardIndex !== null &&
+    wizard.state.lineIndex !== null;
 
   const onEndTurn = () => {
     if (flags.activePlayerId === null) return;
@@ -64,9 +69,9 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="Network"
-            disabled
-            tooltip={NOT_IMPLEMENTED}
-            onClick={() => {}}
+            active={isNetwork}
+            disabled={!flags.canAct}
+            onClick={wizard.startNetwork}
           />
           <ActionButton
             label="Develop"
@@ -108,7 +113,9 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="End Action"
-            disabled={!isScout && !canEndDevelop && !canEndBuild}
+            disabled={
+              !isScout && !canEndDevelop && !canEndBuild && !canEndNetwork
+            }
             onClick={wizard.endAction}
           />
           <ActionButton

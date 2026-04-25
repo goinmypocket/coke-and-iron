@@ -70,6 +70,7 @@ export function BoardPanel() {
     merchantCities: s.merchantCities,
     lines: s.lines,
     builtTiles: s.builtTiles,
+    developedLinks: s.developedLinks,
     tileCatalogue: s.tileCatalogue,
     coalMarket: s.coalMarket,
     ironMarket: s.ironMarket,
@@ -90,6 +91,17 @@ export function BoardPanel() {
     wizard.state.phase === "AWAITING_BUILD_INPUTS" ? wizard.state.slot : null;
   const slotsClickable = wizard.state.phase === "AWAITING_BUILD_INPUTS";
 
+  const linesClickable = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
+  const linePick =
+    wizard.state.phase === "AWAITING_NETWORK_INPUTS"
+      ? wizard.state.lineIndex
+      : null;
+  const developedLineIndices = useMemo(() => {
+    const set = new Set<number>();
+    for (const l of view.developedLinks) set.add(l.lineIndex);
+    return set;
+  }, [view.developedLinks]);
+
   return (
     <Panel id="board" title="Board" maximizable>
       <svg
@@ -98,7 +110,15 @@ export function BoardPanel() {
         preserveAspectRatio="xMidYMid meet"
       >
         <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="#f3edd8" />
-        <Lines lines={view.lines} era={view.era} cityByName={cityByName} />
+        <Lines
+          lines={view.lines}
+          era={view.era}
+          cityByName={cityByName}
+          developedLineIndices={developedLineIndices}
+          linesClickable={linesClickable}
+          pickedLineIndex={linePick}
+          onLineClick={(i) => wizard.pickLine(i)}
+        />
         {view.districtCities.map((c) => (
           <DistrictCityShape
             key={c.name}
@@ -250,10 +270,18 @@ function Lines({
   lines,
   era,
   cityByName,
+  developedLineIndices,
+  linesClickable,
+  pickedLineIndex,
+  onLineClick,
 }: {
   lines: readonly Line[];
   era: Era;
   cityByName: ReadonlyMap<string, readonly [number, number]>;
+  developedLineIndices: ReadonlySet<number>;
+  linesClickable: boolean;
+  pickedLineIndex: number | null;
+  onLineClick: (lineIndex: number) => void;
 }) {
   return (
     <g className="board-lines">
@@ -263,22 +291,47 @@ function Lines({
           .filter((p): p is readonly [number, number] => p !== undefined);
         if (points.length < 2) return null;
         const isEra = line.era === era;
-        const stroke = line.era === "CANAL" ? "#5e8fc7" : "#9c7656";
+        const developed = developedLineIndices.has(i);
+        const isPicked = pickedLineIndex === i;
+        const stroke = isPicked
+          ? "var(--warm-gold)"
+          : line.era === "CANAL"
+            ? "#5e8fc7"
+            : "#9c7656";
         const opacity = isEra ? 0.85 : 0.18;
-        const width = isEra ? 4 : 2.5;
+        const width = isPicked ? 6 : isEra ? 4 : 2.5;
+        const clickable = linesClickable && isEra && !developed;
+        const handleClick = clickable ? () => onLineClick(i) : undefined;
+        const groupClass = clickable
+          ? "board-line board-line--clickable"
+          : "board-line";
+
         if (points.length === 2) {
           return (
-            <line
-              key={i}
-              x1={points[0]![0]}
-              y1={points[0]![1]}
-              x2={points[1]![0]}
-              y2={points[1]![1]}
-              stroke={stroke}
-              strokeOpacity={opacity}
-              strokeWidth={width}
-              strokeLinecap="round"
-            />
+            <g key={i} className={groupClass} onClick={handleClick}>
+              <line
+                x1={points[0]![0]}
+                y1={points[0]![1]}
+                x2={points[1]![0]}
+                y2={points[1]![1]}
+                stroke={stroke}
+                strokeOpacity={opacity}
+                strokeWidth={width}
+                strokeLinecap="round"
+              />
+              {clickable ? (
+                // Wider invisible hit-rect for easier clicking.
+                <line
+                  x1={points[0]![0]}
+                  y1={points[0]![1]}
+                  x2={points[1]![0]}
+                  y2={points[1]![1]}
+                  stroke="transparent"
+                  strokeWidth={14}
+                  strokeLinecap="round"
+                />
+              ) : null}
+            </g>
           );
         }
         // Triple link: connect each endpoint to the centroid (§2.6.1).
@@ -287,7 +340,7 @@ function Lines({
         const cy =
           points.reduce((acc, p) => acc + p[1], 0) / points.length;
         return (
-          <g key={i}>
+          <g key={i} className={groupClass} onClick={handleClick}>
             {points.map((p, j) => (
               <line
                 key={j}
@@ -308,6 +361,20 @@ function Lines({
               fill={stroke}
               fillOpacity={opacity}
             />
+            {clickable
+              ? points.map((p, j) => (
+                  <line
+                    key={`hit-${j}`}
+                    x1={p[0]}
+                    y1={p[1]}
+                    x2={cx}
+                    y2={cy}
+                    stroke="transparent"
+                    strokeWidth={14}
+                    strokeLinecap="round"
+                  />
+                ))
+              : null}
           </g>
         );
       })}

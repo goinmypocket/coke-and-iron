@@ -15,6 +15,10 @@
 //                                   card + at least 1 industry.
 //   AWAITING_BUILD_INPUTS         — Build; card + slot + industry in any
 //                                   order. Auto-submit when all three set.
+//   AWAITING_NETWORK_INPUTS       — Network; card + line in any order.
+//                                   Auto-submit when both set. Rail-era
+//                                   coal source auto-resolves to market;
+//                                   second-rail-offer is deferred.
 //
 // All non-trivial wizards follow the §10.1 convention:
 //   - Unique-cardinality inputs (card, slot, industry, line) are REPLACED
@@ -55,6 +59,14 @@ export type WizardState =
       readonly cardIndex: number | null;
       readonly slot: BuildSlotPick | null;
       readonly industry: IndustryName | null;
+    }
+  // §5.2 Network — card + line picked in any order. Auto-submit when both
+  // set. Second-rail offer (Rail era only) is deferred — captured on the
+  // roadmap.
+  | {
+      readonly phase: "AWAITING_NETWORK_INPUTS";
+      readonly cardIndex: number | null;
+      readonly lineIndex: number | null;
     };
 
 export type WizardAction =
@@ -63,12 +75,15 @@ export type WizardAction =
   | { type: "START_SCOUT" }
   | { type: "START_DEVELOP"; developSeatId: PlayerId }
   | { type: "START_BUILD" }
+  | { type: "START_NETWORK" }
   | { type: "TOGGLE_CARD"; cardIndex: number }
   | { type: "DEVELOP_SET_CARD"; cardIndex: number }
   | { type: "ADD_DEVELOP_INDUSTRY"; industry: IndustryName }
   | { type: "BUILD_SET_CARD"; cardIndex: number }
   | { type: "BUILD_SET_SLOT"; slot: BuildSlotPick }
   | { type: "BUILD_SET_INDUSTRY"; industry: IndustryName }
+  | { type: "NETWORK_SET_CARD"; cardIndex: number }
+  | { type: "NETWORK_SET_LINE"; lineIndex: number }
   | { type: "RESET" };
 
 export const INITIAL_WIZARD: WizardState = { phase: "IDLE" };
@@ -145,6 +160,20 @@ export function wizardReducer(
       if (state.phase !== "AWAITING_BUILD_INPUTS") return state;
       return { ...state, industry: action.industry };
     }
+    case "START_NETWORK":
+      return {
+        phase: "AWAITING_NETWORK_INPUTS",
+        cardIndex: null,
+        lineIndex: null,
+      };
+    case "NETWORK_SET_CARD": {
+      if (state.phase !== "AWAITING_NETWORK_INPUTS") return state;
+      return { ...state, cardIndex: action.cardIndex };
+    }
+    case "NETWORK_SET_LINE": {
+      if (state.phase !== "AWAITING_NETWORK_INPUTS") return state;
+      return { ...state, lineIndex: action.lineIndex };
+    }
     case "RESET":
       return { phase: "IDLE" };
   }
@@ -163,6 +192,12 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_BUILD_INPUTS" && state.cardIndex !== null) {
+    return new Set([state.cardIndex]);
+  }
+  if (
+    state.phase === "AWAITING_NETWORK_INPUTS" &&
+    state.cardIndex !== null
+  ) {
     return new Set([state.cardIndex]);
   }
   return new Set();
