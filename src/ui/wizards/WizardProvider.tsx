@@ -97,21 +97,82 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const engine = useEngine();
   const [state, dispatch] = useReducer(wizardReducer, INITIAL_WIZARD);
 
-  const startPass = useCallback(() => dispatch({ type: "START_PASS" }), []);
-  const startLoan = useCallback(() => dispatch({ type: "START_LOAN" }), []);
-  const startScout = useCallback(() => dispatch({ type: "START_SCOUT" }), []);
+  // Card-first flow (§10.1) — when the user clicked a card before the
+  // action verb, IDLE carries the stashed cardIndex; each start* method
+  // picks it up so the wizard arrives pre-populated.
+  const stashedCard =
+    state.phase === "IDLE" ? state.stashedCardIndex : null;
+
+  const startPass = useCallback(() => {
+    if (stashedCard !== null) {
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const result = engine.dispatch({
+        type: "PASS",
+        playerId,
+        cardIndex: stashedCard,
+      });
+      if (result.ok) dispatch({ type: "RESET" });
+      else toast.error(reasonToText(result.reason));
+      return;
+    }
+    dispatch({ type: "START_PASS" });
+  }, [engine, stashedCard]);
+
+  const startLoan = useCallback(() => {
+    if (stashedCard !== null) {
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const result = engine.dispatch({
+        type: "LOAN",
+        playerId,
+        cardIndex: stashedCard,
+      });
+      if (result.ok) dispatch({ type: "RESET" });
+      else toast.error(reasonToText(result.reason));
+      return;
+    }
+    dispatch({ type: "START_LOAN" });
+  }, [engine, stashedCard]);
+
+  const startScout = useCallback(() => {
+    dispatch({ type: "START_SCOUT" });
+    if (stashedCard !== null) {
+      dispatch({ type: "TOGGLE_CARD", cardIndex: stashedCard });
+    }
+  }, [stashedCard]);
+
   const startDevelop = useCallback(() => {
     const liveState = engine.getState();
     const seatId = liveState.turnOrder[liveState.currentPlayerIndex];
     if (seatId === undefined) return;
     dispatch({ type: "START_DEVELOP", developSeatId: seatId });
-  }, [engine]);
-  const startBuild = useCallback(() => dispatch({ type: "START_BUILD" }), []);
-  const startNetwork = useCallback(
-    () => dispatch({ type: "START_NETWORK" }),
-    [],
-  );
-  const startSell = useCallback(() => dispatch({ type: "START_SELL" }), []);
+    if (stashedCard !== null) {
+      dispatch({ type: "DEVELOP_SET_CARD", cardIndex: stashedCard });
+    }
+  }, [engine, stashedCard]);
+
+  const startBuild = useCallback(() => {
+    dispatch({ type: "START_BUILD" });
+    if (stashedCard !== null) {
+      dispatch({ type: "BUILD_SET_CARD", cardIndex: stashedCard });
+    }
+  }, [stashedCard]);
+
+  const startNetwork = useCallback(() => {
+    dispatch({ type: "START_NETWORK" });
+    if (stashedCard !== null) {
+      dispatch({ type: "NETWORK_SET_CARD", cardIndex: stashedCard });
+    }
+  }, [stashedCard]);
+
+  const startSell = useCallback(() => {
+    dispatch({ type: "START_SELL" });
+    if (stashedCard !== null) {
+      dispatch({ type: "SELL_SET_CARD", cardIndex: stashedCard });
+    }
+  }, [stashedCard]);
+
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
   const submitDevelop = useCallback(
@@ -257,7 +318,15 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const pickCard = useCallback(
     (cardIndex: number) => {
       const live = state;
-      if (live.phase === "IDLE") return;
+      if (live.phase === "IDLE") {
+        // §10.1 card-first flow — toggle the stashed card so the player
+        // can pick a card and then click an action verb. Clicking the
+        // same card again unstashes; clicking a different card replaces.
+        const next =
+          live.stashedCardIndex === cardIndex ? null : cardIndex;
+        dispatch({ type: "IDLE_STASH_CARD", cardIndex: next });
+        return;
+      }
       if (live.phase === "AWAITING_CARD") {
         const liveState = engine.getState();
         const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;

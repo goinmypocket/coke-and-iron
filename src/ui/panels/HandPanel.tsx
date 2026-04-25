@@ -22,7 +22,9 @@ export function HandPanel() {
     };
   }, shallowEqual);
 
-  const wizardOpen = wizard.state.phase !== "IDLE";
+  // Cards are clickable both during a wizard (Pass / Loan / Scout / etc.)
+  // and in IDLE (card-first stash, §10.1).
+  const cardsClickable = true;
 
   return (
     <Panel id="hand" title={`Hand — ${view.name}`} maximizable>
@@ -32,7 +34,7 @@ export function HandPanel() {
             key={i}
             card={card}
             picked={wizard.picked.has(i)}
-            clickable={wizardOpen}
+            clickable={cardsClickable}
             onClick={() => wizard.pickCard(i)}
           />
         ))}

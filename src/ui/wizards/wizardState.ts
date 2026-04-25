@@ -42,7 +42,9 @@ export interface BuildSlotPick {
 }
 
 export type WizardState =
-  | { readonly phase: "IDLE" }
+  // §10.1 — IDLE may carry a stashed card chosen card-first; the next
+  // action button picks up where it left off.
+  | { readonly phase: "IDLE"; readonly stashedCardIndex: number | null }
   | { readonly phase: "AWAITING_CARD"; readonly action: "PASS" | "LOAN" }
   | {
       readonly phase: "AWAITING_CARDS_SCOUT";
@@ -101,9 +103,13 @@ export type WizardAction =
   | { type: "START_SELL" }
   | { type: "SELL_SET_CARD"; cardIndex: number }
   | { type: "SELL_TOGGLE_TILE"; tileId: string }
+  | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
-export const INITIAL_WIZARD: WizardState = { phase: "IDLE" };
+export const INITIAL_WIZARD: WizardState = {
+  phase: "IDLE",
+  stashedCardIndex: null,
+};
 
 export function wizardReducer(
   state: WizardState,
@@ -214,14 +220,23 @@ export function wizardReducer(
           : [...state.tileIds, action.tileId],
       };
     }
+    case "IDLE_STASH_CARD": {
+      // Card-first flow only applies in IDLE. While a wizard is open
+      // the wizard's own SET_CARD reducers handle card clicks.
+      if (state.phase !== "IDLE") return state;
+      return { ...state, stashedCardIndex: action.cardIndex };
+    }
     case "RESET":
-      return { phase: "IDLE" };
+      return { phase: "IDLE", stashedCardIndex: null };
   }
 }
 
 /** Set of card indices the wizard currently has highlighted in the Hand
  * panel. Used to draw the warm-gold border on picked cards. */
 export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
+  if (state.phase === "IDLE" && state.stashedCardIndex !== null) {
+    return new Set([state.stashedCardIndex]);
+  }
   if (state.phase === "AWAITING_CARDS_SCOUT") {
     return new Set(state.cardIndices);
   }

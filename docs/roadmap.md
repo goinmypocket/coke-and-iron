@@ -118,9 +118,10 @@ Status keys:
   non-empty, prompt the head-of-queue player to pick tiles to
   remove. Currently the engine accepts the intent but no UI surfaces
   it.
-- **[ui] IDLE card-first flow (§10.1).** Right now clicking a card
-  in IDLE no-ops; should stash the card and offer compatible action
-  buttons.
+- **[ui] IDLE card-first polish.** Stash + auto-prefill shipped.
+  Future polish: highlight only action buttons that the stashed
+  card could legally authorise (e.g. a Brewery industry card
+  greys Network and Sell).
 
 ---
 
