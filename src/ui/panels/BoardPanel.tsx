@@ -986,10 +986,14 @@ function Markets({
   ironGlow: boolean;
 }) {
   // §2.11.3 widget. Whole-widget glow when either market is an active
-  // pick target (warm-gold border + tinted background); per-column
-  // sub-glow on the active column.
-  const widgetW = 110;
-  const widgetH = 160;
+  // pick target. Two columns side by side; each column shows the
+  // industry icon at top and a stack of price-coin + cube-slot rows
+  // below. No header text, no Buy/Sell summary, no cube-count line.
+  const widgetW = 120;
+  const widgetH = 170;
+  const innerPadX = 4;
+  const innerPadY = 8;
+  const colW = (widgetW - innerPadX * 2) / 2;
   const anyGlow = coalGlow || ironGlow;
   return (
     <g
@@ -1007,26 +1011,22 @@ function Markets({
         stroke={anyGlow ? "var(--warm-gold)" : "#1a1a1a"}
         strokeWidth={anyGlow ? 2 : 1}
       />
-      <text
-        x={widgetW / 2}
-        y={14}
-        textAnchor="middle"
-        className="board-markets__title"
-      >
-        Markets
-      </text>
       <MarketColumn
         market={coal}
-        label="Coal"
+        industry="COAL_MINE"
         cubeColor="#1a1a1a"
-        x={12}
+        x={innerPadX}
+        y={innerPadY}
+        colW={colW}
         glow={coalGlow}
       />
       <MarketColumn
         market={iron}
-        label="Iron"
+        industry="IRON_WORKS"
         cubeColor="#a8825a"
-        x={88}
+        x={innerPadX + colW}
+        y={innerPadY}
+        colW={colW}
         glow={ironGlow}
       />
     </g>
@@ -1035,35 +1035,35 @@ function Markets({
 
 function MarketColumn({
   market,
-  label,
+  industry,
   cubeColor,
   x,
+  y,
+  colW,
   glow,
 }: {
   market: Market;
-  label: string;
+  industry: IndustryName;
   cubeColor: string;
   x: number;
+  y: number;
+  colW: number;
   glow: boolean;
 }) {
-  // Compact column. Header lines use a small coin glyph in place of
-  // the £ prefix. Tier rows render the price as a coin to the left
-  // of the two cube slots.
   const tiers = market.tiers;
-  const rowH = 10;
-  const cubeSize = 6;
-  const total = market.filled.reduce((a, n) => a + n, 0);
-  const max = tiers.length * 2;
-  const filledIdx = market.filled.findIndex((n) => n > 0);
-  const isEmpty = filledIdx === -1;
-  const buyValue = isEmpty ? market.overflowPrice : market.tiers[filledIdx]!;
-  let nextSell: number | null = null;
-  for (let t = tiers.length - 1; t >= 0; t--) {
-    if ((market.filled[t] ?? 0) < 2) {
-      nextSell = tiers[t] ?? null;
-      break;
-    }
-  }
+  const rowH = 12;
+  const cubeSize = 7;
+  const cubeGap = 1.5;
+  const coinSize = 9;
+  const iconSize = 18;
+  // Row content: coin + spacer + cube + gap + cube. Centred inside the
+  // column so a column with fewer rows still aligns to the same x.
+  const rowContentW = coinSize + 4 + cubeSize * 2 + cubeGap;
+  const rowStartX = x + (colW - rowContentW) / 2;
+  const coinCx = rowStartX + coinSize / 2;
+  const cube0X = rowStartX + coinSize + 4;
+  const cube1X = cube0X + cubeSize + cubeGap;
+  // Compose rows: overflow on top, then priced tiers high-to-low.
   const rows: { price: number; cubes: number; isOverflow: boolean }[] = [
     { price: market.overflowPrice, cubes: 2, isOverflow: true },
   ];
@@ -1076,73 +1076,67 @@ function MarketColumn({
   }
   return (
     <g
-      transform={`translate(${x}, 18)`}
-      className={glow ? "board-markets__col board-markets__col--active" : "board-markets__col"}
+      className={
+        glow ? "board-markets__col board-markets__col--active" : "board-markets__col"
+      }
     >
-      <text
-        x={0}
-        y={0}
-        className="board-markets__row-label"
-        fill={glow ? "var(--warm-gold)" : undefined}
-      >
-        {label}
-      </text>
-      <g transform="translate(0, 8)">
-        <text x={0} y={5} className="board-markets__row-data">Buy</text>
-        <SvgMoneyCoin cx={15} cy={4} size={7} amount={buyValue} />
-        {isEmpty ? (
-          <text x={22} y={5} className="board-markets__row-data">+</text>
-        ) : null}
-      </g>
-      <g transform="translate(0, 17)">
-        <text x={0} y={5} className="board-markets__row-data">Sell</text>
-        {nextSell === null ? (
-          <text x={15} y={5} className="board-markets__row-data">—</text>
-        ) : (
-          <SvgMoneyCoin cx={17} cy={4} size={7} amount={nextSell} />
-        )}
-      </g>
-      <text x={0} y={32} className="board-markets__row-data">
-        {total}/{max} cubes
-      </text>
-      <g transform="translate(0, 38)">
-        {rows.map((row, rowIdx) => (
-          <g key={rowIdx} transform={`translate(0, ${rowIdx * rowH})`}>
+      {/* Industry icon centred at the top of the column. */}
+      <image
+        href={INDUSTRY_ICON[industry]}
+        x={x + (colW - iconSize) / 2}
+        y={y}
+        width={iconSize}
+        height={iconSize}
+        preserveAspectRatio="xMidYMid meet"
+        opacity={glow ? 1 : 0.95}
+      />
+      {/* Tier rows below the icon. */}
+      {rows.map((row, rowIdx) => {
+        const rowY = y + iconSize + 4 + rowIdx * rowH + rowH / 2;
+        return (
+          <g key={rowIdx}>
             <SvgMoneyCoin
-              cx={4}
-              cy={5}
-              size={7}
+              cx={coinCx}
+              cy={rowY}
+              size={coinSize}
               amount={row.price}
               dimmed={row.isOverflow}
             />
             {row.isOverflow ? (
               <text
-                x={9}
-                y={7}
-                className="board-markets__tier-price board-markets__tier-price--overflow"
+                x={coinCx + coinSize / 2 + 0.5}
+                y={rowY + 2}
+                fontSize={4}
+                fontWeight={700}
+                fill="var(--muted)"
+                style={{ pointerEvents: "none" }}
               >
                 +
               </text>
             ) : null}
-            {[0, 1].map((slot) => {
-              const cx = 18 + slot * (cubeSize + 2);
-              return (
-                <rect
-                  key={slot}
-                  x={cx}
-                  y={5 - cubeSize / 2}
-                  width={cubeSize}
-                  height={cubeSize}
-                  fill={slot < row.cubes ? cubeColor : "#fffdf6"}
-                  stroke="#1a1a1a"
-                  strokeWidth={0.6}
-                  strokeDasharray={row.isOverflow ? "1.2 1.2" : undefined}
-                />
-              );
-            })}
+            <rect
+              x={cube0X}
+              y={rowY - cubeSize / 2}
+              width={cubeSize}
+              height={cubeSize}
+              fill={row.cubes > 0 ? cubeColor : "#fffdf6"}
+              stroke="#1a1a1a"
+              strokeWidth={0.6}
+              strokeDasharray={row.isOverflow ? "1.2 1.2" : undefined}
+            />
+            <rect
+              x={cube1X}
+              y={rowY - cubeSize / 2}
+              width={cubeSize}
+              height={cubeSize}
+              fill={row.cubes > 1 ? cubeColor : "#fffdf6"}
+              stroke="#1a1a1a"
+              strokeWidth={0.6}
+              strokeDasharray={row.isOverflow ? "1.2 1.2" : undefined}
+            />
           </g>
-        ))}
-      </g>
+        );
+      })}
     </g>
   );
 }
@@ -1162,6 +1156,9 @@ function SvgMoneyCoin({
   dimmed?: boolean;
 }) {
   const r = size / 2;
+  // Font sized so a one- or two-digit value reads cleanly inside the
+  // coin without overlapping the rim.
+  const fontSize = size * 0.7;
   return (
     <g style={{ pointerEvents: "none" }} opacity={dimmed ? 0.6 : 1}>
       <circle
@@ -1174,9 +1171,9 @@ function SvgMoneyCoin({
       />
       <text
         x={cx}
-        y={cy + size * 0.36}
+        y={cy + fontSize * 0.36}
         textAnchor="middle"
-        fontSize={size * 0.95}
+        fontSize={fontSize}
         fontWeight={700}
         fill="#1a1a1a"
       >

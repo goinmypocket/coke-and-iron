@@ -527,47 +527,35 @@ and on every coal-consuming source-list validation.
 #### 2.11.3 Market Place widget — what the player sees
 
 Both markets are rendered as one **Market Place** widget that lives
-on the Main Board panel (§11.2). Its job is to surface, at a glance:
-
-- the **current buy price** of coal and of iron (i.e. the cheapest
-  empty slot's price — the price any subsequent buy will pay),
-- the **current sell price** of coal and of iron (the most
-  expensive empty slot's price — what the next auto-sell would
-  fetch),
-- the **number of cubes remaining** in each market,
-- and which individual slots at each tier are filled vs. empty.
+on the Main Board panel (§11.2). The widget surfaces, at a glance,
+which individual slots at each tier are filled vs. empty — the
+current buy price, sell price, and total cubes are all derivable
+from the slot pattern, so the widget shows just the slots and lets
+the player read them directly.
 
 The widget's layout:
 
-- Two side-by-side columns, one per market, labelled **"COAL"** and
-  **"IRON"**.
+- Two side-by-side columns, one per market. The column header is
+  the **industry icon** (coal-mine icon for the coal market,
+  iron-works icon for the iron market) — no text label.
 - Each market column is a stack of rows, highest tier at the top.
-  The top row of each column is the **overflow tier** (£8 for coal,
-  £6 for iron), rendered with two always-present cubes to signal
-  unlimited supply at that price. Below it, **one row per priced
-  tier**, descending. Each row shows:
-  - The price label "£N" on the left.
+  The top row is the **overflow tier** (£8 for coal, £6 for iron),
+  rendered with two always-present cubes outlined dashed to
+  signal unlimited supply at that price. Below it, **one row per
+  priced tier**, descending. Each row shows:
+  - A small **money-coin glyph** on the left containing the tier
+    price (`N` inside the coin, no `£` prefix — the coin shape
+    itself is the money sign).
   - Two **square cube slots** on the right. A filled slot
     renders the resource cube glyph (a small square — black for
     coal, orange for iron — matching the cube tokens drawn
     elsewhere on the board); an empty slot renders a faint
     square outline of the same size.
-- Above the two columns, a compact header strip that always
-  displays the live **summary**:
-  - **Coal** — `Buy £X · Sell £Y · N/14 cubes` (where X is the
-    cheapest filled slot's price in the priced range — or `£8
-    (overflow)` when the priced range is empty — and Y is the
-    most expensive empty priced slot. N is the count of cubes
-    currently in the priced range; the £8 overflow is unlimited
-    and not part of the count). When all priced slots are full,
-    Sell reads `—`.
-  - **Iron** — same format with N/10 cubes and £6 overflow.
 - During a coal-source sub-state (a Build or Network asking the
   player to pick coal) the widget glows warm-gold to mark it as
   a legal click target, and clicking any of its coal cubes is
-  interpreted as "buy from the market". The buy price label
-  updates live as cubes drain. Clicking an overflow cube buys
-  one at the overflow price.
+  interpreted as "buy from the market". Clicking an overflow
+  cube buys one at the overflow price.
 
 The widget is the single source of truth for market state on
 screen — no panel duplicates the numbers. A player who wants to
