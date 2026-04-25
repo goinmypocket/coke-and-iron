@@ -70,8 +70,6 @@ Status keys:
   Manufacturer spanning two columns (1–5 / 6–8), Pottery as 5
   fixed-level rows, full cost / bonus margins, link-supply icon
   in the stats bar.
-- **[ui] Income tracker (§11.1).** Vertical ladder with pawn-coloured
-  markers; re-renders on every state change.
 - **[ui] Remaining cards polish (§11.6).** Inventory + face-down
   fold-in shipped (drawDeck and canal-removed cards mix in the
   per-category counts so identities of removed cards stay hidden

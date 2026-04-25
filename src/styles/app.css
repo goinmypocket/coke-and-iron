@@ -322,6 +322,68 @@ body {
   fill: var(--muted);
 }
 
+/* ---------- Income tracker (§11.1) ---------- */
+
+.income-ladder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8em;
+  display: flex;
+  flex-direction: column;
+}
+.income-row {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 0.95rem;
+}
+.income-row__level {
+  display: flex;
+  justify-content: center;
+}
+.income-row__level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: #e5d9b4;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1px solid #7d6a3a;
+}
+.income-row__cell {
+  position: relative;
+  background: #2a2a2a;
+  color: #e5d9b4;
+  padding: 0.05rem 0.3rem;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.income-row__step {
+  font-size: 0.7rem;
+}
+.income-row__markers {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.1rem;
+  align-items: center;
+  justify-items: center;
+}
+.income-row__marker {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+}
+
 /* ---------- Recent actions (§11.9) ---------- */
 
 .recent-actions {
