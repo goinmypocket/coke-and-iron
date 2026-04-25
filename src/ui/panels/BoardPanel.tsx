@@ -216,14 +216,24 @@ function DistrictCityShape({
         {city.slots.map((slot, i) => {
           const isOccupied = occupied.has(`${city.name}#${i}`);
           const isPicked = picked === i;
-          const clickable = slotsClickable && !isOccupied;
+          // Build wizard accepts ANY slot click — engine validates the
+          // overbuild rules per §5.1.3. Empty slots are the common case;
+          // filled slots may resolve to overbuild (own tile, or
+          // Coal Mine / Iron Works with global supply exhausted) and
+          // get a different fill so the hover distinction is obvious.
+          const clickable = slotsClickable;
+          const cls = [
+            "board-slot",
+            clickable ? "board-slot--clickable" : "",
+            isOccupied ? "board-slot--occupied" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
           return (
             <g
               key={i}
               transform={`translate(${i * slotW}, 0)`}
-              className={
-                clickable ? "board-slot board-slot--clickable" : "board-slot"
-              }
+              className={cls}
               onClick={clickable ? () => onSlotClick(i) : undefined}
             >
               <rect

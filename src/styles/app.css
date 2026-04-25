@@ -297,6 +297,10 @@ body {
 .board-slot--clickable:hover rect {
   fill: var(--soft-tint);
 }
+.board-slot--clickable.board-slot--occupied:hover rect {
+  /* hover hint that this is an overbuild candidate, not a free pick */
+  fill: #ead7a3;
+}
 .board-line--clickable {
   cursor: pointer;
 }
