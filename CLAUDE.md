@@ -9,6 +9,9 @@ a platform-agnostic spec.
   truth for rules, entities, configs, UI, and panels.
 - `docs/rulebook.pdf` — original published rulebook. Reference only;
   the spec is authoritative. If the two conflict, trust the spec.
+- `docs/roadmap.md` — running list of explicitly-deferred items.
+  Read this before starting a fresh session — it's where decisions
+  about future work are persisted across compactions.
 - `assets/industry_icons/` — SVG icons for the six industries. Referenced
   by spec §2.9.2.
 - `config/` — tunable data per spec §9 (cities, cards, links, tiles).
