@@ -36,6 +36,7 @@ import type {
   PlacedIndustryTile,
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 
@@ -463,6 +464,12 @@ function BuiltTiles({
         const cls = clickable
           ? "board-tile board-tile--clickable"
           : "board-tile";
+        const tileW = slotW - 4;
+        const tileH = 16;
+        // Icon takes the left ~60% of the tile; level number sits to the
+        // right. The icon shrinks by 1px on each side so it doesn't
+        // touch the rect border.
+        const iconSize = tileH - 2;
         return (
           <g
             key={t.id}
@@ -471,20 +478,28 @@ function BuiltTiles({
             onClick={clickable ? () => onTileClick(t.id) : undefined}
           >
             <rect
-              width={slotW - 4}
-              height={16}
+              width={tileW}
+              height={tileH}
               rx={2}
               fill={t.flipped ? "#d8d4c2" : "#fffdf6"}
               stroke={isPicked ? "var(--warm-gold)" : "#1a1a1a"}
               strokeWidth={isPicked ? 2 : 0.8}
             />
+            <image
+              href={INDUSTRY_ICON[spec.industry]}
+              x={1}
+              y={1}
+              width={iconSize}
+              height={iconSize}
+              opacity={t.flipped ? 0.5 : 1}
+              preserveAspectRatio="xMidYMid meet"
+            />
             <text
-              x={(slotW - 4) / 2}
+              x={iconSize + 3}
               y={11}
               className="board-tile__label"
-              textAnchor="middle"
+              textAnchor="start"
             >
-              {INDUSTRY_GLYPH[spec.industry]}
               {spec.level}
             </text>
           </g>

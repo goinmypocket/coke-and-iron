@@ -20,6 +20,10 @@ import type {
   PlayerId,
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
+import {
+  INDUSTRY_ICON,
+  INDUSTRY_LABEL as INDUSTRY_FULL_LABEL,
+} from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 
@@ -169,7 +173,14 @@ function MatStack({
 
   return (
     <div className="mat-stack">
-      <div className="mat-stack__label">{INDUSTRY_LABEL[industry]}</div>
+      <div className="mat-stack__label">
+        <img
+          src={INDUSTRY_ICON[industry]}
+          alt={INDUSTRY_FULL_LABEL[industry]}
+          className="mat-stack__icon"
+        />
+        <span>{INDUSTRY_LABEL[industry]}</span>
+      </div>
       <div
         className={tileClassName}
         onClick={onClick}
