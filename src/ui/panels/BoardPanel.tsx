@@ -72,10 +72,18 @@ export function BoardPanel() {
     lines: s.lines,
     builtTiles: s.builtTiles,
     developedLinks: s.developedLinks,
+    merchantSlots: s.merchantSlots,
     tileCatalogue: s.tileCatalogue,
     coalMarket: s.coalMarket,
     ironMarket: s.ironMarket,
+    players: s.players,
   }), shallowEqual);
+
+  const pawnColorById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const p of view.players) m.set(p.id, p.pawnColor);
+    return m;
+  }, [view.players]);
 
   const cityByName = useMemo(
     () => indexCities(view.districtCities, view.merchantCities),
@@ -104,10 +112,10 @@ export function BoardPanel() {
     }
     return set;
   }, [wizard.state]);
-  const developedLineIndices = useMemo(() => {
-    const set = new Set<number>();
-    for (const l of view.developedLinks) set.add(l.lineIndex);
-    return set;
+  const developedLineOwners = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const l of view.developedLinks) m.set(l.lineIndex, l.owner);
+    return m;
   }, [view.developedLinks]);
 
   const sellMode = wizard.state.phase === "AWAITING_SELL_INPUTS";
@@ -134,7 +142,8 @@ export function BoardPanel() {
           lines={view.lines}
           era={view.era}
           cityByName={cityByName}
-          developedLineIndices={developedLineIndices}
+          developedLineOwners={developedLineOwners}
+          pawnColorById={pawnColorById}
           linesClickable={linesClickable}
           pickedLineIndices={linePicks}
           onLineClick={(i) => wizard.pickLine(i)}
@@ -156,7 +165,13 @@ export function BoardPanel() {
           />
         ))}
         {view.merchantCities.map((m) => (
-          <MerchantCityShape key={m.name} city={m} />
+          <MerchantCityShape
+            key={m.name}
+            city={m}
+            slots={view.merchantSlots
+              .filter((ms) => ms.merchantCityName === m.name)
+              .sort((a, b) => a.slotIndex - b.slotIndex)}
+          />
         ))}
         <BuiltTiles
           tiles={view.builtTiles}
@@ -253,14 +268,14 @@ function DistrictCityShape({
                 stroke={isPicked ? "var(--warm-gold)" : fill}
                 strokeWidth={isPicked ? 2 : 0.8}
               />
-              <text
-                x={slotW / 2}
-                y={3}
-                className="board-slot__label"
-                textAnchor="middle"
-              >
-                {slotGlyph(slot.acceptList)}
-              </text>
+              {!isOccupied ? (
+                <SlotAcceptGlyph
+                  accept={slot.acceptList}
+                  cx={slotW / 2}
+                  cy={0}
+                  width={slotW - 4}
+                />
+              ) : null}
             </g>
           );
         })}
@@ -274,7 +289,60 @@ function slotGlyph(accept: readonly IndustryName[]): string {
   return accept.map((i) => INDUSTRY_GLYPH[i]).join("/");
 }
 
-function MerchantCityShape({ city }: { city: MerchantCity }) {
+function SlotAcceptGlyph({
+  accept,
+  cx,
+  cy,
+  width,
+}: {
+  accept: readonly IndustryName[];
+  cx: number;
+  cy: number;
+  width: number;
+}) {
+  if (accept.length === 0) {
+    // Wildcard — keep the existing letter "ANY" since stacking 6 icons
+    // wouldn't fit at this size.
+    return (
+      <text
+        x={cx}
+        y={cy + 3}
+        className="board-slot__label"
+        textAnchor="middle"
+      >
+        ANY
+      </text>
+    );
+  }
+  // Stack as many mini-icons as fit horizontally (1-3 in practice for
+  // combo slots). Each icon is at most 10px wide.
+  const iconSize = Math.min(10, Math.floor((width - 1) / accept.length));
+  const totalW = iconSize * accept.length;
+  const startX = cx - totalW / 2;
+  return (
+    <g>
+      {accept.map((ind, i) => (
+        <image
+          key={ind + i}
+          href={INDUSTRY_ICON[ind]}
+          x={startX + i * iconSize}
+          y={cy - iconSize / 2}
+          width={iconSize}
+          height={iconSize}
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ))}
+    </g>
+  );
+}
+
+function MerchantCityShape({
+  city,
+  slots,
+}: {
+  city: MerchantCity;
+  slots: readonly { hasBeer: boolean }[];
+}) {
   const [x, y] = city.position;
   return (
     <g className="board-merchant" transform={`translate(${x}, ${y})`}>
@@ -286,16 +354,75 @@ function MerchantCityShape({ city }: { city: MerchantCity }) {
       >
         {city.name}
       </text>
-      <text y={2} className="board-merchant__bonus" textAnchor="middle">
+      <text y={-2} className="board-merchant__bonus" textAnchor="middle">
         {city.bonus} {city.bonusValue}
       </text>
-      <text
-        y={MERCHANT_R - 6}
-        className="board-merchant__slots"
-        textAnchor="middle"
-      >
-        ×{city.slotCount}
-      </text>
+      <g transform={`translate(0, ${MERCHANT_R - 14})`}>
+        {slots.map((slot, i) => {
+          // Spread the beer markers along the bottom of the disc.
+          const offset = (i - (slots.length - 1) / 2) * 9;
+          return slot.hasBeer ? (
+            <circle
+              key={i}
+              cx={offset}
+              cy={0}
+              r={3.5}
+              fill="#c79b3f"
+              stroke="#5b4516"
+              strokeWidth={0.8}
+            >
+              <title>Merchant beer barrel available</title>
+            </circle>
+          ) : (
+            <circle
+              key={i}
+              cx={offset}
+              cy={0}
+              r={3.5}
+              fill="#fffdf6"
+              stroke="#7d6a3a"
+              strokeWidth={0.8}
+              opacity={0.4}
+            />
+          );
+        })}
+      </g>
+    </g>
+  );
+}
+
+function LinkToken({
+  cx,
+  cy,
+  color,
+  era,
+}: {
+  cx: number;
+  cy: number;
+  color: string;
+  era: Era;
+}) {
+  // Small owner-coloured shape at the line midpoint. Boat-ish circle for
+  // canal era, train-ish rect for rail era.
+  if (era === "CANAL") {
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="#1a1a1a" strokeWidth={1} />
+      </g>
+    );
+  }
+  return (
+    <g>
+      <rect
+        x={cx - 6}
+        y={cy - 3}
+        width={12}
+        height={6}
+        rx={1}
+        fill={color}
+        stroke="#1a1a1a"
+        strokeWidth={1}
+      />
     </g>
   );
 }
@@ -304,7 +431,8 @@ function Lines({
   lines,
   era,
   cityByName,
-  developedLineIndices,
+  developedLineOwners,
+  pawnColorById,
   linesClickable,
   pickedLineIndices,
   onLineClick,
@@ -312,7 +440,8 @@ function Lines({
   lines: readonly Line[];
   era: Era;
   cityByName: ReadonlyMap<string, readonly [number, number]>;
-  developedLineIndices: ReadonlySet<number>;
+  developedLineOwners: ReadonlyMap<number, number>;
+  pawnColorById: ReadonlyMap<number, string>;
   linesClickable: boolean;
   pickedLineIndices: ReadonlySet<number>;
   onLineClick: (lineIndex: number) => void;
@@ -325,7 +454,10 @@ function Lines({
           .filter((p): p is readonly [number, number] => p !== undefined);
         if (points.length < 2) return null;
         const isEra = line.era === era;
-        const developed = developedLineIndices.has(i);
+        const ownerId = developedLineOwners.get(i);
+        const developed = ownerId !== undefined;
+        const ownerColor =
+          ownerId !== undefined ? pawnColorById.get(ownerId) : undefined;
         const isPicked = pickedLineIndices.has(i);
         const stroke = isPicked
           ? "var(--warm-gold)"
@@ -341,6 +473,8 @@ function Lines({
           : "board-line";
 
         if (points.length === 2) {
+          const mx = (points[0]![0] + points[1]![0]) / 2;
+          const my = (points[0]![1] + points[1]![1]) / 2;
           return (
             <g key={i} className={groupClass} onClick={handleClick}>
               <line
@@ -353,6 +487,9 @@ function Lines({
                 strokeWidth={width}
                 strokeLinecap="round"
               />
+              {developed && ownerColor ? (
+                <LinkToken cx={mx} cy={my} color={ownerColor} era={line.era} />
+              ) : null}
               {clickable ? (
                 // Wider invisible hit-rect for easier clicking.
                 <line
@@ -395,6 +532,9 @@ function Lines({
               fill={stroke}
               fillOpacity={opacity}
             />
+            {developed && ownerColor ? (
+              <LinkToken cx={cx} cy={cy} color={ownerColor} era={line.era} />
+            ) : null}
             {clickable
               ? points.map((p, j) => (
                   <line
@@ -470,6 +610,20 @@ function BuiltTiles({
         // right. The icon shrinks by 1px on each side so it doesn't
         // touch the rect border.
         const iconSize = tileH - 2;
+        // Resource cube badge — only Coal Mine, Iron Works, and Brewery
+        // carry resources; flipped tiles always render at 0.
+        const showResource =
+          !t.flipped &&
+          t.resources > 0 &&
+          (spec.industry === "COAL_MINE" ||
+            spec.industry === "IRON_WORKS" ||
+            spec.industry === "BREWERY");
+        const cubeColor =
+          spec.industry === "COAL_MINE"
+            ? "#1a1a1a"
+            : spec.industry === "IRON_WORKS"
+              ? "#a8825a"
+              : "#c79b3f";
         return (
           <g
             key={t.id}
@@ -502,6 +656,18 @@ function BuiltTiles({
             >
               {spec.level}
             </text>
+            {showResource ? (
+              <g transform={`translate(${tileW - 6}, ${tileH - 6})`}>
+                <circle r={5} fill={cubeColor} stroke="#1a1a1a" strokeWidth={0.6} />
+                <text
+                  y={2.2}
+                  textAnchor="middle"
+                  className="board-tile__resource"
+                >
+                  {t.resources}
+                </text>
+              </g>
+            ) : null}
           </g>
         );
       })}
@@ -510,50 +676,101 @@ function BuiltTiles({
 }
 
 function Markets({ coal, iron }: { coal: Market; iron: Market }) {
+  // §2.11.3 widget — header row with live next-buy / next-sell prices,
+  // then a vertical column per market with two cube slots per tier
+  // (filled/empty). Coal: 8 tiers (£1..£8). Iron: 6 tiers (£1..£6).
+  const widgetW = 160;
+  const widgetH = 230;
   return (
     <g
       className="board-markets"
-      transform={`translate(${CANVAS - 170}, ${CANVAS - 110})`}
+      transform={`translate(${CANVAS - widgetW - 8}, ${CANVAS - widgetH - 8})`}
     >
       <rect
         x={0}
         y={0}
-        width={160}
-        height={100}
+        width={widgetW}
+        height={widgetH}
         fill="#fffdf6"
         stroke="#1a1a1a"
         strokeWidth={1}
       />
-      <text x={80} y={16} textAnchor="middle" className="board-markets__title">
+      <text
+        x={widgetW / 2}
+        y={14}
+        textAnchor="middle"
+        className="board-markets__title"
+      >
         Markets
       </text>
-      <MarketRow market={coal} label="Coal" yOffset={32} />
-      <MarketRow market={iron} label="Iron" yOffset={64} />
+      <MarketColumn market={coal} label="Coal" cubeColor="#1a1a1a" x={12} />
+      <MarketColumn market={iron} label="Iron" cubeColor="#a8825a" x={88} />
     </g>
   );
 }
 
-function MarketRow({
+function MarketColumn({
   market,
   label,
-  yOffset,
+  cubeColor,
+  x,
 }: {
   market: Market;
   label: string;
-  yOffset: number;
+  cubeColor: string;
+  x: number;
 }) {
-  const cubes = market.filled.reduce((a, n) => a + n, 0);
+  // Stack tiers from highest price (top) to lowest (bottom). Each tier
+  // row shows the price label and two cube slots — filled circles for
+  // present cubes, empty rings for missing.
+  const tiers = market.tiers;
+  const rowH = 18;
+  const total = market.filled.reduce((a, n) => a + n, 0);
   const filledIdx = market.filled.findIndex((n) => n > 0);
-  const buyPrice =
+  const nextBuy =
     filledIdx === -1 ? market.overflowPrice : market.tiers[filledIdx];
+  // Highest empty tier (most-expensive-empty-first sell rule, §2.11).
+  let nextSell: number | null = null;
+  for (let t = tiers.length - 1; t >= 0; t--) {
+    if ((market.filled[t] ?? 0) < 2) {
+      nextSell = tiers[t] ?? null;
+      break;
+    }
+  }
   return (
-    <g transform={`translate(8, ${yOffset})`}>
+    <g transform={`translate(${x}, 28)`}>
       <text x={0} y={0} className="board-markets__row-label">
-        {label}
+        {label} (×{total})
       </text>
       <text x={0} y={14} className="board-markets__row-data">
-        cubes ×{cubes} · buy £{buyPrice}
+        buy £{nextBuy}{nextSell !== null ? ` · sell £${nextSell}` : ""}
       </text>
+      <g transform="translate(0, 22)">
+        {tiers
+          .map((price, t) => ({ price, t }))
+          .reverse()
+          .map(({ price, t }, rowIdx) => {
+            const cubes = market.filled[t] ?? 0;
+            return (
+              <g key={t} transform={`translate(0, ${rowIdx * rowH})`}>
+                <text x={0} y={9} className="board-markets__tier-price">
+                  £{price}
+                </text>
+                {[0, 1].map((slot) => (
+                  <circle
+                    key={slot}
+                    cx={26 + slot * 14}
+                    cy={6}
+                    r={4.5}
+                    fill={slot < cubes ? cubeColor : "#fffdf6"}
+                    stroke="#1a1a1a"
+                    strokeWidth={0.7}
+                  />
+                ))}
+              </g>
+            );
+          })}
+      </g>
     </g>
   );
 }

@@ -73,6 +73,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
       linkSupply: p.linkSupply,
       isActive: activeId === seatId,
       stacks: p.mat.stacks,
+      era: s.era,
       tileCatalogue: s.tileCatalogue,
     };
   }, shallowEqual);
@@ -109,10 +110,18 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
       maximizable
     >
       <div className="seat-stats">
-        <span>£{view.money}</span>
-        <span>{view.vp} VP</span>
-        <span>L{stepToLevel(view.incomeStep)}</span>
-        <span>×{view.linkSupply}</span>
+        <span title="Money">£{view.money}</span>
+        <span title="Victory points">{view.vp} VP</span>
+        <span title="Income level (step)">
+          L{stepToLevel(view.incomeStep)}
+        </span>
+        <span
+          className="seat-stats__link"
+          title={`${view.era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`}
+        >
+          <LinkSupplyGlyph era={view.era} color={view.pawnColor} />
+          ×{view.linkSupply}
+        </span>
       </div>
       <div className="mat-grid">
         {INDUSTRY_ORDER.map((industry) => {
@@ -227,4 +236,57 @@ function countBy(
   const m = new Map<IndustryName, number>();
   for (const ind of industries) m.set(ind, (m.get(ind) ?? 0) + 1);
   return m;
+}
+
+function LinkSupplyGlyph({
+  era,
+  color,
+}: {
+  era: "CANAL" | "RAIL";
+  color: string;
+}) {
+  // Boat-ish stub for canal era, train-ish rect for rail era. Both sit
+  // inline with the stats text and pick up the seat's pawn colour.
+  if (era === "CANAL") {
+    return (
+      <svg
+        width={16}
+        height={10}
+        viewBox="0 0 16 10"
+        aria-hidden
+        style={{ verticalAlign: "middle" }}
+      >
+        <path
+          d="M1 5 Q1 8 4 8 L12 8 Q15 8 15 5 Z"
+          fill={color}
+          stroke="#1a1a1a"
+          strokeWidth={0.8}
+        />
+        <line x1="8" y1="2" x2="8" y2="5" stroke="#1a1a1a" strokeWidth={1} />
+        <polygon points="8,2 13,3.5 8,5" fill={color} stroke="#1a1a1a" strokeWidth={0.6} />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width={18}
+      height={10}
+      viewBox="0 0 18 10"
+      aria-hidden
+      style={{ verticalAlign: "middle" }}
+    >
+      <rect
+        x={1}
+        y={2}
+        width={14}
+        height={6}
+        rx={1}
+        fill={color}
+        stroke="#1a1a1a"
+        strokeWidth={0.8}
+      />
+      <circle cx={5} cy={9} r={1.4} fill="#1a1a1a" />
+      <circle cx={11} cy={9} r={1.4} fill="#1a1a1a" />
+    </svg>
+  );
 }
