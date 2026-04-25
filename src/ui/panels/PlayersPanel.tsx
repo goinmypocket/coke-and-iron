@@ -290,7 +290,7 @@ function MatLevelRow({
               <span className="mat-level-row__era">rail</span>
             ) : null}
             {spec.lightBulb ? (
-              <span className="mat-level-row__flag">no-dev</span>
+              <NoDevelopGlyph title="Cannot Develop" />
             ) : null}
           </>
         ) : null}
@@ -340,6 +340,42 @@ function nextPopLevel(
   const idx = stack[0];
   if (idx === undefined) return null;
   return catalogue[idx]?.level ?? null;
+}
+
+function NoDevelopGlyph({ title }: { title?: string }) {
+  // Small bulb icon with a diagonal strike-through. Stands in for the
+  // "light-bulb" property on tiles that cannot be Developed (§5.3).
+  return (
+    <svg
+      className="no-dev-glyph"
+      viewBox="0 0 12 12"
+      width={12}
+      height={12}
+      aria-label={title}
+    >
+      {title ? <title>{title}</title> : null}
+      {/* Bulb body */}
+      <path
+        d="M6 1.5 C 4 1.5 2.7 3 2.7 4.6 C 2.7 5.7 3.3 6.3 3.9 7.2 L 3.9 8.4 L 8.1 8.4 L 8.1 7.2 C 8.7 6.3 9.3 5.7 9.3 4.6 C 9.3 3 8 1.5 6 1.5 Z"
+        fill="#f0d050"
+        stroke="#1a1a1a"
+        strokeWidth={0.7}
+      />
+      {/* Bulb base */}
+      <rect x={4.2} y={8.4} width={3.6} height={1.4} fill="#888" stroke="#1a1a1a" strokeWidth={0.5} />
+      <rect x={4.6} y={9.8} width={2.8} height={0.8} fill="#888" stroke="#1a1a1a" strokeWidth={0.5} />
+      {/* Strike-through */}
+      <line
+        x1={1}
+        y1={11}
+        x2={11}
+        y2={1}
+        stroke="#b03030"
+        strokeWidth={1.4}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 function LinkSupplyGlyph({

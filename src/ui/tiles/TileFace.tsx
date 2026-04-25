@@ -301,18 +301,45 @@ function CornerIncome({ income }: { income: number }) {
 }
 
 function CornerLightBulb() {
-  // Discreet TL secondary flag — tiny circle indicating "no Develop".
+  // Tiny bulb-with-strikethrough centred along the top edge — signals
+  // "cannot Develop" without colliding with the corner badges (level
+  // TL, link points TR).
+  const cx = TILE / 2;
+  const cy = 3.5;
+  const w = 4.2;
+  const h = 4.2;
+  const left = cx - w / 2;
+  const top = cy - h / 2;
   return (
-    <circle
-      cx={TILE / 2}
-      cy={3}
-      r={1.3}
-      fill="#f0d050"
-      stroke="#1a1a1a"
-      strokeWidth={0.4}
-    >
+    <g style={{ pointerEvents: "none" }}>
       <title>Light-bulb — cannot Develop</title>
-    </circle>
+      <circle
+        cx={cx}
+        cy={cy - 0.4}
+        r={1.4}
+        fill="#f0d050"
+        stroke="#1a1a1a"
+        strokeWidth={0.3}
+      />
+      <rect
+        x={cx - 0.7}
+        y={cy + 0.8}
+        width={1.4}
+        height={0.6}
+        fill="#888"
+        stroke="#1a1a1a"
+        strokeWidth={0.2}
+      />
+      <line
+        x1={left}
+        y1={top + h}
+        x2={left + w}
+        y2={top}
+        stroke="#b03030"
+        strokeWidth={0.6}
+        strokeLinecap="round"
+      />
+    </g>
   );
 }
 
