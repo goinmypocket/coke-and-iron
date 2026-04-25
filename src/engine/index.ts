@@ -1,6 +1,16 @@
 export { Engine } from "./Engine";
 export { initialState } from "./initialState";
 export type { EngineConfigBundle } from "./initialState";
+export {
+  advanceSteps,
+  levelToHighestStep,
+  moveBackLevels,
+  stepToLevel,
+  MAX_INCOME_LEVEL,
+  MAX_INCOME_STEP,
+  MIN_INCOME_LEVEL,
+  MIN_INCOME_STEP,
+} from "./income";
 export { reduce } from "./reduce";
 export { makeRng, shuffle, randomInt } from "./rng";
 export type { Rng } from "./rng";

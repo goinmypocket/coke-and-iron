@@ -1,3 +1,4 @@
+import { stepToLevel } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 import type { PlayerId } from "../../engine";
@@ -28,6 +29,7 @@ export function PlayerStatePanel() {
             <th>£</th>
             <th>VP</th>
             <th>Inc step</th>
+            <th>Inc level</th>
             <th>Spent</th>
             <th>Order</th>
           </tr>
@@ -82,6 +84,7 @@ function PlayerRow({
       <td>£{row.money}</td>
       <td>{row.vp}</td>
       <td>{row.incomeStep}</td>
+      <td>{stepToLevel(row.incomeStep)}</td>
       <td>{row.spentThisRound}</td>
       <td>
         {ordinal}
