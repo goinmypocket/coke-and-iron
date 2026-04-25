@@ -90,9 +90,11 @@
 				490
 			],
 			"slots": [
-				"COAL_MINE",
-				"IRON_WORKS",
-				"COTTON_MILL"
+				"MANUFACTURER",
+				[
+					"MANUFACTURER",
+					"COAL_MINE"
+				]
 			]
 		},
 		{

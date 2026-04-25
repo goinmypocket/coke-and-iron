@@ -10,17 +10,22 @@ import type { CSSProperties } from "react";
 export function MoneyCoin({
   amount,
   size = 14,
+  x,
+  y,
   style,
 }: {
   amount: number;
   size?: number;
+  x?: number;
+  y?: number;
   style?: CSSProperties;
 }) {
-  // viewBox kept at 14×14 so the same constants drive both scales.
   return (
     <svg
       width={size}
       height={size}
+      x={x}
+      y={y}
       viewBox="0 0 14 14"
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
       aria-label={`£${amount}`}

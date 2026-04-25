@@ -25,7 +25,10 @@ import {
   INDUSTRY_ICON,
   INDUSTRY_LABEL as INDUSTRY_FULL_LABEL,
 } from "../industryIcons";
-import { CurrentIncomeIcon } from "../icons/IncomeIcons";
+import { CoalIcon } from "../icons/CoalIcon";
+import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
+import { IronIcon } from "../icons/IronIcon";
+import { LinkPointsIcon } from "../icons/LinkPointsIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
@@ -124,7 +127,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
           className="seat-stats__link"
           title={`${view.era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`}
         >
-          <LinkSupplyGlyph era={view.era} color={view.pawnColor} />
+          <LinkPointsIcon size={14} />
           ×{view.linkSupply}
         </span>
       </div>
@@ -321,12 +324,12 @@ function MatLevelRow({
       <div className="mat-level-row__costs">
         {spec ? (
           <>
-            <CostCoin amount={spec.costMoney} />
+            <MoneyCoin amount={spec.costMoney} size={13} />
             {Array.from({ length: spec.coalCost }).map((_, i) => (
-              <CostCube key={`c${i}`} kind="coal" />
+              <CoalIcon key={`c${i}`} size={13} />
             ))}
             {Array.from({ length: spec.ironCost }).map((_, i) => (
-              <CostCube key={`i${i}`} kind="iron" />
+              <IronIcon key={`i${i}`} size={13} />
             ))}
           </>
         ) : null}
@@ -342,6 +345,7 @@ function MatLevelRow({
             ownerColor={pawnColor}
             face="unflipped"
             resources={matResources}
+            stackCount={count}
           />
         </svg>
       ) : (
@@ -352,9 +356,6 @@ function MatLevelRow({
       ) : (
         <div className="mat-side-col mat-side-col--placeholder" />
       )}
-      <div className="mat-level-row__count" title="Tiles remaining at this level">
-        {pickCount > 0 ? `×${pickCount}/${count}` : `×${count}`}
-      </div>
     </div>
   );
 }
@@ -374,68 +375,6 @@ function matCapacityFor(
     return spec.resourceCapacityRail;
   }
   return spec.resourceCapacity;
-}
-
-// Cost-column icons stack vertically beside the tile. Three icons
-// max (money + at most 2 cubes total since coalCost + ironCost
-// never exceeds 2 in the published config), so each is sized to
-// roughly TILE / 3 so the stack height matches the tile.
-const COST_ICON = 9;
-
-function CostCoin({ amount }: { amount: number }) {
-  return (
-    <svg
-      className="mat-cost__icon"
-      viewBox={`0 0 ${COST_ICON} ${COST_ICON}`}
-      width={COST_ICON}
-      height={COST_ICON}
-      aria-hidden
-    >
-      <circle
-        cx={COST_ICON / 2}
-        cy={COST_ICON / 2}
-        r={COST_ICON / 2 - 0.4}
-        fill="#d4a017"
-        stroke="#1a1a1a"
-        strokeWidth={0.5}
-      />
-      <text
-        x={COST_ICON / 2}
-        y={COST_ICON / 2 + 2}
-        textAnchor="middle"
-        fontSize={5.5}
-        fontWeight={700}
-        fill="#1a1a1a"
-      >
-        {amount}
-      </text>
-    </svg>
-  );
-}
-
-function CostCube({ kind }: { kind: "coal" | "iron" }) {
-  // Same stroke treatment for both kinds so the cubes read the same
-  // visual size regardless of fill colour.
-  const fill = kind === "coal" ? "#1a1a1a" : "#d97706";
-  return (
-    <svg
-      className="mat-cost__icon"
-      viewBox={`0 0 ${COST_ICON} ${COST_ICON}`}
-      width={COST_ICON}
-      height={COST_ICON}
-      aria-hidden
-    >
-      <rect
-        x={0.7}
-        y={0.7}
-        width={COST_ICON - 1.4}
-        height={COST_ICON - 1.4}
-        fill={fill}
-        stroke="#1a1a1a"
-        strokeWidth={0.5}
-      />
-    </svg>
-  );
 }
 
 function countBy(
@@ -478,53 +417,3 @@ function nextPopLevel(
   return catalogue[idx]?.level ?? null;
 }
 
-function LinkSupplyGlyph({
-  era,
-  color,
-}: {
-  era: "CANAL" | "RAIL";
-  color: string;
-}) {
-  if (era === "CANAL") {
-    return (
-      <svg
-        width={16}
-        height={10}
-        viewBox="0 0 16 10"
-        aria-hidden
-        style={{ verticalAlign: "middle" }}
-      >
-        <path
-          d="M1 5 Q1 8 4 8 L12 8 Q15 8 15 5 Z"
-          fill={color}
-          stroke="#1a1a1a"
-          strokeWidth={0.8}
-        />
-        <line x1="8" y1="2" x2="8" y2="5" stroke="#1a1a1a" strokeWidth={1} />
-        <polygon points="8,2 13,3.5 8,5" fill={color} stroke="#1a1a1a" strokeWidth={0.6} />
-      </svg>
-    );
-  }
-  return (
-    <svg
-      width={18}
-      height={10}
-      viewBox="0 0 18 10"
-      aria-hidden
-      style={{ verticalAlign: "middle" }}
-    >
-      <rect
-        x={1}
-        y={2}
-        width={14}
-        height={6}
-        rx={1}
-        fill={color}
-        stroke="#1a1a1a"
-        strokeWidth={0.8}
-      />
-      <circle cx={5} cy={9} r={1.4} fill="#1a1a1a" />
-      <circle cx={11} cy={9} r={1.4} fill="#1a1a1a" />
-    </svg>
-  );
-}

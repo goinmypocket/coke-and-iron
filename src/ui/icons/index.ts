@@ -1,0 +1,9 @@
+export { CoalIcon } from "./CoalIcon";
+export { IronIcon } from "./IronIcon";
+export { BeerIcon } from "./BeerIcon";
+export { IncomeGainedIcon } from "./IncomeGainedIcon";
+export { CurrentIncomeIcon } from "./CurrentIncomeIcon";
+export { VictoryPointsIcon } from "./VictoryPointsIcon";
+export { LinkPointsIcon } from "./LinkPointsIcon";
+export { DevelopIcon } from "./DevelopIcon";
+export { MoneyCoin } from "./MoneyCoin";

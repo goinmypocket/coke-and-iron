@@ -37,7 +37,13 @@ import type {
   PlacedIndustryTile,
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
-import { IncomeIncreaseGlyph } from "../icons/IncomeIcons";
+import { BeerIcon } from "../icons/BeerIcon";
+import { CoalIcon } from "../icons/CoalIcon";
+import { DevelopIcon } from "../icons/DevelopIcon";
+import { IncomeGainedIcon } from "../icons/IncomeGainedIcon";
+import { IronIcon } from "../icons/IronIcon";
+import { MoneyCoin } from "../icons/MoneyCoin";
+import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
@@ -602,36 +608,24 @@ function SlotAcceptDisplay({ accept }: { accept: MerchantTileAccept }) {
 }
 
 function BeerIndicator({ hasBeer }: { hasBeer: boolean }) {
-  // Small square below the slot. Beer icon when present, empty
-  // outline when consumed.
+  // Slot for the merchant's beer barrel below each D. Renders a
+  // BeerIcon when present, an outline placeholder when consumed.
   const x = (TILE - BEER_BOX) / 2;
   const y = TILE + 2;
+  if (hasBeer) {
+    return <BeerIcon x={x} y={y} size={BEER_BOX} />;
+  }
   return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={BEER_BOX}
-        height={BEER_BOX}
-        fill={hasBeer ? "#fffdf6" : "transparent"}
-        stroke="#7d6a3a"
-        strokeWidth={0.7}
-        opacity={hasBeer ? 1 : 0.55}
-      />
-      {hasBeer ? (
-        <ellipse
-          cx={x + BEER_BOX / 2}
-          cy={y + BEER_BOX / 2}
-          rx={BEER_BOX / 2 - 2}
-          ry={BEER_BOX / 2 - 1.5}
-          fill="#c79b3f"
-          stroke="#5b4516"
-          strokeWidth={0.5}
-        >
-          <title>Merchant beer barrel available</title>
-        </ellipse>
-      ) : null}
-    </g>
+    <rect
+      x={x}
+      y={y}
+      width={BEER_BOX}
+      height={BEER_BOX}
+      fill="transparent"
+      stroke="#7d6a3a"
+      strokeWidth={0.7}
+      opacity={0.55}
+    />
   );
 }
 
@@ -642,76 +636,33 @@ function BonusBadge({
   bonus: string;
   value: number;
 }) {
-  // Renders the bonus icon centred at (0, 0) with the value overlaid.
+  // Renders the bonus icon centred at (0, 0). The four bonuses share
+  // their respective shared icon components.
   if (bonus === "VP") {
-    const r = 6;
-    return (
-      <g>
-        <polygon
-          points={hexPoints(0, 0, r)}
-          fill="#fffdf6"
-          stroke="#1a1a1a"
-          strokeWidth={0.6}
-        />
-        <text
-          x={0}
-          y={2.2}
-          textAnchor="middle"
-          fontSize={6}
-          fontWeight={700}
-          fill="#1a1a1a"
-        >
-          {value}
-        </text>
-      </g>
-    );
+    return <VictoryPointsIcon x={-7} y={-7} size={14} amount={value} />;
   }
   if (bonus === "MONEY") {
-    return (
-      <g>
-        <circle r={6} fill="#d4a017" stroke="#1a1a1a" strokeWidth={0.6} />
-        <text
-          x={0}
-          y={2.2}
-          textAnchor="middle"
-          fontSize={6}
-          fontWeight={700}
-          fill="#1a1a1a"
-        >
-          {value}
-        </text>
-      </g>
-    );
+    return <MoneyCoin amount={value} size={14} x={-7} y={-7} />;
   }
   if (bonus === "INCOME") {
-    return <IncomeIncreaseGlyph cx={0} cy={0} size={14} amount={value} />;
+    return <IncomeGainedIcon x={-7} y={-7} size={14} amount={value} />;
   }
-  // DEVELOP — light bulb (not crossed out: bonus, not constraint)
+  // DEVELOP — uncrossed light-bulb glyph + the develop count to its right.
   return (
     <g>
-      <circle cx={0} cy={-1.5} r={3.6} fill="#f0d050" stroke="#1a1a1a" strokeWidth={0.6} />
-      <rect x={-1.6} y={2} width={3.2} height={1.4} fill="#888" stroke="#1a1a1a" strokeWidth={0.4} />
-      <rect x={-1.2} y={3.4} width={2.4} height={0.9} fill="#888" stroke="#1a1a1a" strokeWidth={0.4} />
+      <DevelopIcon x={-9} y={-7} size={14} />
       <text
-        x={6}
+        x={7}
         y={3}
-        fontSize={5.5}
+        fontSize={6}
         fontWeight={700}
         fill="#1a1a1a"
+        style={{ pointerEvents: "none" }}
       >
         {value}
       </text>
     </g>
   );
-}
-
-function hexPoints(cx: number, cy: number, r: number): string {
-  const pts: [number, number][] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - Math.PI / 2;
-    pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
-  }
-  return pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
 }
 
 function LinkToken({

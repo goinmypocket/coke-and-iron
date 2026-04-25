@@ -12,7 +12,7 @@ import { rankSeats } from "../../engine";
 import type { GameState, RankReason } from "../../engine";
 import { useEngine } from "../hooks/useEngine";
 import { useGameState } from "../hooks/useGameState";
-import { CurrentIncomeIcon } from "../icons/IncomeIcons";
+import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 
 const TIE_BREAK_LABEL: Readonly<Record<RankReason, string>> = {

@@ -3,19 +3,19 @@
 // is drawn (board, mat). Always renders as a square of TILE × TILE
 // units in the owner's pawn colour.
 //
-// Two faces:
-//   - "unflipped" — TL level, TR crossed-out beer (if beerToSell > 0),
-//     BL production count cube + N (Coal/Iron/Brewery only), BR
-//     no-Develop bulb (Pottery light-bulb only), centre industry
-//     icon. The build cost (money / coal / iron) is NOT on the tile —
-//     it lives in the mat row's cost-icon column (§11.3).
-//   - "flipped" — TL level, TR link points, BL VP hex, BR income
-//     arrow, centre industry icon. Top half full pawn colour, bottom
-//     half a paler tint of the same colour.
+// All metadata glyphs (cubes / barrels / VP / link points / income /
+// no-develop) come from the shared icon components in src/ui/icons/.
+// This file only handles the tile background and corner positioning.
 // =============================================================================
 
 import type { IndustryName, IndustryTileSpec } from "../../engine";
-import { IncomeIncreaseGlyph } from "../icons/IncomeIcons";
+import { BeerIcon } from "../icons/BeerIcon";
+import { CoalIcon } from "../icons/CoalIcon";
+import { DevelopIcon } from "../icons/DevelopIcon";
+import { IncomeGainedIcon } from "../icons/IncomeGainedIcon";
+import { IronIcon } from "../icons/IronIcon";
+import { LinkPointsIcon } from "../icons/LinkPointsIcon";
+import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { INDUSTRY_ICON } from "../industryIcons";
 
 export const TILE = 28;
@@ -37,14 +37,23 @@ interface TileFaceProps {
   ownerColor: string;
   face: "unflipped" | "flipped";
   /** Live resource count drawn on the unflipped face for Coal/Iron/
-   *  Brewery — cubes pack column-major from the bottom-right going
-   *  up max two rows then leftward. Mat callers pass the level's
-   *  capacity; board callers pass live remaining. Ignored for
-   *  non-resource industries and for the flipped face. */
+   *  Brewery — cubes/barrels pack column-major from the bottom-right
+   *  going up max two rows then leftward. Mat callers pass the level's
+   *  capacity; board callers pass live remaining. */
   resources?: number;
+  /** Optional count of remaining tiles at this level — rendered as
+   *  N small dots at the bottom-left of the unflipped face. Used on
+   *  the player mat. */
+  stackCount?: number;
 }
 
-export function TileFace({ spec, ownerColor, face, resources }: TileFaceProps) {
+export function TileFace({
+  spec,
+  ownerColor,
+  face,
+  resources,
+  stackCount,
+}: TileFaceProps) {
   if (face === "flipped") {
     return <FlippedFace spec={spec} ownerColor={ownerColor} />;
   }
@@ -53,6 +62,7 @@ export function TileFace({ spec, ownerColor, face, resources }: TileFaceProps) {
       spec={spec}
       ownerColor={ownerColor}
       resources={resources ?? 0}
+      stackCount={stackCount}
     />
   );
 }
@@ -79,9 +89,18 @@ function FlippedFace({
         strokeWidth={0.7}
       />
       <CornerLevel level={spec.level} fill="#fffdf6" />
-      <CornerLinkPoints linkPoints={spec.linkPoints} ownerColor={ownerColor} />
-      <CornerVp vp={spec.vp} />
-      <CornerIncome income={spec.incomeBonus} />
+      <LinkCascade count={spec.linkPoints} x={TILE - 2} y={4} alignRight />
+      {spec.vp > 0 ? (
+        <VictoryPointsIcon x={1} y={TILE - 9} size={8} amount={spec.vp} />
+      ) : null}
+      {spec.incomeBonus > 0 ? (
+        <IncomeGainedIcon
+          x={TILE - 9}
+          y={TILE - 9}
+          size={8}
+          amount={spec.incomeBonus}
+        />
+      ) : null}
       <CenterIcon industry={spec.industry} y={TILE * 0.62} />
     </g>
   );
@@ -91,10 +110,12 @@ function UnflippedFace({
   spec,
   ownerColor,
   resources,
+  stackCount,
 }: {
   spec: IndustryTileSpec;
   ownerColor: string;
   resources: number;
+  stackCount: number | undefined;
 }) {
   const tint = mix(ownerColor, "#fffdf6", 0.7);
   return (
@@ -109,85 +130,82 @@ function UnflippedFace({
         strokeWidth={0.7}
       />
       <CornerLevel level={spec.level} fill="#1a1a1a" />
-      {spec.beerToSell > 0 ? (
-        <CornerBeerCrossed count={spec.beerToSell} />
+      <CornerBeerCost count={spec.beerToSell} />
+      {spec.lightBulb ? (
+        <DevelopIcon
+          x={TILE - 7.5}
+          y={TILE - 7.5}
+          size={7}
+          consumption
+        />
       ) : null}
-      {spec.lightBulb ? <CornerNoDev /> : null}
       <CenterIcon industry={spec.industry} y={TILE * 0.5} />
       {carriesResources(spec.industry) && resources > 0 ? (
-        <ResourceCubes industry={spec.industry} count={resources} />
+        <ResourceTokens industry={spec.industry} count={resources} />
+      ) : null}
+      {stackCount !== undefined && stackCount > 0 ? (
+        <StackDots count={stackCount} />
       ) : null}
     </g>
   );
 }
 
-/** Bottom-right packed cube stack drawn directly on the tile face.
- *  Cubes pack column-major from the bottom-right corner, going up to
- *  a max of 2 rows before starting a new column to the left. */
-function ResourceCubes({
+function CornerBeerCost({ count }: { count: number }) {
+  if (count <= 0) return null;
+  // Pack up to 2 BeerIcon (consumption variant) at TR. count > 2 is
+  // not produced by the published catalogue, but if it ever happens
+  // we wrap to a second row.
+  const size = 5;
+  const tokens: JSX.Element[] = [];
+  for (let i = 0; i < count; i++) {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    tokens.push(
+      <BeerIcon
+        key={i}
+        x={TILE - size - 1 - col * (size + 0.5)}
+        y={1 + row * (size + 0.5)}
+        size={size}
+        consumption
+      />,
+    );
+  }
+  return <g>{tokens}</g>;
+}
+
+/** Bottom-right packed token stack drawn on the unflipped face. Coal,
+ *  iron, beer share the same packing geometry; the kind picks the
+ *  glyph to render. */
+function ResourceTokens({
   industry,
   count,
 }: {
   industry: IndustryName;
   count: number;
 }) {
-  const cubeSize = 3.6;
-  const gapH = 0.7;
-  const gapV = 0.7;
-  const inset = 1.2;
+  const size = 4.4;
+  const gapH = 0.6;
+  const gapV = 0.6;
+  const inset = 1;
   const rightEdge = TILE - inset;
   const bottomEdge = TILE - inset;
-  const colStep = cubeSize + gapH;
-  const rowStep = cubeSize + gapV;
+  const colStep = size + gapH;
+  const rowStep = size + gapV;
   const tokens: JSX.Element[] = [];
   for (let i = 0; i < count; i++) {
     const col = Math.floor(i / 2);
     const row = i % 2;
-    const x = rightEdge - cubeSize - col * colStep;
-    const y = bottomEdge - cubeSize - row * rowStep;
-    tokens.push(<TileCube key={i} industry={industry} x={x} y={y} size={cubeSize} />);
+    const x = rightEdge - size - col * colStep;
+    const y = bottomEdge - size - row * rowStep;
+    if (industry === "COAL_MINE") {
+      tokens.push(<CoalIcon key={i} x={x} y={y} size={size} />);
+    } else if (industry === "IRON_WORKS") {
+      tokens.push(<IronIcon key={i} x={x} y={y} size={size} />);
+    } else {
+      tokens.push(<BeerIcon key={i} x={x} y={y} size={size} />);
+    }
   }
-  return <g style={{ pointerEvents: "none" }}>{tokens}</g>;
-}
-
-function TileCube({
-  industry,
-  x,
-  y,
-  size,
-}: {
-  industry: IndustryName;
-  x: number;
-  y: number;
-  size: number;
-}) {
-  if (industry === "BREWERY") {
-    return (
-      <ellipse
-        cx={x + size / 2}
-        cy={y + size / 2}
-        rx={size / 2}
-        ry={size / 2 + 0.3}
-        fill="#c79b3f"
-        stroke="#5b4516"
-        strokeWidth={0.25}
-      />
-    );
-  }
-  // Coal and iron use the SAME stroke colour and width so the cubes
-  // read as the same visual size at the same TILE level.
-  const fill = industry === "COAL_MINE" ? "#1a1a1a" : "#d97706";
-  return (
-    <rect
-      x={x}
-      y={y}
-      width={size}
-      height={size}
-      fill={fill}
-      stroke="#1a1a1a"
-      strokeWidth={0.25}
-    />
-  );
+  return <g>{tokens}</g>;
 }
 
 function CornerLevel({ level, fill }: { level: number; fill: string }) {
@@ -205,148 +223,29 @@ function CornerLevel({ level, fill }: { level: number; fill: string }) {
   );
 }
 
-function CornerLinkPoints({
-  linkPoints,
-  ownerColor,
+/** Cascade of N link icons starting at (x, y). When alignRight, x is
+ *  the right edge and icons march leftward; otherwise x is the left
+ *  edge. */
+function LinkCascade({
+  count,
+  x,
+  y,
+  alignRight = false,
 }: {
-  linkPoints: number;
-  ownerColor: string;
+  count: number;
+  x: number;
+  y: number;
+  alignRight?: boolean;
 }) {
-  if (linkPoints <= 0) return null;
-  const dots: JSX.Element[] = [];
-  for (let i = 0; i < linkPoints; i++) {
-    dots.push(
-      <circle
-        key={i}
-        cx={TILE - 3 - i * 3}
-        cy={3.5}
-        r={1.1}
-        fill="#fffdf6"
-        stroke={ownerColor}
-        strokeWidth={0.4}
-      />,
-    );
+  if (count <= 0) return null;
+  const size = 5.5;
+  const step = size - 1.5;
+  const tokens: JSX.Element[] = [];
+  for (let i = 0; i < count; i++) {
+    const ix = alignRight ? x - size - i * step : x + i * step;
+    tokens.push(<LinkPointsIcon key={i} x={ix} y={y} size={size} />);
   }
-  return <g>{dots}</g>;
-}
-
-function CornerBeerCrossed({ count }: { count: number }) {
-  // TR: beer-barrel ellipse with diagonal red strikethrough.
-  const cx = TILE - 5.5;
-  const cy = 5.5;
-  const rx = 3.2;
-  const ry = 2.6;
-  return (
-    <g style={{ pointerEvents: "none" }}>
-      <title>Beer cost — consumed when this tile sells</title>
-      <ellipse
-        cx={cx}
-        cy={cy}
-        rx={rx}
-        ry={ry}
-        fill="#c79b3f"
-        stroke="#5b4516"
-        strokeWidth={0.4}
-      />
-      {/* Two horizontal stave lines for barrel character. */}
-      <line x1={cx - rx + 0.3} y1={cy - 0.5} x2={cx + rx - 0.3} y2={cy - 0.5} stroke="#5b4516" strokeWidth={0.25} />
-      <line x1={cx - rx + 0.3} y1={cy + 0.7} x2={cx + rx - 0.3} y2={cy + 0.7} stroke="#5b4516" strokeWidth={0.25} />
-      <line
-        x1={cx - rx - 0.4}
-        y1={cy + ry + 0.4}
-        x2={cx + rx + 0.4}
-        y2={cy - ry - 0.4}
-        stroke="#b03030"
-        strokeWidth={0.9}
-        strokeLinecap="round"
-      />
-      {count > 1 ? (
-        <text
-          x={cx + rx + 1.2}
-          y={cy + 1.5}
-          fontSize={3.3}
-          fontWeight={700}
-          fill="#1a1a1a"
-        >
-          {count}
-        </text>
-      ) : null}
-    </g>
-  );
-}
-
-function CornerVp({ vp }: { vp: number }) {
-  if (vp <= 0) return null;
-  const cx = 5;
-  const cy = TILE - 5;
-  const r = 4;
-  const points = hexPoints(cx, cy, r);
-  return (
-    <g>
-      <polygon
-        points={points}
-        fill="#fffdf6"
-        stroke="#1a1a1a"
-        strokeWidth={0.5}
-      />
-      <text
-        x={cx}
-        y={cy + 1.5}
-        fontSize={4}
-        fontWeight={700}
-        textAnchor="middle"
-        fill="#1a1a1a"
-        style={{ pointerEvents: "none" }}
-      >
-        {vp}
-      </text>
-    </g>
-  );
-}
-
-function CornerIncome({ income }: { income: number }) {
-  if (income <= 0) return null;
-  return (
-    <IncomeIncreaseGlyph cx={TILE - 5} cy={TILE - 5} size={9} amount={income} />
-  );
-}
-
-function CornerNoDev() {
-  // BR: small bulb-with-strikethrough. Yellow bulb body + grey base
-  // + diagonal red strike. Only Pottery light-bulb tiles render this.
-  const cx = TILE - 4;
-  const cy = TILE - 4.3;
-  return (
-    <g style={{ pointerEvents: "none" }}>
-      <title>Cannot Develop</title>
-      <circle
-        cx={cx}
-        cy={cy - 0.5}
-        r={1.7}
-        fill="#f0d050"
-        stroke="#1a1a1a"
-        strokeWidth={0.3}
-      />
-      <rect
-        x={cx - 0.9}
-        y={cy + 1}
-        width={1.8}
-        height={0.7}
-        fill="#888"
-        stroke="#1a1a1a"
-        strokeWidth={0.2}
-      />
-      <line
-        x1={cx - 2.3}
-        y1={cy + 2.3}
-        x2={cx + 2.3}
-        y2={cy - 2.3}
-        stroke="#b03030"
-        strokeWidth={0.85}
-        strokeLinecap="round"
-      />
-    </g>
-  );
+  return <g>{tokens}</g>;
 }
 
 function CenterIcon({
@@ -369,21 +268,33 @@ function CenterIcon({
   );
 }
 
+/** N small dots at the bottom-left of an unflipped tile, indicating
+ *  the count of remaining tiles at this level on the mat. */
+function StackDots({ count }: { count: number }) {
+  const r = 1.1;
+  const step = 2 * r + 1;
+  const startX = 2 + r;
+  const dots: JSX.Element[] = [];
+  for (let i = 0; i < count; i++) {
+    dots.push(
+      <circle
+        key={i}
+        cx={startX + i * step}
+        cy={TILE - 2.5}
+        r={r}
+        fill="#1a1a1a"
+      />,
+    );
+  }
+  return <g style={{ pointerEvents: "none" }}>{dots}</g>;
+}
+
 export function carriesResources(industry: IndustryName): boolean {
   return (
     industry === "COAL_MINE" ||
     industry === "IRON_WORKS" ||
     industry === "BREWERY"
   );
-}
-
-function hexPoints(cx: number, cy: number, r: number): string {
-  const pts: [number, number][] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - Math.PI / 2;
-    pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
-  }
-  return pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
 }
 
 function mix(a: string, b: string, ratio: number): string {
