@@ -65,10 +65,9 @@ Status keys:
   warm-gold glow on the markets widget during a coal-source
   picker + clickable cubes-as-buy.
 - **[ui] Players panel polish (§11.3).** Sub-panel + minimal mat
-  grid (six stacks, top-tile click-target) shipped. Still TODO:
-  Manufacturer spanning two columns (1–5 / 6–8), Pottery as 5
-  fixed-level rows, full cost / bonus margins, link-supply icon
-  in the stats bar.
+  grid + Manufacturer spanning two columns (L1-5 / L6-8) +
+  Pottery as 5 fixed-level rows + full cost / bonus margins per
+  row + link-supply icon in the stats bar all shipped.
 - **[ui] Remaining cards polish (§11.6).** Inventory + face-down
   fold-in + muted zero-rows for canonical cards no longer in the
   unseen pool + district-colour swatch on each group label all
@@ -97,10 +96,11 @@ Status keys:
   TODO: explicit merchant picker when multiple merchants accept
   the same tile (today the wizard auto-picks the first matching
   slot).
-- **[ui] IDLE card-first polish.** Stash + auto-prefill shipped.
-  Future polish: highlight only action buttons that the stashed
-  card could legally authorise (e.g. a Brewery industry card
-  greys Network and Sell).
+- **[ui] IDLE card-first polish.** Stash + auto-prefill +
+  suggested-actions hinting (warm-gold border on actions where
+  the stashed card naturally fits, dimmed on actions where the
+  card is wasteful — e.g. a Brewery industry card highlights
+  Build/Develop and dims Network/Sell) all shipped.
 
 ---
 

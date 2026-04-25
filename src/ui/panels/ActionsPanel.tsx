@@ -8,13 +8,32 @@
 // =============================================================================
 
 import { toast } from "sonner";
+import type { Card } from "../../engine";
 import { reasonToText } from "../affordances/toast";
 import { useCanUndo, useEngine } from "../hooks/useEngine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 
-const NOT_IMPLEMENTED = "Wizard not yet implemented in this milestone.";
+type MainAction = "BUILD" | "NETWORK" | "DEVELOP" | "SELL";
+
+/** When the player has stashed a card card-first, we highlight only the
+ * actions where that card naturally fits — e.g. a single-industry
+ * Brewery card lights up Build + Develop and dims Network + Sell.
+ * The dimmed actions are still clickable (the engine accepts any card
+ * as discard fodder for Network / Sell / Develop), so this is a visual
+ * hint rather than a hard gate. */
+function suggestedActionsForCard(card: Card): ReadonlySet<MainAction> {
+  switch (card.kind) {
+    case "WILD_LOCATION":
+    case "WILD_INDUSTRY":
+      return new Set<MainAction>(["BUILD", "NETWORK", "DEVELOP", "SELL"]);
+    case "LOCATION":
+      return new Set<MainAction>(["BUILD"]);
+    case "INDUSTRY":
+      return new Set<MainAction>(["BUILD", "DEVELOP"]);
+  }
+}
 
 export function ActionsPanel() {
   const engine = useEngine();
@@ -26,6 +45,24 @@ export function ActionsPanel() {
     canEndTurn: s.actionsRemaining === 0 && s.pendingShortfalls.length === 0 && s.phase === "PLAYER_TURNS",
     activePlayerId: s.turnOrder[s.currentPlayerIndex] ?? null,
   }), shallowEqual);
+  const activeHand = useGameState(
+    (s) => {
+      const id = s.turnOrder[s.currentPlayerIndex];
+      if (id === undefined) return null;
+      return s.players.find((p) => p.id === id)?.hand ?? null;
+    },
+    (a, b) => a === b,
+  );
+
+  const stashedIndex =
+    wizard.state.phase === "IDLE" ? wizard.state.stashedCardIndex : null;
+  const stashedCard =
+    stashedIndex !== null && activeHand
+      ? activeHand[stashedIndex] ?? null
+      : null;
+  const suggested = stashedCard
+    ? suggestedActionsForCard(stashedCard)
+    : null;
 
   const wizardActive = wizard.state.phase !== "IDLE";
   const isPass = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "PASS";
@@ -74,24 +111,32 @@ export function ActionsPanel() {
             label="Build"
             active={isBuild}
             disabled={!flags.canAct}
+            suggested={suggested?.has("BUILD") ?? false}
+            dimmed={suggested ? !suggested.has("BUILD") : false}
             onClick={wizard.startBuild}
           />
           <ActionButton
             label="Network"
             active={isNetwork}
             disabled={!flags.canAct}
+            suggested={suggested?.has("NETWORK") ?? false}
+            dimmed={suggested ? !suggested.has("NETWORK") : false}
             onClick={wizard.startNetwork}
           />
           <ActionButton
             label="Develop"
             active={isDevelop}
             disabled={!flags.canAct}
+            suggested={suggested?.has("DEVELOP") ?? false}
+            dimmed={suggested ? !suggested.has("DEVELOP") : false}
             onClick={wizard.startDevelop}
           />
           <ActionButton
             label="Sell"
             active={isSell}
             disabled={!flags.canAct}
+            suggested={suggested?.has("SELL") ?? false}
+            dimmed={suggested ? !suggested.has("SELL") : false}
             onClick={wizard.startSell}
           />
           <ActionButton
@@ -157,17 +202,23 @@ function ActionButton({
   onClick,
   disabled = false,
   active = false,
+  suggested = false,
+  dimmed = false,
   tooltip,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
   active?: boolean;
+  suggested?: boolean;
+  dimmed?: boolean;
   tooltip?: string;
 }) {
   const className = [
     "action-btn",
     active ? "action-btn--active" : "",
+    suggested && !active ? "action-btn--suggested" : "",
+    dimmed && !active ? "action-btn--dimmed" : "",
   ]
     .filter(Boolean)
     .join(" ");

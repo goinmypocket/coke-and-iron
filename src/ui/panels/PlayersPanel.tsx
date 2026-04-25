@@ -3,15 +3,21 @@
 // player. Each sub-panel paints its outer border in the seat's pawn colour
 // and exposes a stats bar + mat grid.
 //
-// Mat grid (this milestone): six vertical stacks, one per industry, each
-// showing the top-of-stack tile and the count of remaining tiles. Top
-// tiles are click-targets when a wizard is asking for an industry pick;
-// lit with a warm-gold border when picked. Light-bulb tiles render with a
-// muted marker.
+// Mat layout (per published mat shape):
+//   Coal / Iron / Brewery / Cotton — single-column stack: top-of-stack
+//      tile + remaining count below. Top tile is the click-target when
+//      a wizard is asking for an industry pick.
+//   Manufacturer — spans two columns. Eight fixed level rows laid out
+//      L1..L5 in the left column, L6..L8 in the right. Each row shows
+//      the level's full cost / VP / income / link-points / beer-to-sell
+//      with a count badge. The lowest level with any remaining tile is
+//      the click-target (mirrors stack[0]).
+//   Pottery — single column with five fixed level rows (L1..L5). Same
+//      click-target semantics. L1 / L3 are light-bulb (no Develop).
 //
-// Out of scope here (deferred): Manufacturer spanning two columns,
-// Pottery as 5 fixed level rows, full cost / bonus margins, link-supply
-// icon. The wizard logic only needs the top tile to be clickable.
+// Picking a tile dispatches wizard.pickIndustry(seatId, industry); the
+// engine pops stack[0] regardless of which row the user clicked, so the
+// click target is the row the engine would actually consume.
 // =============================================================================
 import { stepToLevel } from "../../engine";
 import type {
@@ -27,13 +33,11 @@ import {
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 
-const INDUSTRY_ORDER: readonly IndustryName[] = [
+const SIMPLE_INDUSTRY_ORDER: readonly IndustryName[] = [
   "COAL_MINE",
   "IRON_WORKS",
   "BREWERY",
   "COTTON_MILL",
-  "MANUFACTURER",
-  "POTTERY",
 ];
 
 const INDUSTRY_LABEL: Readonly<Record<IndustryName, string>> = {
@@ -44,6 +48,10 @@ const INDUSTRY_LABEL: Readonly<Record<IndustryName, string>> = {
   MANUFACTURER: "Manuf.",
   POTTERY: "Pottery",
 };
+
+const MANUFACTURER_LEFT: readonly number[] = [1, 2, 3, 4, 5];
+const MANUFACTURER_RIGHT: readonly number[] = [6, 7, 8];
+const POTTERY_LEVELS: readonly number[] = [1, 2, 3, 4, 5];
 
 export function PlayersPanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
@@ -124,7 +132,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
         </span>
       </div>
       <div className="mat-grid">
-        {INDUSTRY_ORDER.map((industry) => {
+        {SIMPLE_INDUSTRY_ORDER.map((industry) => {
           const stack = view.stacks[industry];
           const topIdx = stack[0];
           const topSpec =
@@ -148,6 +156,20 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
             />
           );
         })}
+        <ManufacturerMat
+          stack={view.stacks.MANUFACTURER}
+          tileCatalogue={view.tileCatalogue}
+          pickCount={pickCounts.get("MANUFACTURER") ?? 0}
+          wantingIndustry={wantingIndustry}
+          onPick={() => wizard.pickIndustry(seatId, "MANUFACTURER")}
+        />
+        <PotteryMat
+          stack={view.stacks.POTTERY}
+          tileCatalogue={view.tileCatalogue}
+          pickCount={pickCounts.get("POTTERY") ?? 0}
+          wantingIndustry={wantingIndustry}
+          onPick={() => wizard.pickIndustry(seatId, "POTTERY")}
+        />
       </div>
     </Panel>
   );
@@ -236,6 +258,217 @@ function countBy(
   const m = new Map<IndustryName, number>();
   for (const ind of industries) m.set(ind, (m.get(ind) ?? 0) + 1);
   return m;
+}
+
+function levelCounts(
+  stack: readonly number[],
+  catalogue: readonly IndustryTileSpec[],
+): ReadonlyMap<number, number> {
+  const m = new Map<number, number>();
+  for (const idx of stack) {
+    const spec = catalogue[idx];
+    if (!spec) continue;
+    m.set(spec.level, (m.get(spec.level) ?? 0) + 1);
+  }
+  return m;
+}
+
+function specForLevel(
+  industry: IndustryName,
+  level: number,
+  catalogue: readonly IndustryTileSpec[],
+): IndustryTileSpec | null {
+  return (
+    catalogue.find((s) => s.industry === industry && s.level === level) ?? null
+  );
+}
+
+/** The next-to-pop level — i.e. the level of stack[0]. */
+function nextPopLevel(
+  stack: readonly number[],
+  catalogue: readonly IndustryTileSpec[],
+): number | null {
+  const idx = stack[0];
+  if (idx === undefined) return null;
+  return catalogue[idx]?.level ?? null;
+}
+
+function ManufacturerMat({
+  stack,
+  tileCatalogue,
+  pickCount,
+  wantingIndustry,
+  onPick,
+}: {
+  stack: readonly number[];
+  tileCatalogue: readonly IndustryTileSpec[];
+  pickCount: number;
+  wantingIndustry: boolean;
+  onPick: () => void;
+}) {
+  const counts = levelCounts(stack, tileCatalogue);
+  const nextLevel = nextPopLevel(stack, tileCatalogue);
+  const nextSpec =
+    nextLevel === null
+      ? null
+      : specForLevel("MANUFACTURER", nextLevel, tileCatalogue);
+  const clickable =
+    wantingIndustry && nextSpec !== null && !nextSpec.lightBulb;
+  return (
+    <div className="mat-stack mat-stack--mfg">
+      <div className="mat-stack__label">
+        <img
+          src={INDUSTRY_ICON.MANUFACTURER}
+          alt={INDUSTRY_FULL_LABEL.MANUFACTURER}
+          className="mat-stack__icon"
+        />
+        <span>Manufacturer</span>
+      </div>
+      <div className="mat-mfg-grid">
+        {MANUFACTURER_LEFT.map((level) => (
+          <LevelRow
+            key={`L${level}`}
+            level={level}
+            count={counts.get(level) ?? 0}
+            spec={specForLevel("MANUFACTURER", level, tileCatalogue)}
+            isNext={level === nextLevel}
+            picked={level === nextLevel && pickCount > 0}
+            pickCount={level === nextLevel ? pickCount : 0}
+            clickable={clickable && level === nextLevel}
+            onClick={clickable && level === nextLevel ? onPick : undefined}
+          />
+        ))}
+        {MANUFACTURER_RIGHT.map((level) => (
+          <LevelRow
+            key={`R${level}`}
+            level={level}
+            count={counts.get(level) ?? 0}
+            spec={specForLevel("MANUFACTURER", level, tileCatalogue)}
+            isNext={level === nextLevel}
+            picked={level === nextLevel && pickCount > 0}
+            pickCount={level === nextLevel ? pickCount : 0}
+            clickable={clickable && level === nextLevel}
+            onClick={clickable && level === nextLevel ? onPick : undefined}
+          />
+        ))}
+        {/* Two empty cells in the right column so col 2 row 4-5 stay blank. */}
+        <div className="mat-row mat-row--ghost" />
+        <div className="mat-row mat-row--ghost" />
+      </div>
+      <div className="mat-stack__remaining">×{stack.length}</div>
+    </div>
+  );
+}
+
+function PotteryMat({
+  stack,
+  tileCatalogue,
+  pickCount,
+  wantingIndustry,
+  onPick,
+}: {
+  stack: readonly number[];
+  tileCatalogue: readonly IndustryTileSpec[];
+  pickCount: number;
+  wantingIndustry: boolean;
+  onPick: () => void;
+}) {
+  const counts = levelCounts(stack, tileCatalogue);
+  const nextLevel = nextPopLevel(stack, tileCatalogue);
+  const nextSpec =
+    nextLevel === null
+      ? null
+      : specForLevel("POTTERY", nextLevel, tileCatalogue);
+  const clickable =
+    wantingIndustry && nextSpec !== null && !nextSpec.lightBulb;
+  return (
+    <div className="mat-stack mat-stack--pottery">
+      <div className="mat-stack__label">
+        <img
+          src={INDUSTRY_ICON.POTTERY}
+          alt={INDUSTRY_FULL_LABEL.POTTERY}
+          className="mat-stack__icon"
+        />
+        <span>Pottery</span>
+      </div>
+      <div className="mat-pottery-grid">
+        {POTTERY_LEVELS.map((level) => (
+          <LevelRow
+            key={level}
+            level={level}
+            count={counts.get(level) ?? 0}
+            spec={specForLevel("POTTERY", level, tileCatalogue)}
+            isNext={level === nextLevel}
+            picked={level === nextLevel && pickCount > 0}
+            pickCount={level === nextLevel ? pickCount : 0}
+            clickable={clickable && level === nextLevel}
+            onClick={clickable && level === nextLevel ? onPick : undefined}
+          />
+        ))}
+      </div>
+      <div className="mat-stack__remaining">×{stack.length}</div>
+    </div>
+  );
+}
+
+function LevelRow({
+  level,
+  count,
+  spec,
+  isNext,
+  picked,
+  pickCount,
+  clickable,
+  onClick,
+}: {
+  level: number;
+  count: number;
+  spec: IndustryTileSpec | null;
+  isNext: boolean;
+  picked: boolean;
+  pickCount: number;
+  clickable: boolean;
+  onClick: (() => void) | undefined;
+}) {
+  const cls = [
+    "mat-row",
+    count === 0 ? "mat-row--gone" : "",
+    isNext ? "mat-row--next" : "",
+    picked ? "mat-row--picked" : "",
+    clickable ? "mat-row--clickable" : "",
+    spec?.lightBulb ? "mat-row--lightbulb" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div
+      className={cls}
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+    >
+      <span className="mat-row__level">L{level}</span>
+      {spec ? (
+        <span className="mat-row__margins">
+          £{spec.costMoney}
+          {spec.coalCost > 0 ? ` ${spec.coalCost}c` : ""}
+          {spec.ironCost > 0 ? ` ${spec.ironCost}i` : ""}
+          {spec.beerToSell > 0 ? ` ${spec.beerToSell}b` : ""}
+          {" · "}
+          {spec.vp > 0 ? `${spec.vp}VP ` : ""}
+          {spec.incomeBonus > 0 ? `+${spec.incomeBonus}inc ` : ""}
+          {spec.linkPoints > 0 ? `${spec.linkPoints}lp ` : ""}
+          {spec.canalOnly ? "·canal" : spec.railOnly ? "·rail" : ""}
+          {spec.lightBulb ? " ·no-dev" : ""}
+        </span>
+      ) : (
+        <span className="mat-row__margins">—</span>
+      )}
+      <span className="mat-row__count">
+        {pickCount > 0 ? `×${pickCount}/${count}` : `×${count}`}
+      </span>
+    </div>
+  );
 }
 
 function LinkSupplyGlyph({

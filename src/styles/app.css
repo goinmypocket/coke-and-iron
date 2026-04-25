@@ -210,9 +210,77 @@ body {
 }
 .mat-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  /* Coal · Iron · Brewery · Cotton · Manufacturer (2 internal cols) · Pottery */
+  grid-template-columns: 1fr 1fr 1fr 1fr 2.4fr 1.4fr;
   gap: 0.3rem;
   padding-top: 0.4rem;
+}
+.mat-mfg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  gap: 0.15rem;
+}
+.mat-pottery-grid {
+  display: grid;
+  grid-template-rows: repeat(5, auto);
+  gap: 0.15rem;
+}
+.mat-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--ink);
+  background: var(--panel-bg);
+  font-size: 0.72em;
+  min-height: 1.6rem;
+}
+.mat-row__level {
+  font-weight: 700;
+  font-size: 0.95em;
+}
+.mat-row__margins {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mat-row__count {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.mat-row--gone {
+  opacity: 0.35;
+}
+.mat-row--lightbulb {
+  background: var(--soft-tint);
+}
+.mat-row--next {
+  border-color: var(--ink);
+  border-width: 1.5px;
+}
+.mat-row--clickable {
+  cursor: pointer;
+}
+.mat-row--clickable:hover {
+  background: var(--soft-tint);
+}
+.mat-row--picked {
+  outline: 2px solid var(--warm-gold);
+  outline-offset: -2px;
+}
+.mat-row--ghost {
+  visibility: hidden;
+  border: none;
+  background: transparent;
+  min-height: 0;
+}
+.mat-stack--mfg,
+.mat-stack--pottery {
+  /* Use the full sub-grid cell width — internal grids handle the rows. */
 }
 .mat-stack {
   display: flex;
@@ -778,4 +846,17 @@ body {
 .action-btn--active:hover:not(:disabled) {
   background: var(--warm-gold);
   filter: brightness(0.95);
+}
+.action-btn--suggested {
+  /* Card-first stash hint: this action naturally fits the stashed card. */
+  border-color: var(--warm-gold);
+  border-width: 1.5px;
+  box-shadow: 0 0 0 1px var(--warm-gold) inset;
+}
+.action-btn--dimmed {
+  /* Card-first stash hint: stashed card adds no value here (still legal). */
+  opacity: 0.55;
+}
+.action-btn--dimmed:hover:not(:disabled) {
+  opacity: 0.8;
 }
