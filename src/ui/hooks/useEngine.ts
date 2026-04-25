@@ -24,3 +24,17 @@ export function useCanUndo(): boolean {
   const engine = useEngine();
   return useSyncExternalStore(engine.subscribe, () => engine.canUndo());
 }
+
+/**
+ * Subscribes to the engine and returns the current intent-log length as
+ * a re-render trigger. The log itself is mutated in place, so consumers
+ * read it via `engine.getIntentLog()` directly inside render — this hook
+ * just makes them re-render on every push / pop.
+ */
+export function useIntentLogVersion(): number {
+  const engine = useEngine();
+  return useSyncExternalStore(
+    engine.subscribe,
+    () => engine.getIntentLog().length,
+  );
+}

@@ -241,6 +241,64 @@ body {
   outline-offset: -2px;
 }
 
+/* ---------- Recent actions (§11.9) ---------- */
+
+.recent-actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.9em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.recent-actions__row {
+  padding: 0.15rem 0.25rem;
+  border-bottom: 1px solid var(--soft-tint);
+}
+.recent-actions__empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---------- Remaining cards (§11.6) ---------- */
+
+.remaining-cards__meta {
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.remaining-cards__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.8rem;
+}
+.remaining-cards__group {
+  display: flex;
+  flex-direction: column;
+}
+.remaining-cards__group-label {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--soft-tint);
+  margin-bottom: 0.2rem;
+}
+.remaining-cards__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85em;
+}
+.remaining-cards__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.1rem 0;
+}
+.remaining-cards__row--muted {
+  opacity: 0.45;
+}
+
 /* ---------- Actions panel ---------- */
 
 .actions-panel {

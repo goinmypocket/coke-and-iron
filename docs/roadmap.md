@@ -68,11 +68,13 @@ Status keys:
   in the stats bar.
 - **[ui] Income tracker (§11.1).** Vertical ladder with pawn-coloured
   markers; re-renders on every state change.
-- **[ui] Remaining cards (§11.6).** Two-column deck inventory.
-  Should also surface `state.removedCards.length` so canal-setup
-  removal is visible without revealing identities.
-- **[ui] Recent actions (§11.9).** Most-recent-first scroll of
-  successful intents.
+- **[ui] Remaining cards polish (§11.6).** Live drawDeck inventory +
+  canal-removed count shipped. Still TODO: muted zero-rows for cards
+  that have left the deck (need a deck catalogue on GameState),
+  district-colour labels.
+- **[ui] Recent actions polish (§11.9).** Newest-first text list
+  shipped. Still TODO: pawn-colour player names, district-colour
+  city refs, era / round banners.
 - **[ui] Affordances (§11.10).** Prompt strip, context bar, toast
   primitives — toast already lives via Sonner; the others are still
   TODO.

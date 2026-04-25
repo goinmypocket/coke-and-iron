@@ -1,12 +1,14 @@
 {
-  "_comment": "Grid placement for named panels. Panel ids must match the registry in spec §11. This is a working subset; remaining §11 panels (board, income, recent_actions, remaining_cards) will be added as they land.",
-  "columns": "1fr 1fr 1fr",
+  "_comment": "Grid placement for named panels. Panel ids must match the registry in spec §11. This is a working subset; remaining §11 panels (board, income) will be added as they land.",
+  "columns": "1fr 1fr 1fr 1fr",
   "rows": "auto 1fr 1fr auto",
   "panels": [
     { "id": "game_state", "column": "1 / 2", "row": "1 / 2" },
     { "id": "player_state", "column": "2 / 4", "row": "1 / 2" },
+    { "id": "remaining_cards", "column": "4 / 5", "row": "1 / 3" },
     { "id": "players", "column": "1 / 4", "row": "2 / 3" },
     { "id": "hand", "column": "1 / 3", "row": "3 / 4" },
-    { "id": "actions", "column": "3 / 4", "row": "3 / 4" }
+    { "id": "actions", "column": "3 / 4", "row": "3 / 4" },
+    { "id": "recent_actions", "column": "4 / 5", "row": "3 / 4" }
   ]
 }
