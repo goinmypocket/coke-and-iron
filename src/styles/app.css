@@ -42,6 +42,60 @@ body {
   text-align: center;
 }
 
+.context-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--ink);
+  font-size: 0.85em;
+  flex-wrap: wrap;
+  min-height: 1.6rem;
+}
+.context-bar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex: 1;
+}
+.context-bar__chip {
+  background: var(--soft-tint);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85em;
+}
+.context-bar__buttons {
+  display: flex;
+  gap: 0.3rem;
+}
+.context-bar__btn {
+  font: inherit;
+  font-size: 0.85em;
+  padding: 0.2rem 0.6rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.context-bar__btn:hover:not(:disabled) {
+  background: var(--soft-tint);
+}
+.context-bar__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.context-bar__btn--primary {
+  background: var(--warm-gold);
+  border-color: var(--warm-gold);
+  color: white;
+}
+.context-bar__btn--primary:hover:not(:disabled) {
+  background: var(--warm-gold);
+  filter: brightness(0.95);
+}
+
 /* ---------- Panel chrome (§10) ---------- */
 
 .panel {

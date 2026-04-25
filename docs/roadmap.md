@@ -75,11 +75,11 @@ Status keys:
 - **[ui] Recent actions polish (§11.9).** Newest-first text list +
   pawn-coloured player names + district-coloured city refs +
   era / round banners (transient overlay) all shipped.
-- **[ui] Affordances polish (§11.10).** Prompt strip + toast
-  shipped. Context bar (transient buttons populated by the current
-  sub-state for resource pickers, second-rail offer, Gloucester
-  follow-up, pick-list summary) still TODO once those sub-states
-  land.
+- **[ui] Affordances polish (§11.10).** Prompt strip + toast +
+  context bar (chip summary of every pick made in the active
+  wizard plus a phase-specific primary submit button —
+  "Lay one link only" / "Submit Gloucester picks" / "Build" /
+  etc. — and a Reset shortcut) all shipped.
 - **[ui] Overlays polish (§11.11).** End-game summary, shortfall
   sub-flow, era / round transient banners, and Gloucester
   follow-up sub-state all shipped.
@@ -87,8 +87,11 @@ Status keys:
 ## UI — wizards still to build
 
 - **[ui] Build wizard polish.** Three-pick happy path + overbuild
-  click target + explicit coal/iron pickers shipped. Still TODO:
-  visual narrowing of valid slots once card/industry is picked.
+  click target + explicit coal/iron pickers + visual narrowing of
+  valid slots once a Location card / industry is picked (whole
+  city dims when card pins a different city; individual slots
+  dim when their accept-list excludes the picked industry) all
+  shipped.
 - **[ui] Network wizard polish.** Card + line + second-rail
   offer + explicit coal/beer pickers shipped.
 - **[ui] Sell wizard polish.** Card + tile picks + Gloucester

@@ -5,6 +5,7 @@ import { LoopbackTransport } from "./network/LoopbackTransport";
 import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { PanelGrid } from "./ui/layout/PanelGrid";
+import { ContextBar } from "./ui/affordances/ContextBar";
 import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
 import { EraRoundBanner } from "./ui/overlays/EraRoundBanner";
@@ -38,6 +39,7 @@ export function App() {
       <WizardProvider>
         <div className="app-shell">
           <PromptStrip />
+          <ContextBar />
           <PanelGrid>
             {{
               game_state: <GameStatePanel />,

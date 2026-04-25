@@ -90,6 +90,29 @@ export function BoardPanel() {
   const buildPick =
     wizard.state.phase === "AWAITING_BUILD_INPUTS" ? wizard.state.slot : null;
   const slotsClickable = wizard.state.phase === "AWAITING_BUILD_INPUTS";
+  // Slot narrowing: once the player has stashed / picked a card or
+  // industry, dim slots the engine wouldn't accept anyway. Card with
+  // a LOCATION constraint pins the legal city; industry pin narrows
+  // to slots whose accept-list includes that industry. Engine still
+  // owns the final validation (occupancy, era, specific-before-combo).
+  const buildFilters = useGameState(
+    (s) => {
+      if (wizard.state.phase !== "AWAITING_BUILD_INPUTS") {
+        return { cityName: null, industry: null };
+      }
+      const cardIndex = wizard.state.cardIndex;
+      const industry = wizard.state.industry;
+      let cityName: string | null = null;
+      if (cardIndex !== null) {
+        const id = s.turnOrder[s.currentPlayerIndex];
+        const player = id !== undefined ? s.players.find((p) => p.id === id) : null;
+        const card = player?.hand[cardIndex] ?? null;
+        if (card?.kind === "LOCATION") cityName = card.cityName;
+      }
+      return { cityName, industry };
+    },
+    shallowEqual,
+  );
 
   const linesClickable = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
   const linePicks = useMemo(() => {
@@ -145,6 +168,8 @@ export function BoardPanel() {
             city={c}
             occupied={occupiedSlots}
             slotsClickable={slotsClickable}
+            cityFilter={buildFilters.cityName}
+            industryFilter={buildFilters.industry}
             picked={
               buildPick !== null && buildPick.cityName === c.name
                 ? buildPick.slotIndex
@@ -193,20 +218,32 @@ function DistrictCityShape({
   city,
   occupied,
   slotsClickable,
+  cityFilter,
+  industryFilter,
   picked,
   onSlotClick,
 }: {
   city: DistrictCity;
   occupied: ReadonlySet<string>;
   slotsClickable: boolean;
+  cityFilter: string | null;
+  industryFilter: IndustryName | null;
   picked: number | null;
   onSlotClick: (slotIndex: number) => void;
 }) {
   const [x, y] = city.position;
   const fill = DISTRICT_FILL[city.districtTag] ?? "#aaaaaa";
   const slotW = CITY_W / Math.max(city.slots.length, 1);
+  // Whole-city dim when a Location card pins a different city. Scope
+  // is purely visual; click filtering happens per slot below.
+  const cityWrongForCard =
+    cityFilter !== null && cityFilter !== city.name;
   return (
-    <g className="board-city" transform={`translate(${x - CITY_W / 2}, ${y - CITY_H / 2})`}>
+    <g
+      className="board-city"
+      transform={`translate(${x - CITY_W / 2}, ${y - CITY_H / 2})`}
+      style={cityWrongForCard ? { opacity: 0.35 } : undefined}
+    >
       <rect
         x={0}
         y={0}
@@ -230,12 +267,17 @@ function DistrictCityShape({
         {city.slots.map((slot, i) => {
           const isOccupied = occupied.has(`${city.name}#${i}`);
           const isPicked = picked === i;
-          // Build wizard accepts ANY slot click — engine validates the
-          // overbuild rules per §5.1.3. Empty slots are the common case;
-          // filled slots may resolve to overbuild (own tile, or
-          // Coal Mine / Iron Works with global supply exhausted) and
-          // get a different fill so the hover distinction is obvious.
-          const clickable = slotsClickable;
+          // Slot accept-list filter: when the player has picked an
+          // industry, slots whose accept-list excludes it stop being
+          // clickable. Empty acceptList is wildcard so always passes.
+          const slotAcceptsIndustry =
+            industryFilter === null ||
+            slot.acceptList.length === 0 ||
+            slot.acceptList.includes(industryFilter);
+          // Build wizard accepts any in-scope slot click — engine still
+          // validates overbuild / specific-before-combo / era rules.
+          const clickable =
+            slotsClickable && !cityWrongForCard && slotAcceptsIndustry;
           const cls = [
             "board-slot",
             clickable ? "board-slot--clickable" : "",
@@ -243,11 +285,19 @@ function DistrictCityShape({
           ]
             .filter(Boolean)
             .join(" ");
+          // Dim slots that are in-scope but rejected by the industry
+          // filter (the city is fine, but this slot's accept-list
+          // doesn't include the picked industry).
+          const slotDim =
+            slotsClickable &&
+            !cityWrongForCard &&
+            !slotAcceptsIndustry;
           return (
             <g
               key={i}
               transform={`translate(${i * slotW}, 0)`}
               className={cls}
+              style={slotDim ? { opacity: 0.35 } : undefined}
               onClick={clickable ? () => onSlotClick(i) : undefined}
             >
               <rect
