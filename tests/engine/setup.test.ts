@@ -57,24 +57,37 @@ describe("engine setup (§3)", () => {
   });
 
   describe("hands + draw deck (§3.2)", () => {
-    it("each seat gets startingHandSize cards; rest go to draw deck; totals add up", () => {
+    it("each seat gets startingHandSize cards; rest go to draw deck; totals add up (incl. removed)", () => {
       for (const pc of [2, 3, 4] as const) {
         const s = initialState({ seed: 17, playerCount: pc });
         const expectedDeck = buildDeck(DEFAULT_CARDS_CONFIG, pc);
         const handTotal = s.players.reduce((sum, p) => sum + p.hand.length, 0);
         expect(handTotal).toBe(pc * DEFAULT_CARDS_CONFIG.startingHandSize);
-        expect(s.drawDeck.length + handTotal).toBe(expectedDeck.length);
+        // §3.2 — playerCount cards removed face-down at canal setup.
+        expect(s.removedCards).toHaveLength(pc);
+        expect(s.drawDeck.length + handTotal + s.removedCards.length).toBe(
+          expectedDeck.length,
+        );
       }
     });
 
-    it("dealt cards + draw deck = the same multiset as buildDeck (no wilds)", () => {
+    it("dealt cards + draw deck + removed = the same multiset as buildDeck (no wilds)", () => {
       const s = initialState({ seed: 100, playerCount: 4 });
       const dealt = s.players.flatMap((p) => p.hand);
-      const all = [...dealt, ...s.drawDeck].map((c) => JSON.stringify(c));
+      const all = [...dealt, ...s.drawDeck, ...s.removedCards].map((c) =>
+        JSON.stringify(c),
+      );
       const expected = buildDeck(DEFAULT_CARDS_CONFIG, 4).map((c) =>
         JSON.stringify(c),
       );
       expect(all.sort()).toEqual(expected.sort());
+    });
+
+    it("removedCards is deterministic under seed", () => {
+      const a = initialState({ seed: 42, playerCount: 3 });
+      const b = initialState({ seed: 42, playerCount: 3 });
+      expect(a.removedCards).toEqual(b.removedCards);
+      expect(a.removedCards).toHaveLength(3);
     });
 
     it("wild cards stay in the reserve, never in deck or hands", () => {

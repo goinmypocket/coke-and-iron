@@ -103,6 +103,10 @@ export function initialState(
 
   // --- Shuffled draw deck + initial hands (§3.2) ---
   const deck = shuffle(buildDeck(cardsConfig, config.playerCount), rng);
+  // §3.2 canal-setup removal — slice playerCount cards off the top of
+  // the shuffled deck face-down. They stay out for the entire game;
+  // §6.4 step 5's reshuffle does not include them.
+  const removedCards: readonly Card[] = deck.splice(0, config.playerCount);
   const { hands, remaining } = dealStartingHands(
     deck,
     config.playerCount,
@@ -143,6 +147,7 @@ export function initialState(
     players,
 
     drawDeck: remaining,
+    removedCards,
     wildReserve: buildWildReserve(cardsConfig),
 
     coalMarket: buildCoalMarket(),

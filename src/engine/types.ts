@@ -377,6 +377,13 @@ export interface GameState {
 
   // -- Shared decks --
   drawDeck: Card[];
+  /**
+   * §3.2 — `playerCount` cards removed face-down at canal-era setup to
+   * balance the first-round one-action rule (§3.4). Stay out of the
+   * game permanently; not reshuffled at the era flip (§6.4 step 5).
+   * Identities are unknown to all players.
+   */
+  removedCards: readonly Card[];
   wildReserve: WildReserve;
 
   // -- Markets --

@@ -721,6 +721,14 @@ For each seat the engine creates a Player with:
 - 14 link tiles in the seat's colour.
 - Empty hand, empty discard pile.
 
+**Canal-setup card removal.** Before dealing, `playerCount` cards
+are removed face-down from the top of the shuffled draw deck. They
+stay out of the game permanently — they are NOT reshuffled into
+the rail-era deck at §6.4 step 5. This balances the first-round
+one-action rule (§3.4) so the canal-era deck depletes in step
+with player hands; without it, the deck would have one extra card
+per seat at era end.
+
 Starting hands: 8 cards each from the top of the shuffled draw
 deck, kept private.
 
