@@ -40,6 +40,7 @@
 // =============================================================================
 
 import type {
+  CoalSource,
   IndustryName,
   IronSource,
   PlayerId,
@@ -119,6 +120,21 @@ export type WizardState =
       readonly developSeatId: PlayerId;
       readonly industries: readonly IndustryName[];
       readonly picks: readonly IronSource[];
+    }
+  // §5.6.1 / §5.6.2 Build resource picker — entered after all 3 Build
+  // inputs are set when EITHER coal (2+ closest mines tied) or iron
+  // (2+ unflipped works) has multiple free board options. Non-ambiguous
+  // picks are pre-filled at entry; the user clicks only the rows that
+  // remain. Auto-submits at the last pick.
+  | {
+      readonly phase: "AWAITING_BUILD_RESOURCES";
+      readonly cardIndex: number;
+      readonly slot: BuildSlotPick;
+      readonly industry: IndustryName;
+      readonly coalNeed: number;
+      readonly ironNeed: number;
+      readonly coalPicks: readonly CoalSource[];
+      readonly ironPicks: readonly IronSource[];
     };
 
 export type WizardAction =
@@ -154,6 +170,19 @@ export type WizardAction =
     }
   | { type: "DEVELOP_IRON_ADD_PICK"; source: IronSource }
   | { type: "DEVELOP_IRON_RESET_PICKS" }
+  | {
+      type: "ENTER_BUILD_RESOURCES";
+      cardIndex: number;
+      slot: BuildSlotPick;
+      industry: IndustryName;
+      coalNeed: number;
+      ironNeed: number;
+      coalPicks: readonly CoalSource[];
+      ironPicks: readonly IronSource[];
+    }
+  | { type: "BUILD_COAL_ADD_PICK"; source: CoalSource }
+  | { type: "BUILD_IRON_ADD_PICK"; source: IronSource }
+  | { type: "BUILD_RESOURCES_RESET" }
   | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
@@ -329,6 +358,31 @@ export function wizardReducer(
       if (state.phase !== "AWAITING_DEVELOP_IRON_PICK") return state;
       return { ...state, picks: [] };
     }
+    case "ENTER_BUILD_RESOURCES":
+      return {
+        phase: "AWAITING_BUILD_RESOURCES",
+        cardIndex: action.cardIndex,
+        slot: action.slot,
+        industry: action.industry,
+        coalNeed: action.coalNeed,
+        ironNeed: action.ironNeed,
+        coalPicks: action.coalPicks,
+        ironPicks: action.ironPicks,
+      };
+    case "BUILD_COAL_ADD_PICK": {
+      if (state.phase !== "AWAITING_BUILD_RESOURCES") return state;
+      if (state.coalPicks.length >= state.coalNeed) return state;
+      return { ...state, coalPicks: [...state.coalPicks, action.source] };
+    }
+    case "BUILD_IRON_ADD_PICK": {
+      if (state.phase !== "AWAITING_BUILD_RESOURCES") return state;
+      if (state.ironPicks.length >= state.ironNeed) return state;
+      return { ...state, ironPicks: [...state.ironPicks, action.source] };
+    }
+    case "BUILD_RESOURCES_RESET": {
+      if (state.phase !== "AWAITING_BUILD_RESOURCES") return state;
+      return { ...state, coalPicks: [], ironPicks: [] };
+    }
     case "IDLE_STASH_CARD": {
       // Card-first flow only applies in IDLE. While a wizard is open
       // the wizard's own SET_CARD reducers handle card clicks.
@@ -371,6 +425,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_DEVELOP_IRON_PICK") {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_BUILD_RESOURCES") {
     return new Set([state.cardIndex]);
   }
   return new Set();

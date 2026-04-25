@@ -11,6 +11,11 @@ export {
   MIN_INCOME_LEVEL,
   MIN_INCOME_STEP,
 } from "./income";
+export {
+  buildDistanceMap,
+  isConnectedToAnyMerchantCity,
+  isInPlayerNetwork,
+} from "./network/graph";
 export { rankSeats } from "./ranking";
 export type { RankReason, RankedSeat } from "./ranking";
 export { reduce } from "./reduce";

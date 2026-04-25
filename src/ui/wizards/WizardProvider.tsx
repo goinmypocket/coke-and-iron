@@ -44,6 +44,7 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
+import { buildDistanceMap } from "../../engine";
 import type {
   BeerSource,
   CoalSource,
@@ -88,10 +89,16 @@ interface WizardApi {
   pickLine(lineIndex: number): void;
   /** Click on a built tile from BoardPanel. Sell wizard only. */
   pickTile(tileId: string): void;
-  /** Click an iron source in the resource picker. */
+  /** Click an iron source in the resource picker (Develop). */
   pickIronSource(source: IronSource): void;
   /** Clear iron picks (stays in the picker phase). */
   resetIronPicks(): void;
+  /** Click a coal source in the Build resource picker. */
+  pickBuildCoal(source: CoalSource): void;
+  /** Click an iron source in the Build resource picker. */
+  pickBuildIron(source: IronSource): void;
+  /** Clear all picks in the Build resource picker. */
+  resetBuildResources(): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -279,6 +286,35 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "DEVELOP_IRON_RESET_PICKS" });
   }, []);
 
+  const dispatchBuildIntent = useCallback(
+    (
+      cardIndex: number,
+      slot: BuildSlotPick,
+      industry: IndustryName,
+      coalSources: readonly CoalSource[],
+      ironSources: readonly IronSource[],
+    ) => {
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const result = engine.dispatch({
+        type: "BUILD",
+        playerId,
+        cardIndex,
+        cityName: slot.cityName,
+        slotIndex: slot.slotIndex,
+        industry,
+        coalSources: [...coalSources],
+        ironSources: [...ironSources],
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
   const submitBuild = useCallback(
     (live: WizardState) => {
       if (live.phase !== "AWAITING_BUILD_INPUTS") return;
@@ -296,34 +332,126 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       const topIdx = player?.mat.stacks[live.industry][0];
       const topSpec =
         topIdx === undefined ? undefined : liveState.tileCatalogue[topIdx];
-      const coalNeeded = topSpec?.coalCost ?? 0;
-      const ironNeeded = topSpec?.ironCost ?? 0;
-      // Conservative auto-pick: iron from any unflipped iron works (free,
-      // no connectivity check), then market. Coal goes to market —
-      // connectivity-aware free coal is a roadmap follow-up.
-      const ironSources = autoResolveIronSources(liveState, ironNeeded);
-      const coalSources: CoalSource[] = Array.from(
-        { length: coalNeeded },
-        () => ({ kind: "MARKET" }),
-      );
-      const result = engine.dispatch({
-        type: "BUILD",
-        playerId,
+      const coalNeed = topSpec?.coalCost ?? 0;
+      const ironNeed = topSpec?.ironCost ?? 0;
+
+      const closestMines =
+        coalNeed > 0 ? listClosestCoalMines(liveState, [live.slot.cityName]) : [];
+      const ironTiles = ironNeed > 0 ? listUnflippedIronWorks(liveState) : [];
+      const coalAmbiguous = closestMines.length > 1;
+      const ironAmbiguous = ironTiles.length > 1;
+
+      if (!coalAmbiguous && !ironAmbiguous) {
+        // Existing auto-resolve path: iron from first available tile
+        // (no connectivity), coal from market.
+        const ironSources = autoResolveIronSources(liveState, ironNeed);
+        const coalSources: CoalSource[] = Array.from(
+          { length: coalNeed },
+          () => ({ kind: "MARKET" }),
+        );
+        dispatchBuildIntent(
+          live.cardIndex,
+          live.slot,
+          live.industry,
+          coalSources,
+          ironSources,
+        );
+        return;
+      }
+
+      // Pre-fill the non-ambiguous side so the player only clicks for
+      // what's actually under-determined.
+      const prefillCoal: CoalSource[] = coalAmbiguous
+        ? []
+        : Array.from({ length: coalNeed }, (): CoalSource => {
+            const single = closestMines[0];
+            return single
+              ? { kind: "TILE", tileId: single.tileId }
+              : { kind: "MARKET" };
+          });
+      const prefillIron: IronSource[] = ironAmbiguous
+        ? []
+        : autoResolveIronSources(liveState, ironNeed);
+
+      dispatch({
+        type: "ENTER_BUILD_RESOURCES",
         cardIndex: live.cardIndex,
-        cityName: live.slot.cityName,
-        slotIndex: live.slot.slotIndex,
+        slot: live.slot,
         industry: live.industry,
-        coalSources,
-        ironSources,
+        coalNeed,
+        ironNeed,
+        coalPicks: prefillCoal,
+        ironPicks: prefillIron,
       });
-      if (result.ok) {
-        dispatch({ type: "RESET" });
-      } else {
-        toast.error(reasonToText(result.reason));
+      // Suppress unused-var lint when we only consult player for the spec.
+      void playerId;
+    },
+    [engine, dispatchBuildIntent],
+  );
+
+  const submitBuildResources = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_BUILD_RESOURCES") return;
+      if (
+        live.coalPicks.length !== live.coalNeed ||
+        live.ironPicks.length !== live.ironNeed
+      ) {
+        return;
+      }
+      dispatchBuildIntent(
+        live.cardIndex,
+        live.slot,
+        live.industry,
+        live.coalPicks,
+        live.ironPicks,
+      );
+    },
+    [dispatchBuildIntent],
+  );
+
+  const pickBuildCoal = useCallback(
+    (source: CoalSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_BUILD_RESOURCES") return;
+      if (live.coalPicks.length >= live.coalNeed) return;
+      const projected: WizardState = {
+        ...live,
+        coalPicks: [...live.coalPicks, source],
+      };
+      dispatch({ type: "BUILD_COAL_ADD_PICK", source });
+      if (
+        projected.coalPicks.length === live.coalNeed &&
+        projected.ironPicks.length === live.ironNeed
+      ) {
+        submitBuildResources(projected);
       }
     },
-    [engine],
+    [state, submitBuildResources],
   );
+
+  const pickBuildIron = useCallback(
+    (source: IronSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_BUILD_RESOURCES") return;
+      if (live.ironPicks.length >= live.ironNeed) return;
+      const projected: WizardState = {
+        ...live,
+        ironPicks: [...live.ironPicks, source],
+      };
+      dispatch({ type: "BUILD_IRON_ADD_PICK", source });
+      if (
+        projected.coalPicks.length === live.coalNeed &&
+        projected.ironPicks.length === live.ironNeed
+      ) {
+        submitBuildResources(projected);
+      }
+    },
+    [state, submitBuildResources],
+  );
+
+  const resetBuildResources = useCallback(() => {
+    dispatch({ type: "BUILD_RESOURCES_RESET" });
+  }, []);
 
   const dispatchSellIntent = useCallback(
     (
@@ -654,6 +782,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitDevelopIron(live);
       return;
     }
+    if (live.phase === "AWAITING_BUILD_RESOURCES") {
+      submitBuildResources(live);
+      return;
+    }
   }, [
     engine,
     state,
@@ -663,6 +795,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     submitSell,
     submitSellGloucester,
     submitDevelopIron,
+    submitBuildResources,
   ]);
 
   const api = useMemo<WizardApi>(
@@ -683,6 +816,9 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickTile,
       pickIronSource,
       resetIronPicks,
+      pickBuildCoal,
+      pickBuildIron,
+      resetBuildResources,
       endAction,
       reset,
     }),
@@ -702,6 +838,9 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickTile,
       pickIronSource,
       resetIronPicks,
+      pickBuildCoal,
+      pickBuildIron,
+      resetBuildResources,
       endAction,
       reset,
     ],
@@ -938,6 +1077,56 @@ export function listUnflippedIronWorks(
     });
   }
   return out;
+}
+
+/**
+ * Closest unflipped coal mines from one or more consumer cities. Coal
+ * priority (§5.6.1) is "closest mine first". The picker only matters
+ * when 2+ mines are tied at the minimum hop distance — at that point
+ * the player chooses which to drain. `marketReachable` reports whether
+ * the consumer cities can reach any merchant city (governs whether
+ * Coal Market is a valid fallback per §5.6.1 priority 2).
+ */
+export interface AvailableCoalSource {
+  readonly tileId: string;
+  readonly remaining: number;
+  readonly ownerId: PlayerId;
+  readonly cityName: string;
+  readonly distance: number;
+}
+
+export function listClosestCoalMines(
+  state: GameState,
+  fromCities: readonly string[],
+): readonly AvailableCoalSource[] {
+  const dist = buildDistanceMap(state, fromCities);
+  const mines: AvailableCoalSource[] = [];
+  for (const t of state.builtTiles) {
+    if (t.flipped || t.resources <= 0) continue;
+    const spec = state.tileCatalogue[t.catalogueIndex];
+    if (!spec || spec.industry !== "COAL_MINE") continue;
+    const d = dist.get(t.cityName);
+    if (d === undefined) continue;
+    mines.push({
+      tileId: t.id,
+      remaining: t.resources,
+      ownerId: t.owner,
+      cityName: t.cityName,
+      distance: d,
+    });
+  }
+  if (mines.length === 0) return [];
+  let minDist = mines[0]!.distance;
+  for (const m of mines) if (m.distance < minDist) minDist = m.distance;
+  return mines.filter((m) => m.distance === minDist);
+}
+
+export function isMarketReachable(
+  state: GameState,
+  fromCities: readonly string[],
+): boolean {
+  const dist = buildDistanceMap(state, fromCities);
+  return state.merchantCities.some((m) => dist.has(m.name));
 }
 
 /**

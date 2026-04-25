@@ -93,5 +93,14 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
         left === 1 ? "" : "s"
       } in the picker.`;
     }
+    case "AWAITING_BUILD_RESOURCES": {
+      const coalLeft = state.coalNeed - state.coalPicks.length;
+      const ironLeft = state.ironNeed - state.ironPicks.length;
+      const parts: string[] = [];
+      if (coalLeft > 0) parts.push(`${coalLeft} coal`);
+      if (ironLeft > 0) parts.push(`${ironLeft} iron`);
+      if (parts.length === 0) return "Build resources — submitting…";
+      return `Build resources — pick ${parts.join(" + ")} in the picker.`;
+    }
   }
 }

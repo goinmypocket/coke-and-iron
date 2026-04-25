@@ -430,6 +430,14 @@ body {
   flex: 1;
   text-align: left;
 }
+.picker-overlay__section {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 0.3rem;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid var(--soft-tint);
+}
 .picker-overlay__owner {
   font-size: 0.8em;
   color: var(--muted);
