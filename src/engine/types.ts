@@ -396,6 +396,19 @@ export interface GameState {
    * action exhausts actionsRemaining. Persisted on state so replay is
    * faithful. */
   autoEndTurn: boolean;
+
+  /** §4.3 step 2 — players who couldn't cover their negative income at
+   * end-of-round are queued here. While non-empty, every other intent
+   * is rejected; the head player must dispatch RESOLVE_SHORTFALL until
+   * their entry pops, then the next player resolves theirs, and so on. */
+  pendingShortfalls: ShortfallEntry[];
+}
+
+/** One queued shortfall — the player owes `owed` after handing over all
+ * the cash they had. */
+export interface ShortfallEntry {
+  readonly playerId: PlayerId;
+  readonly owed: number;
 }
 
 
@@ -544,6 +557,27 @@ export interface IntentEndTurn {
   readonly playerId: PlayerId;
 }
 
+/**
+ * §4.3 step 2 shortfall sub-flow. The income collection halted the
+ * round-end pipeline because at least one player couldn't cover their
+ * negative income. They now choose tiles to remove from the board, each
+ * yielding half (rounded down) the printed build cost. Any remaining
+ * unpaid debt converts to VP loss only when the player explicitly
+ * finalizes — to allow them to spend more tiles first.
+ */
+export interface IntentResolveShortfall {
+  readonly type: "RESOLVE_SHORTFALL";
+  readonly playerId: PlayerId;
+  /** Tile ids removed from the board for half their printed build cost
+   * (rounded down). Each id must reference a tile owned by playerId,
+   * with no duplicates. */
+  readonly tilesToRemove: readonly string[];
+  /** When true, any debt remaining after applying the proceeds becomes
+   * VP loss (clamped at 0 VP), and the player's shortfall entry pops
+   * off the queue. When false, the proceeds MUST cover the debt. */
+  readonly finalize: boolean;
+}
+
 export type Intent =
   | IntentNoop
   | IntentBuild
@@ -553,7 +587,8 @@ export type Intent =
   | IntentLoan
   | IntentScout
   | IntentPass
-  | IntentEndTurn;
+  | IntentEndTurn
+  | IntentResolveShortfall;
 
 
 // -----------------------------------------------------------------------------
@@ -572,6 +607,12 @@ export type FailureReason =
   | "game_over"
   | "no_actions_remaining"
   | "actions_still_remaining"     // §4.2 step 6 — can't END_TURN yet
+  // --- Shortfall sub-flow (§4.3 step 2) ---
+  | "shortfall_resolution_required"
+  | "no_pending_shortfall"
+  | "shortfall_not_satisfied"
+  | "shortfall_tile_not_owned"
+  | "shortfall_duplicate_tile"
   // --- Card selection (common) ---
   | "card_not_in_hand"
   | "card_does_not_authorise"

@@ -4,6 +4,7 @@ import { reduceEndTurn, runEndOfTurn } from "./actions/end-turn";
 import { reduceLoan } from "./actions/loan";
 import { reduceNetwork } from "./actions/network";
 import { reducePass } from "./actions/pass";
+import { reduceResolveShortfall } from "./actions/resolve-shortfall";
 import { reduceScout } from "./actions/scout";
 import { reduceSell } from "./actions/sell";
 import type { GameState, Intent, Result } from "./types";
@@ -24,6 +25,8 @@ export function reduce(state: GameState, intent: Intent): Result {
       return { ok: true, state };
     case "END_TURN":
       return reduceEndTurn(state, intent);
+    case "RESOLVE_SHORTFALL":
+      return reduceResolveShortfall(state, intent);
     case "PASS":
       return maybeAutoAdvance(reducePass(state, intent));
     case "LOAN":

@@ -3,19 +3,16 @@
 //
 // §4.2 step 6  — END_TURN ends the dispatching seat's turn.
 // §4.3         — end-of-round: reseat by spent, reset spent, collect income
-//                (skipped in the final round per §4.3 step 2), refill hands
-//                (seats shrink by actionsForRound once deck is empty), bump
-//                round, reset seat + actions. If every hand is 0 and the
-//                deck is empty, era-end triggers instead of the round bump.
+//                (skipped in the final round per §4.3 step 2). If any seat
+//                couldn't cover their negative income, queue a shortfall
+//                entry and HALT — the affected players resolve via
+//                RESOLVE_SHORTFALL. Once the queue is empty, refill hands
+//                and check era end.
 // §6.4 / §6.5  — end-of-era: score links + flipped tiles (§6.1 / §6.2);
 //                canal era additionally removes level-1 tiles, refills
 //                merchant beer, reshuffles the deck from all discards,
 //                restores link supply, flips era to RAIL, refills hands
 //                back to 8. Rail end just sets phase = GAME_OVER.
-//
-// Simplifications vs. spec, to be addressed in later milestones:
-//   * §4.3 step 2 shortfall tile-removal sub-flow (requires player choice);
-//     current code converts unpayable debt to VP loss clamped at 0 VP.
 // =============================================================================
 
 import { stepToLevel } from "../income";
@@ -31,6 +28,7 @@ import type {
   PlayerCount,
   PlayerId,
   Result,
+  ShortfallEntry,
 } from "../types";
 
 const DEFAULT_HAND_SIZE = 8;
@@ -52,6 +50,9 @@ export function reduceEndTurn(
 ): Result {
   if (state.phase === "GAME_OVER") {
     return { ok: false, reason: "game_over" };
+  }
+  if (state.pendingShortfalls.length > 0) {
+    return { ok: false, reason: "shortfall_resolution_required" };
   }
   const activeId = state.turnOrder[state.currentPlayerIndex];
   if (activeId === undefined || intent.playerId !== activeId) {
@@ -95,23 +96,35 @@ function isFinalRound(state: GameState): boolean {
 function runEndOfRound(state: GameState): GameState {
   let working = state;
 
-  // §4.3 step 1 — reseat by spent asc, stable on ties.
+  // §4.3 step 1 — reseat by spent asc, stable on ties; reset
+  // spent_this_round.
   working = { ...working, turnOrder: reseatByLowestSpend(working) };
-
-  // §4.3 step 1 (cont.) — reset spent_this_round.
   working = {
     ...working,
     players: working.players.map((p) => ({ ...p, spentThisRound: 0 })),
   };
 
   // §4.3 step 2 — collect income EXCEPT in the final round of each era.
+  // Players who can't cover negative income produce a shortfall entry.
   if (!isFinalRound(working)) {
-    working = {
-      ...working,
-      players: working.players.map((p) => collectIncome(p)),
-    };
+    working = collectIncomeAndQueueShortfalls(working);
   }
 
+  // If any shortfalls are pending, halt here. The affected players
+  // dispatch RESOLVE_SHORTFALL until the queue empties; the last
+  // resolution then calls continueEndOfRoundPostShortfall().
+  if (working.pendingShortfalls.length > 0) return working;
+
+  return continueEndOfRoundPostShortfall(working);
+}
+
+/**
+ * Steps 3 + 4 of §4.3, plus the era-end check and the round bump. Called
+ * either directly by runEndOfRound (when no shortfalls are queued) or by
+ * the RESOLVE_SHORTFALL reducer once the last queue entry is popped.
+ */
+export function continueEndOfRoundPostShortfall(state: GameState): GameState {
+  let working = state;
   // §4.3 step 3 — refill hands, shrink seats when the deck empties.
   working = refillHands(working);
 
@@ -145,18 +158,40 @@ function reseatByLowestSpend(state: GameState): PlayerId[] {
   return decorated.map((d) => d.id);
 }
 
-/** Simplified income collection. Spec §4.3 step 2's tile-removal
- * shortfall sub-flow is deferred; unpayable debt converts directly to
- * VP loss, clamped at 0 VP. */
-function collectIncome(player: Player): Player {
-  const level = stepToLevel(player.incomeStep);
-  if (level >= 0) return { ...player, money: player.money + level };
-  const owed = -level;
-  if (player.money >= owed) return { ...player, money: player.money - owed };
-  const paidFromMoney = player.money;
-  const remainingDebt = owed - paidFromMoney;
-  const vpLoss = Math.min(remainingDebt, player.vp);
-  return { ...player, money: 0, vp: player.vp - vpLoss };
+/**
+ * §4.3 step 2 income collection. Players who can't cover their negative
+ * income hand over all remaining cash and have a shortfall entry queued
+ * — the actual tile-removal happens via RESOLVE_SHORTFALL. Returns a new
+ * GameState with money/vp adjusted and pendingShortfalls populated in
+ * turn-order.
+ */
+function collectIncomeAndQueueShortfalls(state: GameState): GameState {
+  const newQueue: ShortfallEntry[] = [...state.pendingShortfalls];
+  const players = state.players.map((p) => {
+    const level = stepToLevel(p.incomeStep);
+    if (level >= 0) return { ...p, money: p.money + level };
+    const owed = -level;
+    if (p.money >= owed) return { ...p, money: p.money - owed };
+    // Shortfall: take everything they have; queue the rest as debt.
+    const remaining = owed - p.money;
+    return { ...p, money: 0, _shortfall: remaining };
+  });
+  // Walk turn order so the queue is ordered by lowest-spent-first.
+  for (const seatId of state.turnOrder) {
+    const p = players.find((pp) => pp.id === seatId);
+    if (!p) continue;
+    const debt = (p as Player & { _shortfall?: number })._shortfall;
+    if (debt && debt > 0) {
+      newQueue.push({ playerId: seatId, owed: debt });
+    }
+  }
+  // Strip the temporary _shortfall annotation before returning.
+  const cleanedPlayers: Player[] = players.map((p) => {
+    const { _shortfall: _omit, ...rest } =
+      p as Player & { _shortfall?: number };
+    return rest as Player;
+  });
+  return { ...state, players: cleanedPlayers, pendingShortfalls: newQueue };
 }
 
 function refillHands(state: GameState): GameState {

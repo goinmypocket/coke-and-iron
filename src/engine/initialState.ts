@@ -154,6 +154,7 @@ export function initialState(
     nextTileId: 0,
 
     autoEndTurn: config.autoEndTurn ?? false,
+    pendingShortfalls: [],
   };
 }
 

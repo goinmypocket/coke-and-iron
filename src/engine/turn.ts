@@ -28,6 +28,11 @@ export function validateActiveTurn(
   playerId: PlayerId,
 ): FailureReason | null {
   if (state.phase === "GAME_OVER") return "game_over";
+  // §4.3 step 2 — when a shortfall is queued, no other action may run
+  // until the affected player(s) dispatch RESOLVE_SHORTFALL.
+  if (state.pendingShortfalls.length > 0) {
+    return "shortfall_resolution_required";
+  }
   const activeId = state.turnOrder[state.currentPlayerIndex];
   if (activeId === undefined || playerId !== activeId) {
     return "not_current_turn";

@@ -198,10 +198,10 @@ describe("§4.3 end-of-round pipeline", () => {
     expect(engine.getState().players[0]!.money).toBe(20 - 7);
   });
 
-  it("simplified shortfall: converts unpayable debt to VP loss (clamped at 0 VP)", () => {
+  it("queues a shortfall entry when income exceeds the player's money (§4.3 step 2)", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
-    // Step 0 → level -10. Player has £3 money and £6 VP. Owes £10. Pays £3
-    // from money; remaining £7 debt; VP loss = min(7, 6) = 6 → VP goes to 0.
+    // Step 0 → level -10. Player has £3 money. Owes £10. After collection:
+    // money 0, queued shortfall of £7.
     let state: GameState = {
       ...base,
       turnOrder: [0, 1],
@@ -216,9 +216,10 @@ describe("§4.3 end-of-round pipeline", () => {
     }));
     const engine = engineFromState(state);
     engine.dispatch({ type: "END_TURN", playerId: 1 });
-    const after = engine.getState().players[0]!;
-    expect(after.money).toBe(0);
-    expect(after.vp).toBe(0);
+    const after = engine.getState();
+    expect(after.players[0]!.money).toBe(0);
+    expect(after.players[0]!.vp).toBe(6); // VP not touched until resolution
+    expect(after.pendingShortfalls).toEqual([{ playerId: 0, owed: 7 }]);
   });
 
   it("refills hands back to 8 when the deck has enough cards", () => {
