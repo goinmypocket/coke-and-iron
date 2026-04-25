@@ -38,21 +38,40 @@ import type {
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
+import { TILE, TileFace } from "../tiles/TileFace";
 import { useWizard } from "../wizards/WizardProvider";
 
 const CANVAS = 900;
-const CITY_W = 78;
-const CITY_H = 38;
+// Every district city body is a fixed square. Slots are square cells
+// of TILE × TILE laid out per slot count (§ user-spec):
+//   1 → centred single cell
+//   2 → 1 row × 2 cols
+//   3 → 1 row × 2 cols + 1 centred cell below
+//   4 → 2 rows × 2 cols
+const CITY_SIZE = TILE * 2;
 const MERCHANT_R = 30;
 
-const INDUSTRY_GLYPH: Readonly<Record<IndustryName, string>> = {
-  COAL_MINE: "C",
-  IRON_WORKS: "I",
-  BREWERY: "B",
-  COTTON_MILL: "Co",
-  MANUFACTURER: "M",
-  POTTERY: "P",
-};
+/** Top-left of slot cell within a CITY_SIZE × CITY_SIZE city body. */
+function slotCellPos(
+  slotIndex: number,
+  slotCount: number,
+): readonly [number, number] {
+  if (slotCount <= 1) {
+    return [TILE / 2, TILE / 2];
+  }
+  if (slotCount === 2) {
+    return slotIndex === 0 ? [0, TILE / 2] : [TILE, TILE / 2];
+  }
+  if (slotCount === 3) {
+    if (slotIndex === 0) return [0, 0];
+    if (slotIndex === 1) return [TILE, 0];
+    return [TILE / 2, TILE];
+  }
+  // 4 or more — fill 2x2 grid; extras (rare) wrap into the same grid.
+  const col = slotIndex % 2;
+  const row = Math.floor(slotIndex / 2) % 2;
+  return [col * TILE, row * TILE];
+}
 
 export function BoardPanel() {
   const wizard = useWizard();
@@ -205,6 +224,7 @@ export function BoardPanel() {
           tiles={view.builtTiles}
           tileCatalogue={view.tileCatalogue}
           districtCities={view.districtCities}
+          pawnColorById={pawnColorById}
           sellMode={sellMode}
           activeSeatId={activeSeatId}
           sellPickedTileIds={sellPickedTileIds}
@@ -250,22 +270,19 @@ function DistrictCityShape({
 }) {
   const [x, y] = city.position;
   const fill = DISTRICT_FILL[city.districtTag] ?? "#aaaaaa";
-  const slotW = CITY_W / Math.max(city.slots.length, 1);
-  // Whole-city dim when a Location card pins a different city. Scope
-  // is purely visual; click filtering happens per slot below.
   const cityWrongForCard =
     cityFilter !== null && cityFilter !== city.name;
   return (
     <g
       className="board-city"
-      transform={`translate(${x - CITY_W / 2}, ${y - CITY_H / 2})`}
+      transform={`translate(${x - CITY_SIZE / 2}, ${y - CITY_SIZE / 2})`}
       style={cityWrongForCard ? { opacity: 0.35 } : undefined}
     >
       <rect
         x={0}
         y={0}
-        width={CITY_W}
-        height={CITY_H}
+        width={CITY_SIZE}
+        height={CITY_SIZE}
         rx={4}
         fill={fill}
         fillOpacity={0.18}
@@ -273,98 +290,72 @@ function DistrictCityShape({
         strokeWidth={1.2}
       />
       <text
-        x={CITY_W / 2}
-        y={-4}
+        x={CITY_SIZE / 2}
+        y={-3}
         className="board-city__label"
         textAnchor="middle"
       >
         {city.name}
       </text>
-      <g transform={`translate(0, ${CITY_H / 2 - 6})`}>
-        {city.slots.map((slot, i) => {
-          const isOccupied = occupied.has(`${city.name}#${i}`);
-          const isPicked = picked === i;
-          // Slot accept-list filter: when the player has picked an
-          // industry, slots whose accept-list excludes it stop being
-          // clickable. Empty acceptList is wildcard so always passes.
-          const slotAcceptsIndustry =
-            industryFilter === null ||
-            slot.acceptList.length === 0 ||
-            slot.acceptList.includes(industryFilter);
-          // Build wizard accepts any in-scope slot click — engine still
-          // validates overbuild / specific-before-combo / era rules.
-          const clickable =
-            slotsClickable && !cityWrongForCard && slotAcceptsIndustry;
-          const cls = [
-            "board-slot",
-            clickable ? "board-slot--clickable" : "",
-            isOccupied ? "board-slot--occupied" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          // Dim slots that are in-scope but rejected by the industry
-          // filter (the city is fine, but this slot's accept-list
-          // doesn't include the picked industry).
-          const slotDim =
-            slotsClickable &&
-            !cityWrongForCard &&
-            !slotAcceptsIndustry;
-          return (
-            <g
-              key={i}
-              transform={`translate(${i * slotW}, 0)`}
-              className={cls}
-              style={slotDim ? { opacity: 0.35 } : undefined}
-              onClick={clickable ? () => onSlotClick(i) : undefined}
-            >
-              <rect
-                x={1}
-                y={-7}
-                width={slotW - 2}
-                height={14}
-                fill={isOccupied ? "#d8d4c2" : "#fffdf6"}
-                stroke={isPicked ? "var(--warm-gold)" : fill}
-                strokeWidth={isPicked ? 2 : 0.8}
-              />
-              {!isOccupied ? (
-                <SlotAcceptGlyph
-                  accept={slot.acceptList}
-                  cx={slotW / 2}
-                  cy={0}
-                  width={slotW - 4}
-                />
-              ) : null}
-            </g>
-          );
-        })}
-      </g>
+      {city.slots.map((slot, i) => {
+        const [cellX, cellY] = slotCellPos(i, city.slots.length);
+        const isOccupied = occupied.has(`${city.name}#${i}`);
+        const isPicked = picked === i;
+        const slotAcceptsIndustry =
+          industryFilter === null ||
+          slot.acceptList.length === 0 ||
+          slot.acceptList.includes(industryFilter);
+        const clickable =
+          slotsClickable && !cityWrongForCard && slotAcceptsIndustry;
+        const slotDim =
+          slotsClickable &&
+          !cityWrongForCard &&
+          !slotAcceptsIndustry;
+        const cls = [
+          "board-slot",
+          clickable ? "board-slot--clickable" : "",
+          isOccupied ? "board-slot--occupied" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return (
+          <g
+            key={i}
+            transform={`translate(${cellX}, ${cellY})`}
+            className={cls}
+            style={slotDim ? { opacity: 0.35 } : undefined}
+            onClick={clickable ? () => onSlotClick(i) : undefined}
+          >
+            <rect
+              x={0}
+              y={0}
+              width={TILE}
+              height={TILE}
+              fill={isOccupied ? "transparent" : "#fffdf6"}
+              stroke={isPicked ? "var(--warm-gold)" : fill}
+              strokeWidth={isPicked ? 2 : 0.8}
+            />
+            {!isOccupied ? (
+              <SlotAcceptGlyph accept={slot.acceptList} />
+            ) : null}
+          </g>
+        );
+      })}
     </g>
   );
 }
 
-function slotGlyph(accept: readonly IndustryName[]): string {
-  if (accept.length === 0) return "ANY";
-  return accept.map((i) => INDUSTRY_GLYPH[i]).join("/");
-}
-
 function SlotAcceptGlyph({
   accept,
-  cx,
-  cy,
-  width,
 }: {
   accept: readonly IndustryName[];
-  cx: number;
-  cy: number;
-  width: number;
 }) {
+  // Slot cell is TILE × TILE; the glyph centres inside it.
   if (accept.length === 0) {
-    // Wildcard — keep the existing letter "ANY" since stacking 6 icons
-    // wouldn't fit at this size.
     return (
       <text
-        x={cx}
-        y={cy + 3}
+        x={TILE / 2}
+        y={TILE / 2 + 3}
         className="board-slot__label"
         textAnchor="middle"
       >
@@ -372,19 +363,31 @@ function SlotAcceptGlyph({
       </text>
     );
   }
-  // Stack as many mini-icons as fit horizontally (1-3 in practice for
-  // combo slots). Each icon is at most 10px wide.
-  const iconSize = Math.min(10, Math.floor((width - 1) / accept.length));
-  const totalW = iconSize * accept.length;
-  const startX = cx - totalW / 2;
+  // Pack accept-list icons in a square grid inside the cell. 1-2 icons
+  // sit on a single row; 3 icons → 2 on top + 1 centred below; 4+ →
+  // 2×2 grid (capped). Icons stay sized so the rhythm matches a
+  // single-icon slot.
+  const n = accept.length;
+  const cols = n <= 2 ? n : 2;
+  const rows = n <= 2 ? 1 : Math.ceil(n / 2);
+  const iconSize = Math.min(11, (TILE - 4) / Math.max(cols, rows));
+  const cells: { ind: IndustryName; x: number; y: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const isOddLast = n === 3 && i === 2;
+    const col = isOddLast ? 0.5 : i % 2;
+    const row = isOddLast ? 1 : Math.floor(i / 2);
+    const x = TILE / 2 + (col - 0.5) * iconSize - iconSize / 2 + iconSize / 2;
+    const y = TILE / 2 + (row - (rows - 1) / 2) * iconSize - iconSize / 2;
+    cells.push({ ind: accept[i]!, x: x - iconSize / 2, y });
+  }
   return (
     <g>
-      {accept.map((ind, i) => (
+      {cells.map(({ ind, x, y }, i) => (
         <image
           key={ind + i}
           href={INDUSTRY_ICON[ind]}
-          x={startX + i * iconSize}
-          y={cy - iconSize / 2}
+          x={x}
+          y={y}
           width={iconSize}
           height={iconSize}
           preserveAspectRatio="xMidYMid meet"
@@ -624,6 +627,7 @@ function BuiltTiles({
   tiles,
   tileCatalogue,
   districtCities,
+  pawnColorById,
   sellMode,
   activeSeatId,
   sellPickedTileIds,
@@ -632,6 +636,7 @@ function BuiltTiles({
   tiles: readonly PlacedIndustryTile[];
   tileCatalogue: readonly IndustryTileSpec[];
   districtCities: readonly DistrictCity[];
+  pawnColorById: ReadonlyMap<number, string>;
   sellMode: boolean;
   activeSeatId: number | null;
   sellPickedTileIds: ReadonlySet<string>;
@@ -649,10 +654,9 @@ function BuiltTiles({
         if (!city) return null;
         const spec = tileCatalogue[t.catalogueIndex];
         if (!spec) return null;
-        const slotCount = Math.max(city.slots.length, 1);
-        const slotW = CITY_W / slotCount;
-        const ox = city.position[0] - CITY_W / 2 + t.slotIndex * slotW + 2;
-        const oy = city.position[1] + CITY_H / 2 + 4;
+        const [cellX, cellY] = slotCellPos(t.slotIndex, city.slots.length);
+        const ox = city.position[0] - CITY_SIZE / 2 + cellX;
+        const oy = city.position[1] - CITY_SIZE / 2 + cellY;
         const clickable =
           sellMode &&
           t.owner === activeSeatId &&
@@ -662,26 +666,7 @@ function BuiltTiles({
         const cls = clickable
           ? "board-tile board-tile--clickable"
           : "board-tile";
-        const tileW = slotW - 4;
-        const tileH = 16;
-        // Icon takes the left ~60% of the tile; level number sits to the
-        // right. The icon shrinks by 1px on each side so it doesn't
-        // touch the rect border.
-        const iconSize = tileH - 2;
-        // Resource cube badge — only Coal Mine, Iron Works, and Brewery
-        // carry resources; flipped tiles always render at 0.
-        const showResource =
-          !t.flipped &&
-          t.resources > 0 &&
-          (spec.industry === "COAL_MINE" ||
-            spec.industry === "IRON_WORKS" ||
-            spec.industry === "BREWERY");
-        const cubeColor =
-          spec.industry === "COAL_MINE"
-            ? "#1a1a1a"
-            : spec.industry === "IRON_WORKS"
-              ? "#a8825a"
-              : "#c79b3f";
+        const ownerColor = pawnColorById.get(t.owner) ?? "#888888";
         return (
           <g
             key={t.id}
@@ -689,42 +674,23 @@ function BuiltTiles({
             className={cls}
             onClick={clickable ? () => onTileClick(t.id) : undefined}
           >
-            <rect
-              width={tileW}
-              height={tileH}
-              rx={2}
-              fill={t.flipped ? "#d8d4c2" : "#fffdf6"}
-              stroke={isPicked ? "var(--warm-gold)" : "#1a1a1a"}
-              strokeWidth={isPicked ? 2 : 0.8}
+            <TileFace
+              spec={spec}
+              ownerColor={ownerColor}
+              face={t.flipped ? "flipped" : "unflipped"}
+              context="board"
+              resources={t.resources}
             />
-            <image
-              href={INDUSTRY_ICON[spec.industry]}
-              x={1}
-              y={1}
-              width={iconSize}
-              height={iconSize}
-              opacity={t.flipped ? 0.5 : 1}
-              preserveAspectRatio="xMidYMid meet"
-            />
-            <text
-              x={iconSize + 3}
-              y={11}
-              className="board-tile__label"
-              textAnchor="start"
-            >
-              {spec.level}
-            </text>
-            {showResource ? (
-              <g transform={`translate(${tileW - 6}, ${tileH - 6})`}>
-                <circle r={5} fill={cubeColor} stroke="#1a1a1a" strokeWidth={0.6} />
-                <text
-                  y={2.2}
-                  textAnchor="middle"
-                  className="board-tile__resource"
-                >
-                  {t.resources}
-                </text>
-              </g>
+            {isPicked ? (
+              <rect
+                x={0}
+                y={0}
+                width={TILE}
+                height={TILE}
+                fill="none"
+                stroke="var(--warm-gold)"
+                strokeWidth={2}
+              />
             ) : null}
           </g>
         );

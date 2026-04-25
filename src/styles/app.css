@@ -265,76 +265,93 @@ body {
 .mat-grid {
   display: grid;
   /* Coal · Iron · Brewery · Cotton · Manufacturer (2 internal cols) · Pottery */
-  grid-template-columns: 1fr 1fr 1fr 1fr 2.4fr 1.4fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
   gap: 0.3rem;
   padding-top: 0.4rem;
 }
-.mat-mfg-grid {
+.mat-grid--single {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.mat-grid--double {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: repeat(5, auto);
   grid-auto-flow: column;
   gap: 0.15rem;
 }
-.mat-pottery-grid {
+.mat-level-row {
   display: grid;
-  grid-template-rows: repeat(5, auto);
-  gap: 0.15rem;
-}
-.mat-row {
-  display: grid;
-  grid-template-columns: 2rem 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.15rem 0.35rem;
+  padding: 0.15rem 0.25rem;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  font-size: 0.72em;
-  min-height: 1.6rem;
+  font-size: 0.7em;
+  min-height: calc(28px + 6px);
 }
-.mat-row__level {
+.mat-level-row__tile {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+.mat-level-row__tile--placeholder {
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px dashed var(--muted);
+}
+.mat-level-row__margin {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.05;
+  color: var(--muted);
+  overflow: hidden;
+}
+.mat-level-row__cost {
   font-weight: 700;
+  color: var(--ink);
+  font-size: 1.05em;
+}
+.mat-level-row__resource,
+.mat-level-row__era,
+.mat-level-row__flag {
+  white-space: nowrap;
   font-size: 0.95em;
 }
-.mat-row__margins {
+.mat-level-row__count {
+  font-size: 0.95em;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-self: end;
+  padding-bottom: 0.05rem;
 }
-.mat-row__count {
-  font-size: 0.85em;
-  color: var(--muted);
-}
-.mat-row--gone {
+.mat-level-row--gone {
   opacity: 0.35;
 }
-.mat-row--lightbulb {
+.mat-level-row--lightbulb {
   background: var(--soft-tint);
 }
-.mat-row--next {
-  border-color: var(--ink);
+.mat-level-row--next {
   border-width: 1.5px;
 }
-.mat-row--clickable {
+.mat-level-row--clickable {
   cursor: pointer;
 }
-.mat-row--clickable:hover {
+.mat-level-row--clickable:hover {
   background: var(--soft-tint);
 }
-.mat-row--picked {
+.mat-level-row--picked {
   outline: 2px solid var(--warm-gold);
   outline-offset: -2px;
 }
-.mat-row--ghost {
+.mat-level-row--ghost {
   visibility: hidden;
   border: none;
   background: transparent;
   min-height: 0;
-}
-.mat-stack--mfg,
-.mat-stack--pottery {
-  /* Use the full sub-grid cell width — internal grids handle the rows. */
 }
 .mat-stack {
   display: flex;
