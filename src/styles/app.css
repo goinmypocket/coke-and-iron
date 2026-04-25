@@ -269,6 +269,13 @@ body {
   font-size: 8px;
   font-weight: 600;
   fill: var(--ink);
+  pointer-events: none;
+}
+.board-slot--clickable {
+  cursor: pointer;
+}
+.board-slot--clickable:hover rect {
+  fill: var(--soft-tint);
 }
 .board-merchant__label {
   font-size: 11px;

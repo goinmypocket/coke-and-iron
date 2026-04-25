@@ -37,6 +37,7 @@ import type {
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
+import { useWizard } from "../wizards/WizardProvider";
 
 const CANVAS = 900;
 const CITY_W = 78;
@@ -62,6 +63,7 @@ const DISTRICT_FILL: Readonly<Record<string, string>> = {
 };
 
 export function BoardPanel() {
+  const wizard = useWizard();
   const view = useGameState((s) => ({
     era: s.era,
     districtCities: s.districtCities,
@@ -78,6 +80,16 @@ export function BoardPanel() {
     [view.districtCities, view.merchantCities],
   );
 
+  const occupiedSlots = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of view.builtTiles) set.add(`${t.cityName}#${t.slotIndex}`);
+    return set;
+  }, [view.builtTiles]);
+
+  const buildPick =
+    wizard.state.phase === "AWAITING_BUILD_INPUTS" ? wizard.state.slot : null;
+  const slotsClickable = wizard.state.phase === "AWAITING_BUILD_INPUTS";
+
   return (
     <Panel id="board" title="Board" maximizable>
       <svg
@@ -88,7 +100,20 @@ export function BoardPanel() {
         <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="#f3edd8" />
         <Lines lines={view.lines} era={view.era} cityByName={cityByName} />
         {view.districtCities.map((c) => (
-          <DistrictCityShape key={c.name} city={c} />
+          <DistrictCityShape
+            key={c.name}
+            city={c}
+            occupied={occupiedSlots}
+            slotsClickable={slotsClickable}
+            picked={
+              buildPick !== null && buildPick.cityName === c.name
+                ? buildPick.slotIndex
+                : null
+            }
+            onSlotClick={(slotIndex) =>
+              wizard.pickSlot({ cityName: c.name, slotIndex })
+            }
+          />
         ))}
         {view.merchantCities.map((m) => (
           <MerchantCityShape key={m.name} city={m} />
@@ -114,7 +139,19 @@ function indexCities(
   return m;
 }
 
-function DistrictCityShape({ city }: { city: DistrictCity }) {
+function DistrictCityShape({
+  city,
+  occupied,
+  slotsClickable,
+  picked,
+  onSlotClick,
+}: {
+  city: DistrictCity;
+  occupied: ReadonlySet<string>;
+  slotsClickable: boolean;
+  picked: number | null;
+  onSlotClick: (slotIndex: number) => void;
+}) {
   const [x, y] = city.position;
   const fill = DISTRICT_FILL[city.districtTag] ?? "#aaaaaa";
   const slotW = CITY_W / Math.max(city.slots.length, 1);
@@ -140,27 +177,39 @@ function DistrictCityShape({ city }: { city: DistrictCity }) {
         {city.name}
       </text>
       <g transform={`translate(0, ${CITY_H / 2 - 6})`}>
-        {city.slots.map((slot, i) => (
-          <g key={i} transform={`translate(${i * slotW}, 0)`}>
-            <rect
-              x={1}
-              y={-7}
-              width={slotW - 2}
-              height={14}
-              fill="#fffdf6"
-              stroke={fill}
-              strokeWidth={0.8}
-            />
-            <text
-              x={slotW / 2}
-              y={3}
-              className="board-slot__label"
-              textAnchor="middle"
+        {city.slots.map((slot, i) => {
+          const isOccupied = occupied.has(`${city.name}#${i}`);
+          const isPicked = picked === i;
+          const clickable = slotsClickable && !isOccupied;
+          return (
+            <g
+              key={i}
+              transform={`translate(${i * slotW}, 0)`}
+              className={
+                clickable ? "board-slot board-slot--clickable" : "board-slot"
+              }
+              onClick={clickable ? () => onSlotClick(i) : undefined}
             >
-              {slotGlyph(slot.acceptList)}
-            </text>
-          </g>
-        ))}
+              <rect
+                x={1}
+                y={-7}
+                width={slotW - 2}
+                height={14}
+                fill={isOccupied ? "#d8d4c2" : "#fffdf6"}
+                stroke={isPicked ? "var(--warm-gold)" : fill}
+                strokeWidth={isPicked ? 2 : 0.8}
+              />
+              <text
+                x={slotW / 2}
+                y={3}
+                className="board-slot__label"
+                textAnchor="middle"
+              >
+                {slotGlyph(slot.acceptList)}
+              </text>
+            </g>
+          );
+        })}
       </g>
     </g>
   );

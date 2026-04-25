@@ -21,6 +21,11 @@
 
 import type { IndustryName, PlayerId } from "../../engine";
 
+export interface BuildSlotPick {
+  readonly cityName: string;
+  readonly slotIndex: number;
+}
+
 export type WizardState =
   | { readonly phase: "IDLE" }
   | { readonly phase: "AWAITING_CARD"; readonly action: "PASS" | "LOAN" }
@@ -34,6 +39,14 @@ export type WizardState =
       readonly cardIndex: number;
       readonly developSeatId: PlayerId;
       readonly industries: readonly IndustryName[];
+    }
+  // §5.1 Build — three fields picked in any order. Auto-submit when all
+  // are set; endAction() submits whatever's set (engine validates).
+  | {
+      readonly phase: "AWAITING_BUILD_INPUTS";
+      readonly cardIndex: number | null;
+      readonly slot: BuildSlotPick | null;
+      readonly industry: IndustryName | null;
     };
 
 export type WizardAction =
@@ -41,6 +54,7 @@ export type WizardAction =
   | { type: "START_LOAN" }
   | { type: "START_SCOUT" }
   | { type: "START_DEVELOP" }
+  | { type: "START_BUILD" }
   | { type: "TOGGLE_CARD"; cardIndex: number }
   | {
       type: "PICK_DEVELOP_CARD";
@@ -51,6 +65,9 @@ export type WizardAction =
       type: "ADD_DEVELOP_INDUSTRY";
       industry: IndustryName;
     }
+  | { type: "BUILD_SET_CARD"; cardIndex: number }
+  | { type: "BUILD_SET_SLOT"; slot: BuildSlotPick }
+  | { type: "BUILD_SET_INDUSTRY"; industry: IndustryName }
   | { type: "RESET" };
 
 export const INITIAL_WIZARD: WizardState = { phase: "IDLE" };
@@ -107,6 +124,25 @@ export function wizardReducer(
         industries: [...state.industries, action.industry],
       };
     }
+    case "START_BUILD":
+      return {
+        phase: "AWAITING_BUILD_INPUTS",
+        cardIndex: null,
+        slot: null,
+        industry: null,
+      };
+    case "BUILD_SET_CARD": {
+      if (state.phase !== "AWAITING_BUILD_INPUTS") return state;
+      return { ...state, cardIndex: action.cardIndex };
+    }
+    case "BUILD_SET_SLOT": {
+      if (state.phase !== "AWAITING_BUILD_INPUTS") return state;
+      return { ...state, slot: action.slot };
+    }
+    case "BUILD_SET_INDUSTRY": {
+      if (state.phase !== "AWAITING_BUILD_INPUTS") return state;
+      return { ...state, industry: action.industry };
+    }
     case "RESET":
       return { phase: "IDLE" };
   }
@@ -119,6 +155,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set(state.cardIndices);
   }
   if (state.phase === "AWAITING_DEVELOP_INDUSTRIES") {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_BUILD_INPUTS" && state.cardIndex !== null) {
     return new Set([state.cardIndex]);
   }
   return new Set();

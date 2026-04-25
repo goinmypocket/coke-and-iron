@@ -95,8 +95,12 @@ Status keys:
   of free network iron > market is wired. Manual iron source
   picker (when ambiguous, e.g. multiple unflipped Iron Works) is
   still TODO; today the wizard just walks builtTiles in order.
-- **[ui] Build wizard.** Card + city + slot + industry, then
-  coal/iron sub-states. Needs board panel first.
+- **[ui] Build wizard polish.** Three-pick happy path shipped
+  (card / city slot / mat industry — any order, auto-submits).
+  Still TODO: overbuild click target on own filled slots,
+  connectivity-aware free coal source picker (currently always
+  market), explicit iron/coal source sub-states for ambiguity,
+  visual narrowing of valid slots once card/industry is picked.
 - **[ui] Network wizard.** Line pick (canal or rail), coal sub-state
   (rail), beer sub-state (rail-2nd). Second-rail-offer follow-up
   per §10.1. Needs board panel first.

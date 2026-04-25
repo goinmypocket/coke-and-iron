@@ -34,6 +34,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import type {
+  CoalSource,
   GameState,
   IndustryName,
   IronSource,
@@ -45,6 +46,7 @@ import {
   INITIAL_WIZARD,
   pickedCardIndices,
   wizardReducer,
+  type BuildSlotPick,
   type WizardState,
 } from "./wizardState";
 
@@ -56,11 +58,15 @@ interface WizardApi {
   startLoan(): void;
   startScout(): void;
   startDevelop(): void;
+  startBuild(): void;
   /** Click on a card from HandPanel. Routes to the active phase. */
   pickCard(cardIndex: number): void;
   /** Click on a mat top-tile from a player sub-panel. */
   pickIndustry(seatId: PlayerId, industry: IndustryName): void;
-  /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry). */
+  /** Click on a city slot from BoardPanel. Build wizard only. */
+  pickSlot(slot: BuildSlotPick): void;
+  /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
+   *  Build: all three fields once set). */
   endAction(): void;
   /** Cancel the current wizard back to IDLE without dispatching. */
   reset(): void;
@@ -79,6 +85,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => dispatch({ type: "START_DEVELOP" }),
     [],
   );
+  const startBuild = useCallback(() => dispatch({ type: "START_BUILD" }), []);
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
   const submitDevelop = useCallback(
@@ -98,6 +105,52 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         cardIndex: live.cardIndex,
         industries: [...live.industries],
         ironSources: sources.map((s) => [s]),
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
+  const submitBuild = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_BUILD_INPUTS") return;
+      if (
+        live.cardIndex === null ||
+        live.slot === null ||
+        live.industry === null
+      ) {
+        toast.error("Pick a card, a city slot, and an industry to build.");
+        return;
+      }
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const player = liveState.players.find((p) => p.id === playerId);
+      const topIdx = player?.mat.stacks[live.industry][0];
+      const topSpec =
+        topIdx === undefined ? undefined : liveState.tileCatalogue[topIdx];
+      const coalNeeded = topSpec?.coalCost ?? 0;
+      const ironNeeded = topSpec?.ironCost ?? 0;
+      // Conservative auto-pick: iron from any unflipped iron works (free,
+      // no connectivity check), then market. Coal goes to market —
+      // connectivity-aware free coal is a roadmap follow-up.
+      const ironSources = autoResolveIronSources(liveState, ironNeeded);
+      const coalSources: CoalSource[] = Array.from(
+        { length: coalNeeded },
+        () => ({ kind: "MARKET" }),
+      );
+      const result = engine.dispatch({
+        type: "BUILD",
+        playerId,
+        cardIndex: live.cardIndex,
+        cityName: live.slot.cityName,
+        slotIndex: live.slot.slotIndex,
+        industry: live.industry,
+        coalSources,
+        ironSources,
       });
       if (result.ok) {
         dispatch({ type: "RESET" });
@@ -145,33 +198,78 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         // Card already picked — additional card clicks are no-ops.
         return;
       }
+      if (live.phase === "AWAITING_BUILD_INPUTS") {
+        const projected: WizardState = { ...live, cardIndex };
+        dispatch({ type: "BUILD_SET_CARD", cardIndex });
+        if (
+          projected.cardIndex !== null &&
+          projected.slot !== null &&
+          projected.industry !== null
+        ) {
+          submitBuild(projected);
+        }
+        return;
+      }
     },
-    [engine, state],
+    [engine, state, submitBuild],
   );
 
   const pickIndustry = useCallback(
     (seatId: PlayerId, industry: IndustryName) => {
-      // Develop accepts two picks of the same industry (§5.3) — the engine
-      // pops the stack in order between them. Each click here ADDS one
-      // pick; never deselects. Reset Selection clears the wizard if the
-      // player wants to start over.
       const live = state;
-      if (live.phase !== "AWAITING_DEVELOP_INDUSTRIES") return;
-      if (live.developSeatId !== seatId) return;
-      if (live.industries.length >= 2) return;
+      if (live.phase === "AWAITING_DEVELOP_INDUSTRIES") {
+        // Develop accepts two picks of the same industry (§5.3) — the
+        // engine pops the stack in order between them. Each click here
+        // ADDS one pick; never deselects. Reset Selection clears.
+        if (live.developSeatId !== seatId) return;
+        if (live.industries.length >= 2) return;
 
-      dispatch({ type: "ADD_DEVELOP_INDUSTRY", industry });
-
-      // Auto-submit on the second pick.
-      if (live.industries.length + 1 === 2) {
-        const projected: WizardState = {
-          ...live,
-          industries: [...live.industries, industry],
-        };
-        submitDevelop(projected);
+        dispatch({ type: "ADD_DEVELOP_INDUSTRY", industry });
+        if (live.industries.length + 1 === 2) {
+          const projected: WizardState = {
+            ...live,
+            industries: [...live.industries, industry],
+          };
+          submitDevelop(projected);
+        }
+        return;
+      }
+      if (live.phase === "AWAITING_BUILD_INPUTS") {
+        // Only the acting seat can target their own mat; the engine
+        // would reject a foreign-seat click anyway, but we keep the
+        // wizard scoped to one seat for clarity.
+        const liveState = engine.getState();
+        const activeId = liveState.turnOrder[liveState.currentPlayerIndex];
+        if (seatId !== activeId) return;
+        const projected: WizardState = { ...live, industry };
+        dispatch({ type: "BUILD_SET_INDUSTRY", industry });
+        if (
+          projected.cardIndex !== null &&
+          projected.slot !== null &&
+          projected.industry !== null
+        ) {
+          submitBuild(projected);
+        }
       }
     },
-    [state, submitDevelop],
+    [engine, state, submitBuild, submitDevelop],
+  );
+
+  const pickSlot = useCallback(
+    (slot: BuildSlotPick) => {
+      const live = state;
+      if (live.phase !== "AWAITING_BUILD_INPUTS") return;
+      const projected: WizardState = { ...live, slot };
+      dispatch({ type: "BUILD_SET_SLOT", slot });
+      if (
+        projected.cardIndex !== null &&
+        projected.slot !== null &&
+        projected.industry !== null
+      ) {
+        submitBuild(projected);
+      }
+    },
+    [state, submitBuild],
   );
 
   const endAction = useCallback(() => {
@@ -200,7 +298,11 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitDevelop(live);
       return;
     }
-  }, [engine, state, submitDevelop]);
+    if (live.phase === "AWAITING_BUILD_INPUTS") {
+      submitBuild(live);
+      return;
+    }
+  }, [engine, state, submitDevelop, submitBuild]);
 
   const api = useMemo<WizardApi>(
     () => ({
@@ -210,8 +312,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       startLoan,
       startScout,
       startDevelop,
+      startBuild,
       pickCard,
       pickIndustry,
+      pickSlot,
       endAction,
       reset,
     }),
@@ -221,8 +325,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       startLoan,
       startScout,
       startDevelop,
+      startBuild,
       pickCard,
       pickIndustry,
+      pickSlot,
       endAction,
       reset,
     ],

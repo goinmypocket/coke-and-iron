@@ -37,6 +37,12 @@ export function ActionsPanel() {
   const canEndDevelop =
     wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES" &&
     wizard.state.industries.length === 1;
+  const isBuild = wizard.state.phase === "AWAITING_BUILD_INPUTS";
+  const canEndBuild =
+    wizard.state.phase === "AWAITING_BUILD_INPUTS" &&
+    wizard.state.cardIndex !== null &&
+    wizard.state.slot !== null &&
+    wizard.state.industry !== null;
 
   const onEndTurn = () => {
     if (flags.activePlayerId === null) return;
@@ -53,9 +59,9 @@ export function ActionsPanel() {
         <div className="actions-panel__verbs">
           <ActionButton
             label="Build"
-            disabled
-            tooltip={NOT_IMPLEMENTED}
-            onClick={() => {}}
+            active={isBuild}
+            disabled={!flags.canAct}
+            onClick={wizard.startBuild}
           />
           <ActionButton
             label="Network"
@@ -103,7 +109,7 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="End Action"
-            disabled={!isScout && !canEndDevelop}
+            disabled={!isScout && !canEndDevelop && !canEndBuild}
             onClick={wizard.endAction}
           />
           <ActionButton
