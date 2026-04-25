@@ -12,9 +12,11 @@
 import {
   listClosestCoalMines,
   listUnflippedIronWorks,
+  listValidBreweries,
   useWizard,
 } from "../wizards/WizardProvider";
 import type { CoalSource, IronSource } from "../../engine";
+import type { BreweryBeerSource } from "../wizards/wizardState";
 import { useEngine } from "../hooks/useEngine";
 
 export function ResourcePickerOverlay() {
@@ -24,6 +26,9 @@ export function ResourcePickerOverlay() {
   }
   if (wizard.state.phase === "AWAITING_BUILD_RESOURCES") {
     return <BuildResourcePicker />;
+  }
+  if (wizard.state.phase === "AWAITING_NETWORK_RESOURCES") {
+    return <NetworkResourcePicker />;
   }
   return null;
 }
@@ -188,6 +193,159 @@ function BuildResourcePicker() {
           }
         />
       )}
+    </PickerShell>
+  );
+}
+
+function NetworkResourcePicker() {
+  const wizard = useWizard();
+  const engine = useEngine();
+  if (wizard.state.phase !== "AWAITING_NETWORK_RESOURCES") return null;
+  const live = wizard.state;
+  const liveState = engine.getState();
+  const playerId = liveState.turnOrder[liveState.currentPlayerIndex];
+
+  const fcLeft = live.firstCoalNeed - live.firstCoalPicks.length;
+  const scLeft = live.secondCoalNeed - live.secondCoalPicks.length;
+  const beerLeft = live.beerNeed - live.beerPicks.length;
+  const showFirstCoal = fcLeft > 0;
+  const showSecondCoal = scLeft > 0;
+  const showBeer = beerLeft > 0;
+
+  const firstEndpoints = liveState.lines[live.lineIndex]?.endpoints ?? [];
+  const secondEndpoints =
+    live.secondLineIndex !== null
+      ? (liveState.lines[live.secondLineIndex]?.endpoints ?? [])
+      : [];
+
+  const firstCoalSources = showFirstCoal
+    ? listClosestCoalMines(liveState, firstEndpoints)
+    : [];
+  const secondCoalSources = showSecondCoal
+    ? listClosestCoalMines(liveState, secondEndpoints)
+    : [];
+  const beerSources =
+    showBeer && playerId !== undefined
+      ? listValidBreweries(liveState, secondEndpoints, playerId)
+      : [];
+  const fcRemaining = applyTilePicks(firstCoalSources, live.firstCoalPicks);
+  const scRemaining = applyTilePicks(secondCoalSources, live.secondCoalPicks);
+  const beerRemaining = applyTilePicks(beerSources, live.beerPicks);
+
+  const pickedChips: string[] = [];
+  for (const p of live.firstCoalPicks) {
+    pickedChips.push(
+      p.kind === "TILE" ? `coal-1 @ ${shortId(p.tileId)}` : "coal-1 · market",
+    );
+  }
+  for (const p of live.secondCoalPicks) {
+    pickedChips.push(
+      p.kind === "TILE" ? `coal-2 @ ${shortId(p.tileId)}` : "coal-2 · market",
+    );
+  }
+  for (const p of live.beerPicks) {
+    pickedChips.push(`beer @ ${shortId(p.tileId)}`);
+  }
+
+  return (
+    <PickerShell
+      title="Network resources — pick from multiple board sources"
+      lead="Coal sources are restricted to mines tied at the closest hop distance from each line's endpoints. Beer must come from a brewery (own / connected opponent)."
+      pickedChips={pickedChips}
+      pendingChipCount={fcLeft + scLeft + beerLeft}
+      onReset={
+        live.firstCoalPicks.length +
+          live.secondCoalPicks.length +
+          live.beerPicks.length >
+        0
+          ? () => wizard.resetNetworkResources()
+          : null
+      }
+      onCancel={() => wizard.reset()}
+    >
+      {showFirstCoal && (
+        <SectionHeader>Coal — link 1 (closest mines)</SectionHeader>
+      )}
+      {showFirstCoal &&
+        firstCoalSources.map((m) => {
+          const remaining = fcRemaining.get(m.tileId) ?? 0;
+          return (
+            <SourceRow
+              key={m.tileId}
+              label={`Coal Mine @ ${m.cityName} (×${remaining})`}
+              sub={`${m.distance} hop${m.distance === 1 ? "" : "s"} · seat ${m.ownerId + 1}`}
+              disabled={remaining <= 0 || fcLeft === 0}
+              onClick={() =>
+                wizard.pickNetworkFirstCoal({
+                  kind: "TILE",
+                  tileId: m.tileId,
+                } satisfies CoalSource)
+              }
+            />
+          );
+        })}
+      {showFirstCoal && (
+        <SourceRow
+          label="Coal Market (paid)"
+          disabled={fcLeft === 0}
+          onClick={() =>
+            wizard.pickNetworkFirstCoal({ kind: "MARKET" } satisfies CoalSource)
+          }
+        />
+      )}
+      {showSecondCoal && (
+        <SectionHeader>Coal — link 2 (closest mines)</SectionHeader>
+      )}
+      {showSecondCoal &&
+        secondCoalSources.map((m) => {
+          const remaining = scRemaining.get(m.tileId) ?? 0;
+          return (
+            <SourceRow
+              key={m.tileId}
+              label={`Coal Mine @ ${m.cityName} (×${remaining})`}
+              sub={`${m.distance} hop${m.distance === 1 ? "" : "s"} · seat ${m.ownerId + 1}`}
+              disabled={remaining <= 0 || scLeft === 0}
+              onClick={() =>
+                wizard.pickNetworkSecondCoal({
+                  kind: "TILE",
+                  tileId: m.tileId,
+                } satisfies CoalSource)
+              }
+            />
+          );
+        })}
+      {showSecondCoal && (
+        <SourceRow
+          label="Coal Market (paid)"
+          disabled={scLeft === 0}
+          onClick={() =>
+            wizard.pickNetworkSecondCoal({
+              kind: "MARKET",
+            } satisfies CoalSource)
+          }
+        />
+      )}
+      {showBeer && (
+        <SectionHeader>Beer — second-rail brewery</SectionHeader>
+      )}
+      {showBeer &&
+        beerSources.map((b) => {
+          const remaining = beerRemaining.get(b.tileId) ?? 0;
+          return (
+            <SourceRow
+              key={b.tileId}
+              label={`Brewery @ ${b.cityName} (×${remaining})`}
+              sub={`seat ${b.ownerId + 1}`}
+              disabled={remaining <= 0 || beerLeft === 0}
+              onClick={() =>
+                wizard.pickNetworkBeer({
+                  kind: "BREWERY",
+                  tileId: b.tileId,
+                } satisfies BreweryBeerSource)
+              }
+            />
+          );
+        })}
     </PickerShell>
   );
 }

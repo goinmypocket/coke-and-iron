@@ -102,5 +102,16 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
       if (parts.length === 0) return "Build resources — submitting…";
       return `Build resources — pick ${parts.join(" + ")} in the picker.`;
     }
+    case "AWAITING_NETWORK_RESOURCES": {
+      const fc = state.firstCoalNeed - state.firstCoalPicks.length;
+      const sc = state.secondCoalNeed - state.secondCoalPicks.length;
+      const beer = state.beerNeed - state.beerPicks.length;
+      const parts: string[] = [];
+      if (fc > 0) parts.push(`${fc} coal (link 1)`);
+      if (sc > 0) parts.push(`${sc} coal (link 2)`);
+      if (beer > 0) parts.push(`${beer} beer`);
+      if (parts.length === 0) return "Network resources — submitting…";
+      return `Network resources — pick ${parts.join(" + ")} in the picker.`;
+    }
   }
 }

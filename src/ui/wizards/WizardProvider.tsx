@@ -64,6 +64,7 @@ import {
   INITIAL_WIZARD,
   pickedCardIndices,
   wizardReducer,
+  type BreweryBeerSource,
   type BuildSlotPick,
   type WizardState,
 } from "./wizardState";
@@ -99,6 +100,14 @@ interface WizardApi {
   pickBuildIron(source: IronSource): void;
   /** Clear all picks in the Build resource picker. */
   resetBuildResources(): void;
+  /** Click a coal source for the first link in Network resource picker. */
+  pickNetworkFirstCoal(source: CoalSource): void;
+  /** Click a coal source for the second link in Network resource picker. */
+  pickNetworkSecondCoal(source: CoalSource): void;
+  /** Click a brewery for the second-rail beer in Network resource picker. */
+  pickNetworkBeer(source: BreweryBeerSource): void;
+  /** Clear all picks in the Network resource picker. */
+  resetNetworkResources(): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -519,6 +528,32 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     [dispatchSellIntent],
   );
 
+  const dispatchNetworkIntent = useCallback(
+    (
+      cardIndex: number,
+      lineIndex: number,
+      coalSources: readonly CoalSource[],
+      secondLink: NetworkSecondLink | null,
+    ) => {
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const result = engine.dispatch({
+        type: "NETWORK",
+        playerId,
+        cardIndex,
+        lineIndex,
+        coalSources: [...coalSources],
+        secondLink,
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
   const submitNetwork = useCallback(
     (live: WizardState) => {
       if (live.phase !== "AWAITING_NETWORK_INPUTS") return;
@@ -531,43 +566,175 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         return;
       }
       const liveState = engine.getState();
-      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
-      const coalSources: CoalSource[] =
-        liveState.era === "RAIL" ? [{ kind: "MARKET" }] : [];
-
-      let secondLink: NetworkSecondLink | null = null;
-      if (live.secondLineIndex !== null) {
-        // Second link in rail era only — engine rejects in canal anyway.
-        const breweryTileId = pickAnyUnflippedBreweryId(liveState);
-        if (breweryTileId === null) {
-          toast.error(
-            "Need an unflipped brewery to fuel the second rail link.",
-          );
-          return;
-        }
-        secondLink = {
-          lineIndex: live.secondLineIndex,
-          coalSources: [{ kind: "MARKET" }],
-          beerSource: { kind: "BREWERY", tileId: breweryTileId },
-        };
+      // Canal era — no resources to pick.
+      if (liveState.era === "CANAL") {
+        dispatchNetworkIntent(live.cardIndex, live.lineIndex, [], null);
+        return;
       }
 
-      const result = engine.dispatch({
-        type: "NETWORK",
-        playerId,
+      const firstLine = liveState.lines[live.lineIndex];
+      const firstEndpoints = firstLine?.endpoints ?? [];
+      const firstClosest = listClosestCoalMines(liveState, firstEndpoints);
+      const firstCoalAmbiguous = firstClosest.length > 1;
+      const firstCoalPrefill = autoResolveSingleCoal(firstClosest);
+
+      let secondClosest: readonly AvailableCoalSource[] = [];
+      let secondCoalAmbiguous = false;
+      let secondCoalPrefill: CoalSource[] = [];
+      let breweries: readonly AvailableBrewery[] = [];
+      let beerAmbiguous = false;
+      let beerPrefill: BreweryBeerSource[] = [];
+
+      const secondEndpoints =
+        live.secondLineIndex !== null
+          ? (liveState.lines[live.secondLineIndex]?.endpoints ?? [])
+          : [];
+
+      if (live.secondLineIndex !== null) {
+        secondClosest = listClosestCoalMines(liveState, secondEndpoints);
+        secondCoalAmbiguous = secondClosest.length > 1;
+        secondCoalPrefill = secondCoalAmbiguous
+          ? []
+          : autoResolveSingleCoal(secondClosest);
+
+        const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+        breweries = listValidBreweries(liveState, secondEndpoints, playerId);
+        beerAmbiguous = breweries.length > 1;
+        if (!beerAmbiguous) {
+          if (breweries.length === 1) {
+            beerPrefill = [
+              { kind: "BREWERY", tileId: breweries[0]!.tileId },
+            ];
+          } else {
+            // No valid brewery — engine will reject. Surface a toast and
+            // bail out without entering the picker.
+            toast.error(
+              "Need an unflipped brewery reachable from the second rail line.",
+            );
+            return;
+          }
+        }
+      }
+
+      const anyAmbiguous =
+        firstCoalAmbiguous || secondCoalAmbiguous || beerAmbiguous;
+
+      if (!anyAmbiguous) {
+        const secondLink: NetworkSecondLink | null =
+          live.secondLineIndex !== null
+            ? {
+                lineIndex: live.secondLineIndex,
+                coalSources: secondCoalPrefill,
+                beerSource: beerPrefill[0]!,
+              }
+            : null;
+        dispatchNetworkIntent(
+          live.cardIndex,
+          live.lineIndex,
+          firstCoalPrefill,
+          secondLink,
+        );
+        return;
+      }
+
+      dispatch({
+        type: "ENTER_NETWORK_RESOURCES",
         cardIndex: live.cardIndex,
         lineIndex: live.lineIndex,
-        coalSources,
-        secondLink,
+        secondLineIndex: live.secondLineIndex,
+        firstCoalNeed: 1,
+        secondCoalNeed: live.secondLineIndex !== null ? 1 : 0,
+        beerNeed: live.secondLineIndex !== null ? 1 : 0,
+        firstCoalPicks: firstCoalAmbiguous ? [] : firstCoalPrefill,
+        secondCoalPicks: secondCoalAmbiguous ? [] : secondCoalPrefill,
+        beerPicks: beerAmbiguous ? [] : beerPrefill,
       });
-      if (result.ok) {
-        dispatch({ type: "RESET" });
-      } else {
-        toast.error(reasonToText(result.reason));
+    },
+    [engine, dispatchNetworkIntent],
+  );
+
+  const submitNetworkResources = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_NETWORK_RESOURCES") return;
+      if (
+        live.firstCoalPicks.length !== live.firstCoalNeed ||
+        live.secondCoalPicks.length !== live.secondCoalNeed ||
+        live.beerPicks.length !== live.beerNeed
+      ) {
+        return;
+      }
+      const secondLink: NetworkSecondLink | null =
+        live.secondLineIndex !== null
+          ? {
+              lineIndex: live.secondLineIndex,
+              coalSources: live.secondCoalPicks,
+              beerSource: live.beerPicks[0]!,
+            }
+          : null;
+      dispatchNetworkIntent(
+        live.cardIndex,
+        live.lineIndex,
+        live.firstCoalPicks,
+        secondLink,
+      );
+    },
+    [dispatchNetworkIntent],
+  );
+
+  const pickNetworkFirstCoal = useCallback(
+    (source: CoalSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_NETWORK_RESOURCES") return;
+      if (live.firstCoalPicks.length >= live.firstCoalNeed) return;
+      const projected: WizardState = {
+        ...live,
+        firstCoalPicks: [...live.firstCoalPicks, source],
+      };
+      dispatch({ type: "NETWORK_FIRST_COAL_ADD_PICK", source });
+      if (allNetworkResourcePicksFull(projected)) {
+        submitNetworkResources(projected);
       }
     },
-    [engine],
+    [state, submitNetworkResources],
   );
+
+  const pickNetworkSecondCoal = useCallback(
+    (source: CoalSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_NETWORK_RESOURCES") return;
+      if (live.secondCoalPicks.length >= live.secondCoalNeed) return;
+      const projected: WizardState = {
+        ...live,
+        secondCoalPicks: [...live.secondCoalPicks, source],
+      };
+      dispatch({ type: "NETWORK_SECOND_COAL_ADD_PICK", source });
+      if (allNetworkResourcePicksFull(projected)) {
+        submitNetworkResources(projected);
+      }
+    },
+    [state, submitNetworkResources],
+  );
+
+  const pickNetworkBeer = useCallback(
+    (source: BreweryBeerSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_NETWORK_RESOURCES") return;
+      if (live.beerPicks.length >= live.beerNeed) return;
+      const projected: WizardState = {
+        ...live,
+        beerPicks: [...live.beerPicks, source],
+      };
+      dispatch({ type: "NETWORK_BEER_ADD_PICK", source });
+      if (allNetworkResourcePicksFull(projected)) {
+        submitNetworkResources(projected);
+      }
+    },
+    [state, submitNetworkResources],
+  );
+
+  const resetNetworkResources = useCallback(() => {
+    dispatch({ type: "NETWORK_RESOURCES_RESET" });
+  }, []);
 
   const pickCard = useCallback(
     (cardIndex: number) => {
@@ -786,6 +953,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitBuildResources(live);
       return;
     }
+    if (live.phase === "AWAITING_NETWORK_RESOURCES") {
+      submitNetworkResources(live);
+      return;
+    }
   }, [
     engine,
     state,
@@ -796,6 +967,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     submitSellGloucester,
     submitDevelopIron,
     submitBuildResources,
+    submitNetworkResources,
   ]);
 
   const api = useMemo<WizardApi>(
@@ -819,6 +991,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickBuildCoal,
       pickBuildIron,
       resetBuildResources,
+      pickNetworkFirstCoal,
+      pickNetworkSecondCoal,
+      pickNetworkBeer,
+      resetNetworkResources,
       endAction,
       reset,
     }),
@@ -841,6 +1017,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickBuildCoal,
       pickBuildIron,
       resetBuildResources,
+      pickNetworkFirstCoal,
+      pickNetworkSecondCoal,
+      pickNetworkBeer,
+      resetNetworkResources,
       endAction,
       reset,
     ],
@@ -903,19 +1083,69 @@ function projectNetworkAfterToggle(
 }
 
 /**
- * Pick the first unflipped brewery (any owner) with at least one
- * barrel left. Returns null when no brewery has beer to give. Engine
- * still validates the connectivity-to-line-endpoint requirement.
+ * List unflipped breweries that are valid sources for the player given
+ * the consumer cities (line endpoints for Network second rail, tile
+ * city for Sell). Own breweries always qualify (no connectivity); other
+ * players' breweries must be reachable through the any-player developed
+ * link graph from one of the consumer cities (§5.6.3 priorities 1 & 2).
  */
-function pickAnyUnflippedBreweryId(state: GameState): string | null {
+export interface AvailableBrewery {
+  readonly tileId: string;
+  readonly remaining: number;
+  readonly ownerId: PlayerId;
+  readonly cityName: string;
+}
+
+export function listValidBreweries(
+  state: GameState,
+  consumerCities: readonly string[],
+  playerId: PlayerId,
+): readonly AvailableBrewery[] {
+  const dist = buildDistanceMap(state, consumerCities);
+  const out: AvailableBrewery[] = [];
   for (const t of state.builtTiles) {
     const spec = state.tileCatalogue[t.catalogueIndex];
     if (spec?.industry !== "BREWERY") continue;
     if (t.flipped) continue;
     if (t.resources <= 0) continue;
-    return t.id;
+    if (t.owner === playerId) {
+      out.push({
+        tileId: t.id,
+        remaining: t.resources,
+        ownerId: t.owner,
+        cityName: t.cityName,
+      });
+      continue;
+    }
+    if (!dist.has(t.cityName)) continue;
+    out.push({
+      tileId: t.id,
+      remaining: t.resources,
+      ownerId: t.owner,
+      cityName: t.cityName,
+    });
   }
-  return null;
+  return out;
+}
+
+/** Build a 1-cube CoalSource[] from at most one closest mine. Returns
+ *  [{tile}] when a single mine is available, [{market}] otherwise. */
+function autoResolveSingleCoal(
+  closest: readonly AvailableCoalSource[],
+): CoalSource[] {
+  if (closest.length === 1) {
+    return [{ kind: "TILE", tileId: closest[0]!.tileId }];
+  }
+  return [{ kind: "MARKET" }];
+}
+
+function allNetworkResourcePicksFull(state: WizardState): boolean {
+  if (state.phase !== "AWAITING_NETWORK_RESOURCES") return false;
+  return (
+    state.firstCoalPicks.length === state.firstCoalNeed &&
+    state.secondCoalPicks.length === state.secondCoalNeed &&
+    state.beerPicks.length === state.beerNeed
+  );
 }
 
 /**

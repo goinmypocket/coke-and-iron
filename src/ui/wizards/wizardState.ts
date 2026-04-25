@@ -47,6 +47,13 @@ import type {
   SellOrder,
 } from "../../engine";
 
+/** Beer source restricted to the brewery variant — Network and Sell's
+ *  brewery picks both use this; Sell can additionally use MERCHANT. */
+export type BreweryBeerSource = {
+  readonly kind: "BREWERY";
+  readonly tileId: string;
+};
+
 export interface BuildSlotPick {
   readonly cityName: string;
   readonly slotIndex: number;
@@ -135,6 +142,25 @@ export type WizardState =
       readonly ironNeed: number;
       readonly coalPicks: readonly CoalSource[];
       readonly ironPicks: readonly IronSource[];
+    }
+  // §5.6.1 / §5.6.3 Network resource picker — entered when a Network
+  // dispatch has multiple free coal sources for either link OR
+  // multiple valid breweries for the second-rail beer. First-link
+  // coal is sourced from the first line's endpoints; second-link
+  // coal from the second line's endpoints; beer also from second
+  // line's endpoints (own brewery or any connected opponent
+  // brewery). Non-ambiguous resources pre-fill at entry.
+  | {
+      readonly phase: "AWAITING_NETWORK_RESOURCES";
+      readonly cardIndex: number;
+      readonly lineIndex: number;
+      readonly secondLineIndex: number | null;
+      readonly firstCoalNeed: number;
+      readonly secondCoalNeed: number;
+      readonly beerNeed: number;
+      readonly firstCoalPicks: readonly CoalSource[];
+      readonly secondCoalPicks: readonly CoalSource[];
+      readonly beerPicks: readonly BreweryBeerSource[];
     };
 
 export type WizardAction =
@@ -183,6 +209,22 @@ export type WizardAction =
   | { type: "BUILD_COAL_ADD_PICK"; source: CoalSource }
   | { type: "BUILD_IRON_ADD_PICK"; source: IronSource }
   | { type: "BUILD_RESOURCES_RESET" }
+  | {
+      type: "ENTER_NETWORK_RESOURCES";
+      cardIndex: number;
+      lineIndex: number;
+      secondLineIndex: number | null;
+      firstCoalNeed: number;
+      secondCoalNeed: number;
+      beerNeed: number;
+      firstCoalPicks: readonly CoalSource[];
+      secondCoalPicks: readonly CoalSource[];
+      beerPicks: readonly BreweryBeerSource[];
+    }
+  | { type: "NETWORK_FIRST_COAL_ADD_PICK"; source: CoalSource }
+  | { type: "NETWORK_SECOND_COAL_ADD_PICK"; source: CoalSource }
+  | { type: "NETWORK_BEER_ADD_PICK"; source: BreweryBeerSource }
+  | { type: "NETWORK_RESOURCES_RESET" }
   | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
@@ -383,6 +425,49 @@ export function wizardReducer(
       if (state.phase !== "AWAITING_BUILD_RESOURCES") return state;
       return { ...state, coalPicks: [], ironPicks: [] };
     }
+    case "ENTER_NETWORK_RESOURCES":
+      return {
+        phase: "AWAITING_NETWORK_RESOURCES",
+        cardIndex: action.cardIndex,
+        lineIndex: action.lineIndex,
+        secondLineIndex: action.secondLineIndex,
+        firstCoalNeed: action.firstCoalNeed,
+        secondCoalNeed: action.secondCoalNeed,
+        beerNeed: action.beerNeed,
+        firstCoalPicks: action.firstCoalPicks,
+        secondCoalPicks: action.secondCoalPicks,
+        beerPicks: action.beerPicks,
+      };
+    case "NETWORK_FIRST_COAL_ADD_PICK": {
+      if (state.phase !== "AWAITING_NETWORK_RESOURCES") return state;
+      if (state.firstCoalPicks.length >= state.firstCoalNeed) return state;
+      return {
+        ...state,
+        firstCoalPicks: [...state.firstCoalPicks, action.source],
+      };
+    }
+    case "NETWORK_SECOND_COAL_ADD_PICK": {
+      if (state.phase !== "AWAITING_NETWORK_RESOURCES") return state;
+      if (state.secondCoalPicks.length >= state.secondCoalNeed) return state;
+      return {
+        ...state,
+        secondCoalPicks: [...state.secondCoalPicks, action.source],
+      };
+    }
+    case "NETWORK_BEER_ADD_PICK": {
+      if (state.phase !== "AWAITING_NETWORK_RESOURCES") return state;
+      if (state.beerPicks.length >= state.beerNeed) return state;
+      return { ...state, beerPicks: [...state.beerPicks, action.source] };
+    }
+    case "NETWORK_RESOURCES_RESET": {
+      if (state.phase !== "AWAITING_NETWORK_RESOURCES") return state;
+      return {
+        ...state,
+        firstCoalPicks: [],
+        secondCoalPicks: [],
+        beerPicks: [],
+      };
+    }
     case "IDLE_STASH_CARD": {
       // Card-first flow only applies in IDLE. While a wizard is open
       // the wizard's own SET_CARD reducers handle card clicks.
@@ -428,6 +513,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_BUILD_RESOURCES") {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_NETWORK_RESOURCES") {
     return new Set([state.cardIndex]);
   }
   return new Set();
