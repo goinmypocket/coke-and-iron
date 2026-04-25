@@ -1,8 +1,19 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import {
+  CityBanners,
+  cityBodyDims,
+  DistrictCityShape,
+  MerchantCityShape,
+} from "../ui/panels/BoardPanel";
+import type {
+  DistrictCity as EngineDistrictCity,
+  IndustryName as EngineIndustryName,
+  MerchantBonus as EngineMerchantBonus,
+  MerchantCity as EngineMerchantCity,
+  MerchantTileAccept,
+} from "../engine";
 import {
   CANVAS,
-  DISTRICT_FILL,
-  INDUSTRY_GLYPH,
   clampToCanvas,
   slotAcceptList,
   snap,
@@ -13,14 +24,16 @@ import {
   type LinksConfigRaw,
   type MerchantCityRaw,
   type Position,
-  type RawSlot,
 } from "./types";
 
-const CITY_W = 78;
-const CITY_H = 38;
-const MERCHANT_R = 30;
 const MARKET_W = 60;
 const MARKET_H = 60;
+const EMPTY_OCCUPIED: ReadonlySet<string> = new Set<string>();
+const EMPTY_MERCHANT_SLOT_MAP: ReadonlyMap<
+  number,
+  { accept: MerchantTileAccept; hasBeer: boolean }
+> = new Map();
+const noop = () => {};
 
 interface Props {
   cities: CitiesConfigRaw;
@@ -65,6 +78,19 @@ export function BoardEditor({
     return m;
   }, [cities]);
 
+  // Convert the editor's raw config into the engine's shapes so the
+  // imported live-board components can render the preview directly.
+  // This is the whole point of using the in-game renderer here: the
+  // editor preview and the actual game board stay visually in sync.
+  const engineDistrictCities = useMemo(
+    () => cities.cities.map(rawCityToDistrict),
+    [cities],
+  );
+  const engineMerchantCities = useMemo(
+    () => cities.merchantCities.map(rawMerchantToMerchant),
+    [cities],
+  );
+
   const linkEra: LinkEra | null =
     mode === "canal" ? "canal" : mode === "rail" ? "rail" : null;
 
@@ -78,37 +104,6 @@ export function BoardEditor({
       return [sx * CANVAS, sy * CANVAS];
     },
     [],
-  );
-
-  const startDrag = useCallback(
-    (
-      kind: "city" | "merchant" | "market",
-      name: string | null,
-      pointerId: number,
-      target: Element,
-    ) => {
-      dragMovedRef.current = false;
-      target.setPointerCapture(pointerId);
-
-      const onMove = (e: PointerEvent) => {
-        if (e.pointerId !== pointerId) return;
-        const pos = eventToCanvas(e.clientX, e.clientY);
-        if (!pos) return;
-        dragMovedRef.current = true;
-        const x = snap(clampToCanvas(pos[0]));
-        const y = snap(clampToCanvas(pos[1]));
-        applyPosition(kind, name, [x, y]);
-      };
-      const onUp = () => {
-        target.removeEventListener("pointermove", onMove as EventListener);
-        target.removeEventListener("pointerup", onUp as EventListener);
-        target.removeEventListener("pointercancel", onUp as EventListener);
-      };
-      target.addEventListener("pointermove", onMove as EventListener);
-      target.addEventListener("pointerup", onUp as EventListener);
-      target.addEventListener("pointercancel", onUp as EventListener);
-    },
-    [eventToCanvas, cities, onUpdateCities],
   );
 
   const applyPosition = useCallback(
@@ -139,6 +134,37 @@ export function BoardEditor({
       }
     },
     [cities, onUpdateCities],
+  );
+
+  const startDrag = useCallback(
+    (
+      kind: "city" | "merchant" | "market",
+      name: string | null,
+      pointerId: number,
+      target: Element,
+    ) => {
+      dragMovedRef.current = false;
+      target.setPointerCapture(pointerId);
+
+      const onMove = (e: PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+        const pos = eventToCanvas(e.clientX, e.clientY);
+        if (!pos) return;
+        dragMovedRef.current = true;
+        const x = snap(clampToCanvas(pos[0]));
+        const y = snap(clampToCanvas(pos[1]));
+        applyPosition(kind, name, [x, y]);
+      };
+      const onUp = () => {
+        target.removeEventListener("pointermove", onMove as EventListener);
+        target.removeEventListener("pointerup", onUp as EventListener);
+        target.removeEventListener("pointercancel", onUp as EventListener);
+      };
+      target.addEventListener("pointermove", onMove as EventListener);
+      target.addEventListener("pointerup", onUp as EventListener);
+      target.addEventListener("pointercancel", onUp as EventListener);
+    },
+    [eventToCanvas, applyPosition],
   );
 
   const handleCityClick = useCallback(
@@ -186,8 +212,6 @@ export function BoardEditor({
     (name: string) => {
       if (dragMovedRef.current) return;
       if (linkEra) {
-        // Merchants can be link endpoints too (Shrewsbury, Oxford,
-        // Gloucester, Nottingham, Warrington in the published map).
         if (pendingLinkStart === null) {
           setPendingLinkStart(name);
         } else if (pendingLinkStart === name) {
@@ -248,36 +272,85 @@ export function BoardEditor({
         onLinkClick={handleLinkClick}
       />
 
-      {cities.cities.map((c) => (
-        <CityShape
-          key={c.name}
-          city={c}
-          selected={selectedCity === c.name}
-          highlighted={pendingLinkStart === c.name}
-          dimWhenLink={linkEra !== null && pendingLinkStart === null}
-          onPointerDown={(e) => {
-            if (mode === "cities") {
-              startDrag("city", c.name, e.pointerId, e.currentTarget);
-            }
-          }}
-          onClick={() => handleCityClick(c.name)}
-        />
-      ))}
+      {engineDistrictCities.map((engineCity, i) => {
+        const raw = cities.cities[i]!;
+        const isSelected = selectedCity === raw.name;
+        const isHighlighted = pendingLinkStart === raw.name;
+        const dim = linkEra !== null && pendingLinkStart === null ? 0.85 : 1;
+        return (
+          <g
+            key={raw.name}
+            style={{ cursor: "pointer", opacity: dim }}
+            onPointerDown={(e) => {
+              if (mode === "cities") {
+                startDrag("city", raw.name, e.pointerId, e.currentTarget);
+              }
+            }}
+            onClick={() => handleCityClick(raw.name)}
+          >
+            <DistrictCityShape
+              city={engineCity}
+              occupied={EMPTY_OCCUPIED}
+              slotsClickable={false}
+              cityFilter={null}
+              industryFilter={null}
+              picked={null}
+              onSlotClick={noop}
+            />
+            <SelectionRing
+              cx={engineCity.position[0]}
+              cy={engineCity.position[1]}
+              w={cityBodyDims(engineCity.slots.length)[0]}
+              h={cityBodyDims(engineCity.slots.length)[1]}
+              selected={isSelected}
+              highlighted={isHighlighted}
+            />
+          </g>
+        );
+      })}
 
-      {cities.merchantCities.map((m) => (
-        <MerchantShape
-          key={m.name}
-          merchant={m}
-          selected={selectedMerchant === m.name}
-          highlighted={pendingLinkStart === m.name}
-          onPointerDown={(e) => {
-            if (mode === "merchants") {
-              startDrag("merchant", m.name, e.pointerId, e.currentTarget);
-            }
-          }}
-          onClick={() => handleMerchantClick(m.name)}
-        />
-      ))}
+      {engineMerchantCities.map((engineMerchant, i) => {
+        const raw = cities.merchantCities[i]!;
+        const isSelected = selectedMerchant === raw.name;
+        const isHighlighted = pendingLinkStart === raw.name;
+        const slotCount = Math.max(engineMerchant.slotCount, 1);
+        // Match the live MerchantCityShape's bounding box: width =
+        // slotCount * TILE, but the visible cluster (incl. badges) is
+        // taller. The selection ring just rings the slot row.
+        const w = slotCount * 40; // TILE = 40 in TileFace.tsx
+        const h = 40;
+        return (
+          <g
+            key={raw.name}
+            style={{ cursor: "pointer" }}
+            onPointerDown={(e) => {
+              if (mode === "merchants") {
+                startDrag("merchant", raw.name, e.pointerId, e.currentTarget);
+              }
+            }}
+            onClick={() => handleMerchantClick(raw.name)}
+          >
+            <MerchantCityShape
+              city={engineMerchant}
+              slotMap={EMPTY_MERCHANT_SLOT_MAP}
+              active={false}
+            />
+            <SelectionRing
+              cx={engineMerchant.position[0]}
+              cy={engineMerchant.position[1]}
+              w={w}
+              h={h}
+              selected={isSelected}
+              highlighted={isHighlighted}
+            />
+          </g>
+        );
+      })}
+
+      <CityBanners
+        districtCities={engineDistrictCities}
+        merchantCities={engineMerchantCities}
+      />
 
       <MarketShape
         position={cities.marketPlace.position}
@@ -292,6 +365,64 @@ export function BoardEditor({
         <PendingLinkHint name={pendingLinkStart} />
       ) : null}
     </svg>
+  );
+}
+
+function rawCityToDistrict(c: CityRaw): EngineDistrictCity {
+  return {
+    name: c.name,
+    districtTag: c.district,
+    position: c.position,
+    slots: c.slots.map((s) => ({
+      acceptList: slotAcceptList(s) as readonly EngineIndustryName[],
+    })),
+    farmBrewery: c.farmBrewery ?? false,
+  };
+}
+
+function rawMerchantToMerchant(m: MerchantCityRaw): EngineMerchantCity {
+  return {
+    name: m.name,
+    position: m.position,
+    slotCount: m.slots,
+    bonus: m.bonus as EngineMerchantBonus,
+    bonusValue: m.bonusValue,
+    linkPoints: m.linkPoints,
+    activePlayerCounts: m.activePlayerCounts,
+  };
+}
+
+function SelectionRing({
+  cx,
+  cy,
+  w,
+  h,
+  selected,
+  highlighted,
+}: {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  selected: boolean;
+  highlighted: boolean;
+}) {
+  if (!selected && !highlighted) return null;
+  const stroke = selected ? "#d4a017" : "#1f6feb";
+  const PAD = 4;
+  return (
+    <rect
+      x={cx - w / 2 - PAD}
+      y={cy - h / 2 - PAD}
+      width={w + PAD * 2}
+      height={h + PAD * 2}
+      rx={4}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={2.5}
+      strokeDasharray="4 3"
+      pointerEvents="none"
+    />
   );
 }
 
@@ -438,171 +569,6 @@ function LinesLayer({
           );
         });
       })}
-    </g>
-  );
-}
-
-function CityShape({
-  city,
-  selected,
-  highlighted,
-  dimWhenLink,
-  onPointerDown,
-  onClick,
-}: {
-  city: CityRaw;
-  selected: boolean;
-  highlighted: boolean;
-  dimWhenLink: boolean;
-  onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
-  onClick: () => void;
-}) {
-  const [x, y] = city.position;
-  const fill = DISTRICT_FILL[city.district] ?? "#aaaaaa";
-  const slotW = CITY_W / Math.max(city.slots.length, 1);
-  const stroke = selected
-    ? "#d4a017"
-    : highlighted
-      ? "#1f6feb"
-      : fill;
-  const strokeWidth = selected || highlighted ? 2.5 : 1.2;
-  const opacity = dimWhenLink ? 0.85 : 1;
-  return (
-    <g
-      className="editor-city"
-      transform={`translate(${x - CITY_W / 2}, ${y - CITY_H / 2})`}
-      onPointerDown={onPointerDown}
-      onClick={onClick}
-      style={{ opacity, cursor: "pointer" }}
-    >
-      <rect
-        x={0}
-        y={0}
-        width={CITY_W}
-        height={CITY_H}
-        rx={4}
-        fill={fill}
-        fillOpacity={0.18}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-      />
-      <text
-        x={CITY_W / 2}
-        y={-4}
-        className="editor-city__label"
-        textAnchor="middle"
-      >
-        {city.name}
-      </text>
-      <g transform={`translate(0, ${CITY_H / 2 - 6})`}>
-        {city.slots.map((slot, i) => (
-          <SlotCell
-            key={i}
-            slot={slot}
-            offset={i * slotW}
-            width={slotW}
-            stroke={fill}
-          />
-        ))}
-      </g>
-      {city.farmBrewery ? (
-        <text
-          x={CITY_W / 2}
-          y={CITY_H + 12}
-          className="editor-city__sub"
-          textAnchor="middle"
-        >
-          farm brewery
-        </text>
-      ) : null}
-    </g>
-  );
-}
-
-function SlotCell({
-  slot,
-  offset,
-  width,
-  stroke,
-}: {
-  slot: RawSlot;
-  offset: number;
-  width: number;
-  stroke: string;
-}) {
-  const accept = slotAcceptList(slot);
-  return (
-    <g transform={`translate(${offset}, 0)`}>
-      <rect
-        x={1}
-        y={-7}
-        width={width - 2}
-        height={14}
-        fill="#fffdf6"
-        stroke={stroke}
-        strokeWidth={0.8}
-      />
-      <text
-        x={width / 2}
-        y={3}
-        className="editor-slot__label"
-        textAnchor="middle"
-      >
-        {accept.length === 0
-          ? "ANY"
-          : accept.map((i) => INDUSTRY_GLYPH[i]).join("/")}
-      </text>
-    </g>
-  );
-}
-
-function MerchantShape({
-  merchant,
-  selected,
-  highlighted,
-  onPointerDown,
-  onClick,
-}: {
-  merchant: MerchantCityRaw;
-  selected: boolean;
-  highlighted: boolean;
-  onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
-  onClick: () => void;
-}) {
-  const [x, y] = merchant.position;
-  const stroke = selected
-    ? "#d4a017"
-    : highlighted
-      ? "#1f6feb"
-      : "#7d6a3a";
-  const strokeWidth = selected || highlighted ? 2.5 : 1.4;
-  return (
-    <g
-      className="editor-merchant"
-      transform={`translate(${x}, ${y})`}
-      onPointerDown={onPointerDown}
-      onClick={onClick}
-      style={{ cursor: "pointer" }}
-    >
-      <circle
-        r={MERCHANT_R}
-        fill="#e5d9b4"
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-      />
-      <text
-        y={-MERCHANT_R - 4}
-        className="editor-merchant__label"
-        textAnchor="middle"
-      >
-        {merchant.name}
-      </text>
-      <text y={-2} className="editor-merchant__bonus" textAnchor="middle">
-        {merchant.bonus} {merchant.bonusValue}
-      </text>
-      <text y={14} className="editor-merchant__sub" textAnchor="middle">
-        {merchant.slots} slot{merchant.slots === 1 ? "" : "s"}
-      </text>
     </g>
   );
 }

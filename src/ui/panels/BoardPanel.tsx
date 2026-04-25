@@ -62,7 +62,7 @@ const CANVAS = 900;
 //   2 slots → 2×1 (2*TILE × TILE)          — most district cities
 //   3 slots → 2×2 (2*TILE × 2*TILE)        — top row × 2 + centred bottom
 //   4 slots → 2×2 (2*TILE × 2*TILE)
-function cityBodyDims(slotCount: number): readonly [number, number] {
+export function cityBodyDims(slotCount: number): readonly [number, number] {
   if (slotCount <= 1) return [TILE, TILE];
   if (slotCount === 2) return [TILE * 2, TILE];
   return [TILE * 2, TILE * 2];
@@ -306,7 +306,7 @@ function indexCities(
   return m;
 }
 
-function DistrictCityShape({
+export function DistrictCityShape({
   city,
   occupied,
   slotsClickable,
@@ -490,7 +490,7 @@ function SlotAcceptGlyph({
  *  original constants. */
 const BEER_BOX = TILE * (10 / 28);
 
-function MerchantCityShape({
+export function MerchantCityShape({
   city,
   slotMap,
   active,
@@ -839,7 +839,7 @@ function LinkToken({
   );
 }
 
-function Lines({
+export function Lines({
   lines,
   era,
   cityByName,
@@ -1317,7 +1317,7 @@ const CITY_BANNER_CHAR_W = 5.5;
 const CITY_BANNER_PAD_X = 5;
 const MERCHANT_BANNER_FILL = "#e5d9b4";
 
-function CityBanners({
+export function CityBanners({
   districtCities,
   merchantCities,
 }: {
