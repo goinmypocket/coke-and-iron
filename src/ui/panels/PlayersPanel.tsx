@@ -272,12 +272,12 @@ function MatLevelRow({
         {spec ? (
           <>
             <CostCoin amount={spec.costMoney} />
-            {spec.coalCost > 0 ? (
-              <CostCube kind="coal" count={spec.coalCost} />
-            ) : null}
-            {spec.ironCost > 0 ? (
-              <CostCube kind="iron" count={spec.ironCost} />
-            ) : null}
+            {Array.from({ length: spec.coalCost }).map((_, i) => (
+              <CostCube key={`c${i}`} kind="coal" />
+            ))}
+            {Array.from({ length: spec.ironCost }).map((_, i) => (
+              <CostCube key={`i${i}`} kind="iron" />
+            ))}
           </>
         ) : null}
       </div>
@@ -326,7 +326,11 @@ function matCapacityFor(
   return spec.resourceCapacity;
 }
 
-const COST_ICON = 14;
+// Cost-column icons stack vertically beside the tile. Three icons
+// max (money + at most 2 cubes total since coalCost + ironCost
+// never exceeds 2 in the published config), so each is sized to
+// roughly TILE / 3 so the stack height matches the tile.
+const COST_ICON = 9;
 
 function CostCoin({ amount }: { amount: number }) {
   return (
@@ -340,16 +344,16 @@ function CostCoin({ amount }: { amount: number }) {
       <circle
         cx={COST_ICON / 2}
         cy={COST_ICON / 2}
-        r={COST_ICON / 2 - 0.6}
+        r={COST_ICON / 2 - 0.4}
         fill="#d4a017"
         stroke="#1a1a1a"
-        strokeWidth={0.7}
+        strokeWidth={0.5}
       />
       <text
         x={COST_ICON / 2}
-        y={COST_ICON / 2 + 2.6}
+        y={COST_ICON / 2 + 2}
         textAnchor="middle"
-        fontSize={7}
+        fontSize={5.5}
         fontWeight={700}
         fill="#1a1a1a"
       >
@@ -359,16 +363,9 @@ function CostCoin({ amount }: { amount: number }) {
   );
 }
 
-function CostCube({
-  kind,
-  count,
-}: {
-  kind: "coal" | "iron";
-  count: number;
-}) {
+function CostCube({ kind }: { kind: "coal" | "iron" }) {
   const fill = kind === "coal" ? "#1a1a1a" : "#a8825a";
   const strokeColor = kind === "coal" ? "#fffdf6" : "#1a1a1a";
-  const textColor = kind === "coal" ? "#fffdf6" : "#1a1a1a";
   return (
     <svg
       className="mat-cost__icon"
@@ -378,24 +375,14 @@ function CostCube({
       aria-hidden
     >
       <rect
-        x={1}
-        y={1}
-        width={COST_ICON - 2}
-        height={COST_ICON - 2}
+        x={0.7}
+        y={0.7}
+        width={COST_ICON - 1.4}
+        height={COST_ICON - 1.4}
         fill={fill}
         stroke={strokeColor}
-        strokeWidth={0.7}
+        strokeWidth={0.5}
       />
-      <text
-        x={COST_ICON / 2}
-        y={COST_ICON / 2 + 2.4}
-        textAnchor="middle"
-        fontSize={6.5}
-        fontWeight={700}
-        fill={textColor}
-      >
-        {count}
-      </text>
     </svg>
   );
 }

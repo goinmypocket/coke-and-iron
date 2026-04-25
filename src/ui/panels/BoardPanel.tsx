@@ -117,25 +117,30 @@ export function BoardPanel() {
   // industry, dim slots the engine wouldn't accept anyway. Card with
   // a LOCATION constraint pins the legal city; industry pin narrows
   // to slots whose accept-list includes that industry. Engine still
-  // owns the final validation (occupancy, era, specific-before-combo).
-  const buildFilters = useGameState(
-    (s) => {
-      if (wizard.state.phase !== "AWAITING_BUILD_INPUTS") {
-        return { cityName: null, industry: null };
-      }
-      const cardIndex = wizard.state.cardIndex;
-      const industry = wizard.state.industry;
-      let cityName: string | null = null;
-      if (cardIndex !== null) {
-        const id = s.turnOrder[s.currentPlayerIndex];
-        const player = id !== undefined ? s.players.find((p) => p.id === id) : null;
-        const card = player?.hand[cardIndex] ?? null;
-        if (card?.kind === "LOCATION") cityName = card.cityName;
-      }
-      return { cityName, industry };
-    },
-    shallowEqual,
-  );
+  // owns the final validation.
+  //
+  // Derive filters from `wizard` directly (not via useGameState) so
+  // they react to wizard transitions even when the engine state ref
+  // hasn't changed. Pulling the active hand via useGameState is fine
+  // because the hand only changes when the engine state changes.
+  const activeHand = useGameState((s) => {
+    const id = s.turnOrder[s.currentPlayerIndex];
+    if (id === undefined) return null;
+    return s.players.find((p) => p.id === id)?.hand ?? null;
+  });
+  const buildFilters = useMemo(() => {
+    if (wizard.state.phase !== "AWAITING_BUILD_INPUTS") {
+      return { cityName: null, industry: null };
+    }
+    const cardIndex = wizard.state.cardIndex;
+    const industry = wizard.state.industry;
+    let cityName: string | null = null;
+    if (cardIndex !== null && activeHand) {
+      const card = activeHand[cardIndex] ?? null;
+      if (card?.kind === "LOCATION") cityName = card.cityName;
+    }
+    return { cityName, industry };
+  }, [wizard.state, activeHand]);
 
   const linesClickable = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
   const linePicks = useMemo(() => {
