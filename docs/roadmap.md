@@ -56,25 +56,26 @@ Status keys:
 ## UI — panels still to build
 
 - **[ui] Board panel polish (§11.2).** Read-only render +
-  click-targets-for-wizards + industry icon glyphs on built tiles
-  shipped. Still TODO: industry icon glyphs in city slot
-  accept-lists (combo slots are tight), resource cubes / iron
-  cubes / beer barrels on tiles + merchants, owner-coloured link
-  tokens, market-tile widget per §2.11.3.
+  click-targets-for-wizards + industry icon glyphs on built tiles +
+  industry icon glyphs in city slot accept-lists + resource cubes /
+  iron cubes / beer barrels on tiles + beer barrels on merchant
+  slots + owner-coloured link tokens + market-tile widget per
+  §2.11.3 (header strip with Buy / Sell / N/max cubes, "£X
+  (overflow)" when empty, "—" when full) shipped. Still TODO:
+  warm-gold glow on the markets widget during a coal-source
+  picker + clickable cubes-as-buy.
 - **[ui] Players panel polish (§11.3).** Sub-panel + minimal mat
   grid (six stacks, top-tile click-target) shipped. Still TODO:
   Manufacturer spanning two columns (1–5 / 6–8), Pottery as 5
   fixed-level rows, full cost / bonus margins, link-supply icon
   in the stats bar.
 - **[ui] Remaining cards polish (§11.6).** Inventory + face-down
-  fold-in shipped (drawDeck and canal-removed cards mix in the
-  per-category counts so identities of removed cards stay hidden
-  while aggregate totals stay honest). Still TODO: muted zero-rows
-  for cards that have left the unseen pool, district-colour
-  labels.
-- **[ui] Recent actions polish (§11.9).** Newest-first text list
-  shipped. Still TODO: pawn-colour player names, district-colour
-  city refs, era / round banners.
+  fold-in + muted zero-rows for canonical cards no longer in the
+  unseen pool + district-colour swatch on each group label all
+  shipped.
+- **[ui] Recent actions polish (§11.9).** Newest-first text list +
+  pawn-coloured player names + district-coloured city refs +
+  era / round banners (transient overlay) all shipped.
 - **[ui] Affordances polish (§11.10).** Prompt strip + toast
   shipped. Context bar (transient buttons populated by the current
   sub-state for resource pickers, second-rail offer, Gloucester
@@ -83,10 +84,6 @@ Status keys:
 - **[ui] Overlays polish (§11.11).** End-game summary, shortfall
   sub-flow, era / round transient banners, and Gloucester
   follow-up sub-state all shipped.
-- **[ui] City slot editor (§11.12).** Board-editor overlay that
-  writes through to `config/cities.json`.
-- **[ui] Layout editor (§10.3).** In-game panel layout editor that
-  writes through to `config/layout.json`.
 
 ## UI — wizards still to build
 

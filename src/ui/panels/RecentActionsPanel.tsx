@@ -1,15 +1,21 @@
 // =============================================================================
 // §11.9 Recent actions — newest-first scrolling list of dispatched intents.
 //
-// Renders one line per Intent. Player names come from current GameState
-// (display names are immutable, so this is safe even though the log is
-// historical). Plain text formatting at this milestone — full colour
-// scheme (per pawn / district / era) is roadmap polish.
+// One line per Intent. Player names are rendered in the player's pawn
+// colour and city references in their district colour, so a glance can
+// answer "who did what where" without reading the full sentence.
 // =============================================================================
 
-import type { GameState, Intent, PlayerId } from "../../engine";
+import { useMemo, type ReactNode } from "react";
+import type {
+  DistrictTag,
+  GameState,
+  Intent,
+  PlayerId,
+} from "../../engine";
 import { useEngine, useIntentLogVersion } from "../hooks/useEngine";
 import { useGameState } from "../hooks/useGameState";
+import { DISTRICT_FILL } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 
 const MAX_ENTRIES = 100;
@@ -18,8 +24,13 @@ export function RecentActionsPanel() {
   const engine = useEngine();
   useIntentLogVersion();
   const players = useGameState((s) => s.players);
+  const districtCities = useGameState((s) => s.districtCities);
+  const cityDistrict = useMemo(() => {
+    const m = new Map<string, DistrictTag>();
+    for (const c of districtCities) m.set(c.name, c.districtTag);
+    return m;
+  }, [districtCities]);
   const log = engine.getIntentLog();
-  // newest first; cap at MAX_ENTRIES
   const view = log.slice(-MAX_ENTRIES).slice().reverse();
 
   return (
@@ -30,7 +41,7 @@ export function RecentActionsPanel() {
         <ol className="recent-actions">
           {view.map((intent, i) => (
             <li key={log.length - i} className="recent-actions__row">
-              {formatIntent(intent, players)}
+              {formatIntent(intent, players, cityDistrict)}
             </li>
           ))}
         </ol>
@@ -42,44 +53,86 @@ export function RecentActionsPanel() {
 function formatIntent(
   intent: Intent,
   players: GameState["players"],
-): string {
+  cityDistrict: ReadonlyMap<string, DistrictTag>,
+): ReactNode {
   if (intent.type === "noop") return "(noop)";
-  if (intent.type === "END_TURN") return `${name(players, intent.playerId)} ended turn`;
+  const who = playerSpan(players, intent.playerId);
+  if (intent.type === "END_TURN") return <>{who} ended turn</>;
 
-  const who = name(players, intent.playerId);
   switch (intent.type) {
     case "BUILD":
-      return `${who} built ${prettyIndustry(intent.industry)} at ${intent.cityName}`;
-    case "NETWORK": {
-      const second =
-        intent.secondLink !== null ? " (+ second link)" : "";
-      return `${who} laid link${second}`;
-    }
+      return (
+        <>
+          {who} built {prettyIndustry(intent.industry)} at{" "}
+          {citySpan(intent.cityName, cityDistrict)}
+        </>
+      );
+    case "NETWORK":
+      return (
+        <>
+          {who} laid link
+          {intent.secondLink !== null ? " (+ second link)" : ""}
+        </>
+      );
     case "DEVELOP":
-      return `${who} developed ${intent.industries
-        .map(prettyIndustry)
-        .join(", ")}`;
+      return (
+        <>
+          {who} developed{" "}
+          {intent.industries.map(prettyIndustry).join(", ")}
+        </>
+      );
     case "SELL":
-      return `${who} sold ${intent.orders.length} tile${
-        intent.orders.length === 1 ? "" : "s"
-      }`;
+      return (
+        <>
+          {who} sold {intent.orders.length} tile
+          {intent.orders.length === 1 ? "" : "s"}
+        </>
+      );
     case "LOAN":
-      return `${who} took a loan`;
+      return <>{who} took a loan</>;
     case "SCOUT":
-      return `${who} scouted`;
+      return <>{who} scouted</>;
     case "PASS":
-      return `${who} passed`;
+      return <>{who} passed</>;
     case "RESOLVE_SHORTFALL":
-      return `${who} resolved shortfall (${
-        intent.tilesToRemove.length
-      } tile${intent.tilesToRemove.length === 1 ? "" : "s"}${
-        intent.finalize ? ", finalized" : ""
-      })`;
+      return (
+        <>
+          {who} resolved shortfall ({intent.tilesToRemove.length} tile
+          {intent.tilesToRemove.length === 1 ? "" : "s"}
+          {intent.finalize ? ", finalized" : ""})
+        </>
+      );
   }
 }
 
-function name(players: GameState["players"], id: PlayerId): string {
-  return players.find((p) => p.id === id)?.displayName ?? `P${id + 1}`;
+function playerSpan(
+  players: GameState["players"],
+  id: PlayerId,
+): ReactNode {
+  const p = players.find((x) => x.id === id);
+  const label = p?.displayName ?? `P${id + 1}`;
+  if (!p) return label;
+  return (
+    <span className="recent-actions__player" style={{ color: p.pawnColor }}>
+      {label}
+    </span>
+  );
+}
+
+function citySpan(
+  cityName: string,
+  cityDistrict: ReadonlyMap<string, DistrictTag>,
+): ReactNode {
+  const tag = cityDistrict.get(cityName);
+  if (!tag) return cityName;
+  return (
+    <span
+      className="recent-actions__city"
+      style={{ color: DISTRICT_FILL[tag] }}
+    >
+      {cityName}
+    </span>
+  );
 }
 
 function prettyIndustry(name: string): string {

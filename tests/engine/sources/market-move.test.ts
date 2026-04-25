@@ -38,7 +38,7 @@ function plantTile(
 describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)", () => {
   it("fills most-expensive-empty first and credits the owner at that tier", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
-    // Coal market at setup: [1, 2, 2, 2, 2, 2, 2, 2] — one £1 slot empty.
+    // Coal market at setup: [1, 2, 2, 2, 2, 2, 2] — one £1 slot empty.
     const state = plantTile(base, {
       id: "cm-1",
       owner: 0,
@@ -51,7 +51,7 @@ describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)"
     const r = moveCubesToMarket(state, "cm-1", "coalMarket");
     // Only 1 empty slot (£1). One cube moves there, 1 cube stays on the tile.
     expect(r.ownerGain).toBe(1);
-    expect(r.state.coalMarket.filled).toEqual([2, 2, 2, 2, 2, 2, 2, 2]);
+    expect(r.state.coalMarket.filled).toEqual([2, 2, 2, 2, 2, 2, 2]);
     const tile = r.state.builtTiles.find((t) => t.id === "cm-1")!;
     expect(tile.resources).toBe(1);
     expect(tile.flipped).toBe(false);
@@ -62,7 +62,7 @@ describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)"
     // Force a lot of market emptiness so all cubes can move.
     const emptyMarket: Market = {
       ...base.coalMarket,
-      filled: [0, 0, 0, 0, 0, 0, 0, 0],
+      filled: [0, 0, 0, 0, 0, 0, 0],
     };
     let state: GameState = { ...base, coalMarket: emptyMarket };
     state = plantTile(state, {
@@ -80,9 +80,10 @@ describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)"
     )!.incomeBonus;
 
     const r = moveCubesToMarket(state, "cm-1", "coalMarket");
-    // Both cubes move. Most-expensive empty first: £8 takes first, then £8 again.
-    expect(r.ownerGain).toBe(16); // £8 + £8
-    expect(r.state.coalMarket.filled).toEqual([0, 0, 0, 0, 0, 0, 0, 2]);
+    // Both cubes move. Most-expensive empty first: £7 takes first, then £7 again.
+    // The £8 row is the unlimited overflow — never a sell target.
+    expect(r.ownerGain).toBe(14); // £7 + £7
+    expect(r.state.coalMarket.filled).toEqual([0, 0, 0, 0, 0, 0, 2]);
     const tile = r.state.builtTiles.find((t) => t.id === "cm-1")!;
     expect(tile.resources).toBe(0);
     expect(tile.flipped).toBe(true);
@@ -94,7 +95,7 @@ describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)"
     // Market already saturated (every tier full).
     const fullMarket: Market = {
       ...base.coalMarket,
-      filled: [2, 2, 2, 2, 2, 2, 2, 2],
+      filled: [2, 2, 2, 2, 2, 2, 2],
     };
     let state: GameState = { ...base, coalMarket: fullMarket };
     state = plantTile(state, {
@@ -107,7 +108,7 @@ describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)"
     });
     const r = moveCubesToMarket(state, "cm-1", "coalMarket");
     expect(r.ownerGain).toBe(0);
-    expect(r.state.coalMarket.filled).toEqual([2, 2, 2, 2, 2, 2, 2, 2]);
+    expect(r.state.coalMarket.filled).toEqual([2, 2, 2, 2, 2, 2, 2]);
     const tile = r.state.builtTiles.find((t) => t.id === "cm-1")!;
     expect(tile.resources).toBe(2);
     expect(tile.flipped).toBe(false);
@@ -117,7 +118,7 @@ describe("moveCubesToMarket — Coal Mine onto Coal Market (§5.1.1 / §2.11.1)"
 describe("moveCubesToMarket — Iron Works onto Iron Market", () => {
   it("fills most-expensive-empty first and credits the owner", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
-    // Iron market at setup: [0, 2, 2, 2, 2, 2] — both £1 slots empty.
+    // Iron market at setup: [0, 2, 2, 2, 2] — both £1 slots empty.
     const state = plantTile(base, {
       id: "iw-1",
       owner: 1,
@@ -133,12 +134,11 @@ describe("moveCubesToMarket — Iron Works onto Iron Market", () => {
     )!.incomeBonus;
 
     const r = moveCubesToMarket(state, "iw-1", "ironMarket");
-    // 2 £1 slots are empty. Most-expensive-first means we fill tier 0 (£1) twice.
-    // Wait: most-expensive-empty-first means search from tier[5] (£6) down.
-    // Tiers 1..5 are FULL already; only tier 0 (£1) is empty (2 slots).
-    // So both cubes go to £1: gain = £2. Tile drains from 4 to 2.
+    // 2 £1 slots are empty. Most-expensive-empty-first means we search
+    // from tier[4] (£5) down. Tiers £2..£5 are full; only £1 is empty
+    // (2 slots). Both cubes go to £1: gain = £2. Tile drains 4 → 2.
     expect(r.ownerGain).toBe(2);
-    expect(r.state.ironMarket.filled).toEqual([2, 2, 2, 2, 2, 2]);
+    expect(r.state.ironMarket.filled).toEqual([2, 2, 2, 2, 2]);
     const tile = r.state.builtTiles.find((t) => t.id === "iw-1")!;
     expect(tile.resources).toBe(2);
     expect(tile.flipped).toBe(false);

@@ -178,9 +178,9 @@ describe("§5.1 Build — happy paths", () => {
     expect(r.ok).toBe(true);
 
     const after = engine.getState();
-    // Coal market at setup: [1,2,2,2,2,2,2,2]. Most-expensive-empty is tier 0 (£1).
+    // Coal market at setup: [1,2,2,2,2,2,2]. Most-expensive-empty is tier 0 (£1).
     // One cube moves → filled[0]=2. Owner gains £1. Tile resources=1.
-    expect(after.coalMarket.filled).toEqual([2, 2, 2, 2, 2, 2, 2, 2]);
+    expect(after.coalMarket.filled).toEqual([2, 2, 2, 2, 2, 2, 2]);
     const tile = after.builtTiles.find((t) => t.cityName === "Dudley")!;
     expect(tile.resources).toBe(1);
     expect(tile.flipped).toBe(false);
@@ -217,9 +217,9 @@ describe("§5.1 Build — happy paths", () => {
     });
     expect(r.ok).toBe(true);
     const after = engineLinked.getState();
-    // Iron market at setup: [0,2,2,2,2,2]. Move-to-market fills tier 0 with
+    // Iron market at setup: [0,2,2,2,2]. Move-to-market fills tier 0 with
     // 2 cubes from the just-built Iron Works (capacity 4). Gain = £1+£1 = £2.
-    expect(after.ironMarket.filled).toEqual([2, 2, 2, 2, 2, 2]);
+    expect(after.ironMarket.filled).toEqual([2, 2, 2, 2, 2]);
     const tile = after.builtTiles.find((t) => t.owner === id)!;
     expect(tile.resources).toBe(2);
     expect(tile.flipped).toBe(false);
@@ -458,7 +458,7 @@ describe("§5.1 Build — slot + city rejects", () => {
       id: "opp-cotton",
       owner: other,
       cityName: "Stone",
-      slotIndex: 1,
+      slotIndex: 0,
       industry: "COTTON_MILL",
       level: 1,
       resources: 0,
@@ -486,7 +486,7 @@ describe("§5.1 Build — slot + city rejects", () => {
       playerId: id,
       cardIndex: 0,
       cityName: "Stone",
-      slotIndex: 1,
+      slotIndex: 0,
       industry: "COTTON_MILL",
       coalSources: [],
       ironSources: [],
@@ -598,7 +598,7 @@ describe("§5.1 Build — era / money / resources", () => {
                 stacks: { ...p.mat.stacks, POTTERY: [rail5Idx] },
               },
               hand: [
-                { kind: "LOCATION", cityName: "Stone" } satisfies Card,
+                { kind: "LOCATION", cityName: "Coventry" } satisfies Card,
                 ...p.hand.slice(1),
               ],
             }
@@ -610,8 +610,8 @@ describe("§5.1 Build — era / money / resources", () => {
       type: "BUILD",
       playerId: id,
       cardIndex: 0,
-      cityName: "Stone",
-      slotIndex: 1, // ANY wildcard slot
+      cityName: "Coventry",
+      slotIndex: 0, // POTTERY-specific slot
       industry: "POTTERY",
       coalSources: [],
       ironSources: [],
@@ -861,7 +861,7 @@ describe("§5.1.3 Overbuild — happy paths", () => {
       ...state,
       coalMarket: {
         ...state.coalMarket,
-        filled: [0, 0, 0, 0, 0, 0, 0, 0],
+        filled: [0, 0, 0, 0, 0, 0, 0],
       },
     };
     state = withMatTop(state, id, "COAL_MINE", 2);

@@ -50,7 +50,7 @@ describe("§5.3 Develop — happy paths", () => {
     expect(player.spentThisRound).toBe(2);
     expect(after.actionsRemaining).toBe(base.actionsRemaining - 1);
     expect(player.hand).toHaveLength(base.players[id]!.hand.length - 1);
-    expect(after.ironMarket.filled).toEqual([0, 1, 2, 2, 2, 2]);
+    expect(after.ironMarket.filled).toEqual([0, 1, 2, 2, 2]);
   });
 
   it("removes 2 tiles from the same industry — second pop sees depleted stack", () => {
@@ -74,7 +74,7 @@ describe("§5.3 Develop — happy paths", () => {
       stackBefore.length - 2,
     );
     expect(after.players[id]!.spentThisRound).toBe(4); // £2 + £2
-    expect(after.ironMarket.filled).toEqual([0, 0, 2, 2, 2, 2]);
+    expect(after.ironMarket.filled).toEqual([0, 0, 2, 2, 2]);
   });
 
   it("removes 2 tiles from different industries", () => {

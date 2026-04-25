@@ -279,24 +279,26 @@ function buildWildReserve(cards: CardsConfig): WildReserve {
   };
 }
 
-/** Coal market: cubes placed from £8 downward, leaving one £1 slot empty
- * (§2.11.1). Result: tiers £2..£8 full (2 each), £1 has 1 cube. */
+/** Coal market (§2.11.1): 7 priced tiers £1..£7 (max 14 cubes) plus an
+ * unlimited overflow at £8. Setup leaves one £1 slot empty so total
+ * cubes at start = 13. */
 function buildCoalMarket(): Market {
   return {
     resource: "COAL",
-    tiers: [1, 2, 3, 4, 5, 6, 7, 8],
-    filled: [1, 2, 2, 2, 2, 2, 2, 2],
+    tiers: [1, 2, 3, 4, 5, 6, 7],
+    filled: [1, 2, 2, 2, 2, 2, 2],
     overflowPrice: 8,
   };
 }
 
-/** Iron market: cubes from £6 downward, both £1 slots empty (§2.11.2).
- * Result: tiers £2..£6 full, £1 empty. */
+/** Iron market (§2.11.2): 5 priced tiers £1..£5 (max 10 cubes) plus an
+ * unlimited overflow at £6. Setup leaves both £1 slots empty so total
+ * cubes at start = 8. */
 function buildIronMarket(): Market {
   return {
     resource: "IRON",
-    tiers: [1, 2, 3, 4, 5, 6],
-    filled: [0, 2, 2, 2, 2, 2],
+    tiers: [1, 2, 3, 4, 5],
+    filled: [0, 2, 2, 2, 2],
     overflowPrice: 6,
   };
 }

@@ -39,12 +39,40 @@ describe("cities config", () => {
     }
   });
 
-  it("a 'Stone' wildcard slot maps to an empty acceptList (§2.3)", () => {
-    const districts = extractDistrictCities(DEFAULT_CITIES_CONFIG);
-    const stone = districts.find((c) => c.name === "Stone");
-    expect(stone).toBeDefined();
-    const wildSlot = stone?.slots.find((s) => s.acceptList.length === 0);
-    expect(wildSlot).toBeDefined();
+  it("a raw 'ANY' slot maps to an empty acceptList (§2.3)", () => {
+    // Synthetic config — bundled cities.json no longer ships any
+    // wildcard slots, but the loader contract still has to honour
+    // "ANY" → empty acceptList for any future config that uses it.
+    const cfg = parseCitiesConfig({
+      cities: [
+        {
+          name: "Test",
+          district: "purple",
+          position: [0, 0],
+          slots: ["ANY", "COAL_MINE"],
+        },
+      ],
+      industryNames: [
+        "COAL_MINE",
+        "IRON_WORKS",
+        "BREWERY",
+        "COTTON_MILL",
+        "MANUFACTURER",
+        "POTTERY",
+      ],
+      marketPlace: { position: [0, 0] },
+      merchantBag: {
+        "2": { any: 0, cotton: 0, empty: 0, manufacturer: 0, pottery: 0 },
+        "3": { any: 0, cotton: 0, empty: 0, manufacturer: 0, pottery: 0 },
+        "4": { any: 0, cotton: 0, empty: 0, manufacturer: 0, pottery: 0 },
+      },
+      merchantCities: [],
+    });
+    const districts = extractDistrictCities(cfg);
+    const test = districts.find((c) => c.name === "Test");
+    expect(test).toBeDefined();
+    expect(test?.slots[0]?.acceptList).toEqual([]);
+    expect(test?.slots[1]?.acceptList).toEqual(["COAL_MINE"]);
   });
 
   it("extractMerchantCities exposes Shrewsbury / Nottingham / Gloucester / Oxford / Warrington with linkPoints=2", () => {

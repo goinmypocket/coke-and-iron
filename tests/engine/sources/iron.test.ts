@@ -154,26 +154,26 @@ describe("consumeIron — TILE source (§5.6.2 pri 1)", () => {
 describe("consumeIron — MARKET source (§5.6.2 pri 2)", () => {
   it("buys from the cheapest filled tier at setup (£2) and decrements filled[1]", () => {
     const state = initialState({ seed: 1, playerCount: 2 });
-    // Iron market at setup: [0, 2, 2, 2, 2, 2]; cheapest filled tier is £2.
+    // Iron market at setup: [0, 2, 2, 2, 2]; cheapest filled tier is £2.
     const r = consumeIron(state, 1, [{ kind: "MARKET" }]);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.moneySpent).toBe(2);
-    expect(r.state.ironMarket.filled).toEqual([0, 1, 2, 2, 2, 2]);
+    expect(r.state.ironMarket.filled).toEqual([0, 1, 2, 2, 2]);
   });
 
   it("pays the overflow price £6 when the market is completely empty", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
     const drained: Market = {
       ...base.ironMarket,
-      filled: [0, 0, 0, 0, 0, 0],
+      filled: [0, 0, 0, 0, 0],
     };
     const state: GameState = { ...base, ironMarket: drained };
     const r = consumeIron(state, 1, [{ kind: "MARKET" }]);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.moneySpent).toBe(6);
-    expect(r.state.ironMarket.filled).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(r.state.ironMarket.filled).toEqual([0, 0, 0, 0, 0]);
   });
 
   it("two market buys in a row: £2 then £2 (second cube in tier £2 slot)", () => {
@@ -182,7 +182,7 @@ describe("consumeIron — MARKET source (§5.6.2 pri 2)", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.moneySpent).toBe(4);
-    expect(r.state.ironMarket.filled).toEqual([0, 0, 2, 2, 2, 2]);
+    expect(r.state.ironMarket.filled).toEqual([0, 0, 2, 2, 2]);
   });
 });
 
@@ -220,7 +220,7 @@ describe("consumeIron — source-list validation", () => {
     if (!r.ok) return;
     expect(r.moneySpent).toBe(2); // one free (TILE) + one market (£2)
     expect(r.state.builtTiles.find((t) => t.id === "iw-1")!.resources).toBe(3);
-    expect(r.state.ironMarket.filled).toEqual([0, 1, 2, 2, 2, 2]);
+    expect(r.state.ironMarket.filled).toEqual([0, 1, 2, 2, 2]);
   });
 });
 
@@ -228,24 +228,24 @@ describe("buyFromMarket — generic market buy helper", () => {
   it("takes from cheapest filled tier, decrements by 1, returns tier price", () => {
     const market: Market = {
       resource: "IRON",
-      tiers: [1, 2, 3, 4, 5, 6],
-      filled: [0, 2, 2, 2, 2, 2],
+      tiers: [1, 2, 3, 4, 5],
+      filled: [0, 2, 2, 2, 2],
       overflowPrice: 6,
     };
     const { newMarket, price } = buyFromMarket(market);
     expect(price).toBe(2);
-    expect(newMarket.filled).toEqual([0, 1, 2, 2, 2, 2]);
+    expect(newMarket.filled).toEqual([0, 1, 2, 2, 2]);
   });
 
   it("returns overflow price with unchanged filled[] when market is empty", () => {
     const market: Market = {
       resource: "COAL",
-      tiers: [1, 2, 3, 4, 5, 6, 7, 8],
-      filled: [0, 0, 0, 0, 0, 0, 0, 0],
+      tiers: [1, 2, 3, 4, 5, 6, 7],
+      filled: [0, 0, 0, 0, 0, 0, 0],
       overflowPrice: 8,
     };
     const { newMarket, price } = buyFromMarket(market);
     expect(price).toBe(8);
-    expect(newMarket.filled).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(newMarket.filled).toEqual([0, 0, 0, 0, 0, 0, 0]);
   });
 });

@@ -542,17 +542,24 @@ Market. Neither stores beer — beer has no market.
 
 #### 2.11.1 Coal Market
 
-- **8 price tiers** — £1, £2, £3, £4, £5, £6, £7, £8.
-- **2 slots per tier**, for 16 possible cubes.
-- **Setup fill** — cubes are placed from the most expensive tier
-  downward, leaving exactly one £1 slot empty. Total at setup: 14
-  cubes.
+- **7 priced tiers** — £1, £2, £3, £4, £5, £6, £7.
+- **2 slots per tier**, for 14 possible cubes in the priced range.
+- **Overflow tier** at £8 — unlimited supply, buy-only. The widget
+  always renders this tier as two cubes to signal "unlimited at
+  this price". Sells never land here.
+- **Setup fill** — cubes are placed from the most expensive priced
+  tier downward, leaving exactly one £1 slot empty. Total at setup: 13
+  cubes (in the priced range).
 - **Buy** — a player pays the cheapest filled slot's price and
-  takes the cube from that slot. When the market is empty, cubes
-  may still be bought at the **overflow price £8** per cube.
+  takes the cube from that slot. When all priced tiers are empty,
+  cubes may still be bought at the **overflow price £8** per cube
+  (unlimited).
 - **Sell** — when a Coal Mine auto-sells cubes on Build (§5.1.1),
-  each cube fills the **most expensive empty slot first** and the
-  owner collects that slot's price.
+  each cube fills the **most expensive empty priced slot first**
+  and the owner collects that slot's price. The £8 overflow tier
+  is never a sell target; if all priced tiers are full when a
+  Coal Mine tries to auto-sell, the surplus cubes stay on the
+  tile.
 - **Connection requirement for buying.** To buy from the Coal
   Market, the consumer location must be **connected** (via any
   player's links) to at least one merchant city, whether that
@@ -562,18 +569,22 @@ Market. Neither stores beer — beer has no market.
 
 #### 2.11.2 Iron Market
 
-- **6 price tiers** — £1, £2, £3, £4, £5, £6.
-- **2 slots per tier**, for 12 possible cubes.
-- **Setup fill** — from the most expensive tier downward, leaving
-  both £1 slots empty. Total at setup: 10 cubes.
+- **5 priced tiers** — £1, £2, £3, £4, £5.
+- **2 slots per tier**, for 10 possible cubes in the priced range.
+- **Overflow tier** at £6 — unlimited supply, buy-only, rendered
+  as two always-present cubes. Sells never land here.
+- **Setup fill** — from the most expensive priced tier downward,
+  leaving both £1 slots empty. Total at setup: 8 cubes (in the
+  priced range, at £2..£5).
 - **Buy** — a player pays the cheapest filled slot's price and
   takes the cube from that slot. **No connection requirement** —
   the Iron Market is always reachable regardless of the consumer's
   network or connection. Overflow price £6 per cube when the
-  market is empty.
+  priced range is empty (unlimited).
 - **Sell** — when an Iron Works auto-sells cubes on Build
-  (§5.1.1), each cube fills the most expensive empty slot first
-  and the owner collects that slot's price.
+  (§5.1.1), each cube fills the most expensive empty priced slot
+  first and the owner collects that slot's price. The £6 overflow
+  tier is never a sell target.
 
 The connection distinction — **coal needs a connection to any
 merchant city, iron does not** — is the single market rule that
@@ -597,8 +608,11 @@ The widget's layout:
 
 - Two side-by-side columns, one per market, labelled **"COAL"** and
   **"IRON"**.
-- Each market column is a stack of rows, **one row per price tier**,
-  highest tier at the top. Each row shows:
+- Each market column is a stack of rows, highest tier at the top.
+  The top row of each column is the **overflow tier** (£8 for coal,
+  £6 for iron), rendered with two always-present cubes to signal
+  unlimited supply at that price. Below it, **one row per priced
+  tier**, descending. Each row shows:
   - The price label "£N" on the left.
   - Two cube slots on the right. A filled slot renders the
     resource cube (black for coal, orange for iron); an empty
@@ -606,16 +620,19 @@ The widget's layout:
 - Above the two columns, a compact header strip that always
   displays the live **summary**:
   - **Coal** — `Buy £X · Sell £Y · N/14 cubes` (where X is the
-    cheapest filled slot's price, Y is the most expensive empty
-    slot's price, N is the number of cubes currently in the
-    market). When the coal market is empty, Buy reads `£8 (overflow)`;
-    when it's full, Sell reads `—`.
-  - **Iron** — same format with N/12 cubes and £6 overflow.
+    cheapest filled slot's price in the priced range — or `£8
+    (overflow)` when the priced range is empty — and Y is the
+    most expensive empty priced slot. N is the count of cubes
+    currently in the priced range; the £8 overflow is unlimited
+    and not part of the count). When all priced slots are full,
+    Sell reads `—`.
+  - **Iron** — same format with N/10 cubes and £6 overflow.
 - During a coal-source sub-state (a Build or Network asking the
   player to pick coal) the widget glows warm-gold to mark it as
   a legal click target, and clicking any of its coal cubes is
   interpreted as "buy from the market". The buy price label
-  updates live as cubes drain.
+  updates live as cubes drain. Clicking an overflow cube buys
+  one at the overflow price.
 
 The widget is the single source of truth for market state on
 screen — no panel duplicates the numbers. A player who wants to

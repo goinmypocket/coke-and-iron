@@ -36,7 +36,7 @@ import type {
   PlacedIndustryTile,
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
-import { INDUSTRY_ICON } from "../industryIcons";
+import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 
@@ -52,15 +52,6 @@ const INDUSTRY_GLYPH: Readonly<Record<IndustryName, string>> = {
   COTTON_MILL: "Co",
   MANUFACTURER: "M",
   POTTERY: "P",
-};
-
-const DISTRICT_FILL: Readonly<Record<string, string>> = {
-  purple: "#8a6fb0",
-  brown: "#9c7656",
-  red: "#c75e5e",
-  blue: "#5e8fc7",
-  teal: "#5eb0a8",
-  farm: "#a89568",
 };
 
 export function BoardPanel() {
@@ -720,16 +711,25 @@ function MarketColumn({
   cubeColor: string;
   x: number;
 }) {
-  // Stack tiers from highest price (top) to lowest (bottom). Each tier
-  // row shows the price label and two cube slots — filled circles for
-  // present cubes, empty rings for missing.
+  // Stack tiers from highest price (top) to lowest (bottom). Header
+  // strip + a row per priced tier. The top row is the overflow tier
+  // (always two cubes, signalling unlimited supply at that price);
+  // sells never land there.
+  //
+  // Header strip per spec §2.11.3:
+  //   "<Label> — Buy £X · Sell £Y · N/<priced-max> cubes"
+  //   when priced range empty:  Buy reads "£<overflow> (overflow)"
+  //   when priced range full:   Sell reads "—"
   const tiers = market.tiers;
   const rowH = 18;
   const total = market.filled.reduce((a, n) => a + n, 0);
+  const max = tiers.length * 2;
   const filledIdx = market.filled.findIndex((n) => n > 0);
-  const nextBuy =
-    filledIdx === -1 ? market.overflowPrice : market.tiers[filledIdx];
-  // Highest empty tier (most-expensive-empty-first sell rule, §2.11).
+  const isEmpty = filledIdx === -1;
+  const buyText = isEmpty
+    ? `£${market.overflowPrice} (overflow)`
+    : `£${market.tiers[filledIdx]}`;
+  // Highest empty priced tier (most-expensive-empty-first sell rule).
   let nextSell: number | null = null;
   for (let t = tiers.length - 1; t >= 0; t--) {
     if ((market.filled[t] ?? 0) < 2) {
@@ -737,39 +737,61 @@ function MarketColumn({
       break;
     }
   }
+  const sellText = nextSell === null ? "—" : `£${nextSell}`;
+  // Compose rows: overflow on top, then priced tiers high-to-low.
+  const rows: { price: number; cubes: number; isOverflow: boolean }[] = [
+    { price: market.overflowPrice, cubes: 2, isOverflow: true },
+  ];
+  for (let t = tiers.length - 1; t >= 0; t--) {
+    rows.push({
+      price: tiers[t]!,
+      cubes: market.filled[t] ?? 0,
+      isOverflow: false,
+    });
+  }
   return (
     <g transform={`translate(${x}, 28)`}>
       <text x={0} y={0} className="board-markets__row-label">
-        {label} (×{total})
+        {label}
       </text>
-      <text x={0} y={14} className="board-markets__row-data">
-        buy £{nextBuy}{nextSell !== null ? ` · sell £${nextSell}` : ""}
+      <text x={0} y={12} className="board-markets__row-data">
+        Buy {buyText}
       </text>
-      <g transform="translate(0, 22)">
-        {tiers
-          .map((price, t) => ({ price, t }))
-          .reverse()
-          .map(({ price, t }, rowIdx) => {
-            const cubes = market.filled[t] ?? 0;
-            return (
-              <g key={t} transform={`translate(0, ${rowIdx * rowH})`}>
-                <text x={0} y={9} className="board-markets__tier-price">
-                  £{price}
-                </text>
-                {[0, 1].map((slot) => (
-                  <circle
-                    key={slot}
-                    cx={26 + slot * 14}
-                    cy={6}
-                    r={4.5}
-                    fill={slot < cubes ? cubeColor : "#fffdf6"}
-                    stroke="#1a1a1a"
-                    strokeWidth={0.7}
-                  />
-                ))}
-              </g>
-            );
-          })}
+      <text x={0} y={22} className="board-markets__row-data">
+        Sell {sellText}
+      </text>
+      <text x={0} y={32} className="board-markets__row-data">
+        {total}/{max} cubes
+      </text>
+      <g transform="translate(0, 40)">
+        {rows.map((row, rowIdx) => (
+          <g key={rowIdx} transform={`translate(0, ${rowIdx * rowH})`}>
+            <text
+              x={0}
+              y={9}
+              className={
+                row.isOverflow
+                  ? "board-markets__tier-price board-markets__tier-price--overflow"
+                  : "board-markets__tier-price"
+              }
+            >
+              £{row.price}
+              {row.isOverflow ? "+" : ""}
+            </text>
+            {[0, 1].map((slot) => (
+              <circle
+                key={slot}
+                cx={26 + slot * 14}
+                cy={6}
+                r={4.5}
+                fill={slot < row.cubes ? cubeColor : "#fffdf6"}
+                stroke="#1a1a1a"
+                strokeWidth={0.7}
+                strokeDasharray={row.isOverflow ? "1.5 1.5" : undefined}
+              />
+            ))}
+          </g>
+        ))}
       </g>
     </g>
   );

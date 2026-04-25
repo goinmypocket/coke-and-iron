@@ -20,14 +20,14 @@ describe("Engine — initial state", () => {
   it("sets up the markets per §2.11.1 / §2.11.2", () => {
     const engine = new Engine({ seed: 1, playerCount: 4 });
     const state = engine.getState();
-    expect(state.coalMarket.tiers).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(state.coalMarket.tiers).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(state.coalMarket.overflowPrice).toBe(8);
-    // 14 cubes, one £1 slot empty (§2.11.1).
-    expect(state.coalMarket.filled).toEqual([1, 2, 2, 2, 2, 2, 2, 2]);
-    expect(state.ironMarket.tiers).toEqual([1, 2, 3, 4, 5, 6]);
+    // 13 cubes in priced range, one £1 slot empty (§2.11.1).
+    expect(state.coalMarket.filled).toEqual([1, 2, 2, 2, 2, 2, 2]);
+    expect(state.ironMarket.tiers).toEqual([1, 2, 3, 4, 5]);
     expect(state.ironMarket.overflowPrice).toBe(6);
-    // 10 cubes, both £1 slots empty (§2.11.2).
-    expect(state.ironMarket.filled).toEqual([0, 2, 2, 2, 2, 2]);
+    // 8 cubes in priced range, both £1 slots empty (§2.11.2).
+    expect(state.ironMarket.filled).toEqual([0, 2, 2, 2, 2]);
   });
 
   it("builds default per-seat fields with 8-card hands per §3.2", () => {
