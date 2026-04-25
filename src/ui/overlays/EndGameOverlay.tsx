@@ -12,6 +12,7 @@ import { rankSeats } from "../../engine";
 import type { GameState, RankReason } from "../../engine";
 import { useEngine } from "../hooks/useEngine";
 import { useGameState } from "../hooks/useGameState";
+import { CurrentIncomeIcon } from "../icons/IncomeIcons";
 import { MoneyCoin } from "../icons/MoneyCoin";
 
 const TIE_BREAK_LABEL: Readonly<Record<RankReason, string>> = {
@@ -76,7 +77,9 @@ export function EndGameOverlay() {
                 </td>
                 <td>{row.displayName}</td>
                 <td>{row.vp}</td>
-                <td>{row.incomeLevel}</td>
+                <td>
+                  <CurrentIncomeIcon amount={row.incomeLevel} size={14} />
+                </td>
                 <td>
                   <MoneyCoin amount={row.money} size={14} />
                 </td>

@@ -37,6 +37,7 @@ import type {
   PlacedIndustryTile,
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { IncomeIncreaseGlyph } from "../icons/IncomeIcons";
 import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
@@ -683,26 +684,7 @@ function BonusBadge({
     );
   }
   if (bonus === "INCOME") {
-    return (
-      <g>
-        <polygon
-          points="0,-6 -5,4 5,4"
-          fill="#fffdf6"
-          stroke="#1a1a1a"
-          strokeWidth={0.6}
-        />
-        <text
-          x={0}
-          y={2.5}
-          textAnchor="middle"
-          fontSize={5.5}
-          fontWeight={700}
-          fill="#1a1a1a"
-        >
-          {value}
-        </text>
-      </g>
-    );
+    return <IncomeIncreaseGlyph cx={0} cy={0} size={14} amount={value} />;
   }
   // DEVELOP — light bulb (not crossed out: bonus, not constraint)
   return (
@@ -1040,7 +1022,7 @@ function Markets({
       <MarketColumn
         market={iron}
         industry="IRON_WORKS"
-        cubeColor="#a8825a"
+        cubeColor="#d97706"
         x={innerPadX + colW}
         rowsTopY={innerPadY}
         iconY={iconY}

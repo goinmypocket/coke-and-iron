@@ -9,6 +9,7 @@
 // =============================================================================
 
 import type { IndustryTileSpec } from "../../engine";
+import { IncomeIncreaseGlyph } from "../icons/IncomeIcons";
 import { TILE } from "./TileFace";
 
 export const SIDE_COL_W = 18;
@@ -60,7 +61,14 @@ function BonusStack({
   if (income > 0) {
     items.push({
       y: rowH,
-      render: () => <IncomeArrow cx={cx} cy={rowH + rowH / 2} value={income} />,
+      render: () => (
+        <IncomeIncreaseGlyph
+          cx={cx}
+          cy={rowH + rowH / 2}
+          size={9}
+          amount={income}
+        />
+      ),
     });
   }
   if (linkPoints > 0) {
@@ -88,42 +96,6 @@ function VpHex({ cx, cy, value }: { cx: number; cy: number; value: number }) {
         x={cx}
         y={cy + 1.7}
         fontSize={4.5}
-        fontWeight={700}
-        textAnchor="middle"
-        fill="#1a1a1a"
-      >
-        {value}
-      </text>
-    </g>
-  );
-}
-
-function IncomeArrow({
-  cx,
-  cy,
-  value,
-}: {
-  cx: number;
-  cy: number;
-  value: number;
-}) {
-  // Up-pointing triangle with the value inside.
-  const w = 8;
-  const h = 7;
-  const top = cy - h / 2;
-  const bottom = cy + h / 2;
-  return (
-    <g>
-      <polygon
-        points={`${cx},${top} ${cx - w / 2},${bottom} ${cx + w / 2},${bottom}`}
-        fill="#fffdf6"
-        stroke="#1a1a1a"
-        strokeWidth={0.5}
-      />
-      <text
-        x={cx}
-        y={cy + 2.2}
-        fontSize={4}
         fontWeight={700}
         textAnchor="middle"
         fill="#1a1a1a"

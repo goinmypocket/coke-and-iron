@@ -13,6 +13,7 @@
 // every other industry is a single column. Tiles are square and the
 // same TILE × TILE size everywhere — board, mat, and resource preview.
 // =============================================================================
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { stepToLevel } from "../../engine";
 import type {
   IndustryName,
@@ -24,6 +25,7 @@ import {
   INDUSTRY_ICON,
   INDUSTRY_LABEL as INDUSTRY_FULL_LABEL,
 } from "../industryIcons";
+import { CurrentIncomeIcon } from "../icons/IncomeIcons";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
@@ -115,8 +117,8 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
           <MoneyCoin amount={view.money} size={13} />
         </span>
         <span title="Victory points">{view.vp} VP</span>
-        <span title="Income level (step)">
-          L{stepToLevel(view.incomeStep)}
+        <span title="Current income level">
+          <CurrentIncomeIcon amount={stepToLevel(view.incomeStep)} size={14} />
         </span>
         <span
           className="seat-stats__link"
@@ -126,22 +128,70 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
           ×{view.linkSupply}
         </span>
       </div>
-      <div className="mat-grid">
-        {INDUSTRY_COLUMNS.map((col) => (
-          <IndustryColumn
-            key={col.industry}
-            spec={col}
-            stack={view.stacks[col.industry]}
-            tileCatalogue={view.tileCatalogue}
-            pawnColor={view.pawnColor}
-            era={view.era}
-            pickCount={pickCounts.get(col.industry) ?? 0}
-            wantingIndustry={wantingIndustry}
-            onPick={() => wizard.pickIndustry(seatId, col.industry)}
-          />
-        ))}
-      </div>
+      <MatScaler>
+        <div className="mat-grid">
+          {INDUSTRY_COLUMNS.map((col) => (
+            <IndustryColumn
+              key={col.industry}
+              spec={col}
+              stack={view.stacks[col.industry]}
+              tileCatalogue={view.tileCatalogue}
+              pawnColor={view.pawnColor}
+              era={view.era}
+              pickCount={pickCounts.get(col.industry) ?? 0}
+              wantingIndustry={wantingIndustry}
+              onPick={() => wizard.pickIndustry(seatId, col.industry)}
+            />
+          ))}
+        </div>
+      </MatScaler>
     </Panel>
+  );
+}
+
+/** Scales the mat down to fit the host panel when the natural mat
+ *  width exceeds the container, leaving the natural size when the
+ *  panel is maximised and there's room to spare. The wrapper height
+ *  collapses with the scaled content so adjacent rows in the panel
+ *  stay tight against the mat. */
+function MatScaler({ children }: { children: ReactNode }) {
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const [innerH, setInnerH] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const recompute = () => {
+      const aw = outer.clientWidth;
+      const iw = inner.scrollWidth;
+      const ih = inner.scrollHeight;
+      if (aw === 0 || iw === 0) return;
+      const next = Math.min(1, aw / iw);
+      setScale(next);
+      setInnerH(ih * next);
+    };
+    recompute();
+    const obs = new ResizeObserver(recompute);
+    obs.observe(outer);
+    obs.observe(inner);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={outerRef} className="mat-scaler" style={{ height: innerH }}>
+      <div
+        ref={innerRef}
+        className="mat-scaler__inner"
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          width: "max-content",
+        }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -364,8 +414,9 @@ function CostCoin({ amount }: { amount: number }) {
 }
 
 function CostCube({ kind }: { kind: "coal" | "iron" }) {
-  const fill = kind === "coal" ? "#1a1a1a" : "#a8825a";
-  const strokeColor = kind === "coal" ? "#fffdf6" : "#1a1a1a";
+  // Same stroke treatment for both kinds so the cubes read the same
+  // visual size regardless of fill colour.
+  const fill = kind === "coal" ? "#1a1a1a" : "#d97706";
   return (
     <svg
       className="mat-cost__icon"
@@ -380,7 +431,7 @@ function CostCube({ kind }: { kind: "coal" | "iron" }) {
         width={COST_ICON - 1.4}
         height={COST_ICON - 1.4}
         fill={fill}
-        stroke={strokeColor}
+        stroke="#1a1a1a"
         strokeWidth={0.5}
       />
     </svg>

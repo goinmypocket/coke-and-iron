@@ -15,6 +15,7 @@
 // =============================================================================
 
 import type { IndustryName, IndustryTileSpec } from "../../engine";
+import { IncomeIncreaseGlyph } from "../icons/IncomeIcons";
 import { INDUSTRY_ICON } from "../industryIcons";
 
 export const TILE = 28;
@@ -173,8 +174,9 @@ function TileCube({
       />
     );
   }
-  const fill = industry === "COAL_MINE" ? "#1a1a1a" : "#a8825a";
-  const strokeColor = industry === "COAL_MINE" ? "#fffdf6" : "#1a1a1a";
+  // Coal and iron use the SAME stroke colour and width so the cubes
+  // read as the same visual size at the same TILE level.
+  const fill = industry === "COAL_MINE" ? "#1a1a1a" : "#d97706";
   return (
     <rect
       x={x}
@@ -182,7 +184,7 @@ function TileCube({
       width={size}
       height={size}
       fill={fill}
-      stroke={strokeColor}
+      stroke="#1a1a1a"
       strokeWidth={0.25}
     />
   );
@@ -304,28 +306,8 @@ function CornerVp({ vp }: { vp: number }) {
 
 function CornerIncome({ income }: { income: number }) {
   if (income <= 0) return null;
-  const cx = TILE - 5;
-  const cy = TILE - 5;
   return (
-    <g>
-      <polygon
-        points={`${cx},${cy - 3} ${cx - 3},${cy + 2} ${cx + 3},${cy + 2}`}
-        fill="#fffdf6"
-        stroke="#1a1a1a"
-        strokeWidth={0.5}
-      />
-      <text
-        x={cx}
-        y={cy + 1.5}
-        fontSize={3.5}
-        fontWeight={700}
-        textAnchor="middle"
-        fill="#1a1a1a"
-        style={{ pointerEvents: "none" }}
-      >
-        {income}
-      </text>
-    </g>
+    <IncomeIncreaseGlyph cx={TILE - 5} cy={TILE - 5} size={9} amount={income} />
   );
 }
 
