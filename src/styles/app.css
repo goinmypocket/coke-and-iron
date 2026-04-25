@@ -397,6 +397,45 @@ body {
   padding-top: 0.5rem;
 }
 
+/* ---------- End-game overlay (§11.11) ---------- */
+
+.endgame-overlay {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  padding: 1rem;
+  width: min(36rem, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.endgame-overlay__title {
+  font-weight: 700;
+  font-size: 1.2em;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.4rem;
+}
+.endgame-overlay__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.endgame-overlay__table th,
+.endgame-overlay__table td {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--soft-tint);
+}
+.endgame-overlay__footnote {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.endgame-overlay__buttons {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ---------- Income tracker (§11.1) ---------- */
 
 .income-ladder {

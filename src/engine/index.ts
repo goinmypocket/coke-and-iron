@@ -11,6 +11,8 @@ export {
   MIN_INCOME_LEVEL,
   MIN_INCOME_STEP,
 } from "./income";
+export { rankSeats } from "./ranking";
+export type { RankReason, RankedSeat } from "./ranking";
 export { reduce } from "./reduce";
 export { makeRng, shuffle, randomInt } from "./rng";
 export type { Rng } from "./rng";

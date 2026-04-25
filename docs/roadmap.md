@@ -48,9 +48,6 @@ Status keys:
   `actions_still_remaining` — the seat is stuck. Either auto-clear
   remaining actions when hand is empty, or relax END_TURN to allow
   it when hand is empty even with actions left.
-- **[engine] §6.6 tie-breaking helper.** Pure utility:
-  `rankSeats(state) → PlayerId[]` ordered by VP, then income level,
-  then money. Useful for the eventual scoreboard panel.
 - **[engine] Repository visibility / `.claude/settings.json`.** Was
   pulled into a refactor commit by accident; consider whether it
   should live in `.gitignore`.
@@ -82,8 +79,10 @@ Status keys:
 - **[ui] Affordances (§11.10).** Prompt strip, context bar, toast
   primitives — toast already lives via Sonner; the others are still
   TODO.
-- **[ui] Overlays (§11.11).** Per the spec — game-end summary,
-  shortfall sub-flow prompt, Gloucester follow-up sub-state, etc.
+- **[ui] Overlays polish (§11.11).** End-game summary +
+  shortfall sub-flow shipped. Still TODO: era flip / round
+  transition banners (~1.5s transient), Gloucester follow-up
+  sub-state.
 - **[ui] City slot editor (§11.12).** Board-editor overlay that
   writes through to `config/cities.json`.
 - **[ui] Layout editor (§10.3).** In-game panel layout editor that
