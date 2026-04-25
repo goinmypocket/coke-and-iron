@@ -36,6 +36,14 @@ export class Engine {
 
   getState = (): GameState => this.state;
 
+  /** Setup parameters captured at construction. The recent-actions panel
+   * uses these to replay the intent log and recover state-at-time-of-
+   * dispatch (which card was at hand[i], which level was on the mat
+   * stack, which tile sat in builtTiles before a Sell flipped or a
+   * Shortfall removed it). */
+  getInitialConfig = (): EngineConfig => this.initialConfig;
+  getInitialBundle = (): EngineConfigBundle => this.initialBundle;
+
   subscribe = (cb: Subscriber): (() => void) => {
     this.subscribers.add(cb);
     return () => {
