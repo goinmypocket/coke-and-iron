@@ -41,6 +41,13 @@ body {
 .panel--maximized {
   position: fixed;
   inset: 1rem;
+  /* Override the base .panel width:100% so `inset` actually controls
+   * both edges. With an explicit width set, fixed-positioned elements
+   * ignore the `right` value and overflow the viewport. */
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
   z-index: 100;
 }
 .panel__title {
