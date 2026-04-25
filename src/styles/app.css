@@ -12,6 +12,7 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -28,7 +29,9 @@ body {
   display: flex;
   flex-direction: column;
   width: 100vw;
+  max-width: 100vw;
   height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ---------- Affordances (§11.10) ---------- */
@@ -102,11 +105,33 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  min-width: 12rem;
-  min-height: 6rem;
+  min-height: 4rem;
   overflow: hidden;
+  /* Make every panel a size container so its descendants can scale
+   * with the panel's measured width via cqi units. */
+  container-type: inline-size;
+}
+/* Panels that opt into width-relative scaling: font-size derives
+ * from the container width, capped to a usable range so dense
+ * panels don't go below readable, or stretch comically wide. */
+[data-panel-id="hand"] .panel__content,
+[data-panel-id="actions"] .panel__content,
+[data-panel-id="recent_actions"] .panel__content,
+[data-panel-id="game_state"] .panel__content,
+[data-panel-id="player_state"] .panel__content,
+[data-panel-id="players"] .panel__content {
+  font-size: clamp(0.6rem, 4cqi, 1rem);
+}
+[data-panel-id="hand"] .panel__title,
+[data-panel-id="actions"] .panel__title,
+[data-panel-id="recent_actions"] .panel__title,
+[data-panel-id="game_state"] .panel__title,
+[data-panel-id="player_state"] .panel__title,
+[data-panel-id="players"] .panel__title {
+  font-size: clamp(0.7rem, 4.4cqi, 1.05rem);
 }
 .panel--emphasized {
   outline: 2px solid var(--warm-gold);
@@ -198,21 +223,20 @@ body {
 }
 
 .hand-grid {
-  /* Compact 2 × 4 grid of small cards. Each card is fixed-width
-   * so the panel doesn't stretch them; rows wrap if the panel is
-   * narrower than 4 × cardW + gaps. */
+  /* Compact 2 × 4 grid of small cards. Card width is em-based so
+   * the cards scale with the panel's container-relative font-size. */
   display: grid;
-  grid-template-columns: repeat(4, 2.5rem);
-  gap: 0.25rem;
+  grid-template-columns: repeat(4, 3.4em);
+  gap: 0.25em;
   justify-content: start;
 }
 .card-face {
   aspect-ratio: 5 / 7;
-  width: 2.5rem;
+  width: 3.4em;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  padding: 0.15rem;
-  font-size: 0.65em;
+  padding: 0.2em;
+  font-size: 0.95em;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -241,7 +265,7 @@ body {
 }
 .card-face__industry-icon {
   width: 100%;
-  max-width: 1.3rem;
+  max-width: 1.6em;
   height: auto;
   display: block;
 }

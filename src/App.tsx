@@ -18,6 +18,7 @@ import { GameStatePanel } from "./ui/panels/GameStatePanel";
 import { HandPanel } from "./ui/panels/HandPanel";
 import { IncomeTrackerPanel } from "./ui/panels/IncomeTrackerPanel";
 import { PlayersPanel } from "./ui/panels/PlayersPanel";
+import { PlayerStatePanel } from "./ui/panels/PlayerStatePanel";
 import { RecentActionsPanel } from "./ui/panels/RecentActionsPanel";
 import { RemainingCardsPanel } from "./ui/panels/RemainingCardsPanel";
 import { WizardProvider } from "./ui/wizards/WizardProvider";
@@ -43,6 +44,7 @@ export function App() {
           <PanelGrid>
             {{
               game_state: <GameStatePanel />,
+              player_state: <PlayerStatePanel />,
               players: <PlayersPanel />,
               board: <BoardPanel />,
               income: <IncomeTrackerPanel />,

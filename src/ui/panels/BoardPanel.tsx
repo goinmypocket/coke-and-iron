@@ -948,9 +948,16 @@ function Markets({
   const ROW_H = 13;
   const ROW_GAP = 5;
   const coalRows = coal.tiers.length + 1;
+  const ironRows = iron.tiers.length + 1;
   const widgetH = innerPadY + coalRows * ROW_H + ROW_GAP + ICON + innerPadY;
   const colW = (widgetW - innerPadX * 2) / 2;
   const iconY = widgetH - innerPadY - ICON;
+  // Both columns' bottom row sits just above the icon — iron, with
+  // fewer rows than coal, has its top of column further down so the
+  // BOTTOM of both stacks aligns horizontally.
+  const bottomOfRows = iconY - ROW_GAP;
+  const coalTopY = bottomOfRows - coalRows * ROW_H;
+  const ironTopY = bottomOfRows - ironRows * ROW_H;
   const anyGlow = coalGlow || ironGlow;
   return (
     <g
@@ -973,7 +980,7 @@ function Markets({
         industry="COAL_MINE"
         cubeColor="#1a1a1a"
         x={innerPadX}
-        rowsTopY={innerPadY}
+        rowsTopY={coalTopY}
         iconY={iconY}
         iconSize={ICON}
         rowH={ROW_H}
@@ -985,7 +992,7 @@ function Markets({
         industry="IRON_WORKS"
         cubeColor="#d97706"
         x={innerPadX + colW}
-        rowsTopY={innerPadY}
+        rowsTopY={ironTopY}
         iconY={iconY}
         iconSize={ICON}
         rowH={ROW_H}
