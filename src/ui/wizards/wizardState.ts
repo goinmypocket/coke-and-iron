@@ -9,14 +9,21 @@
 //   AWAITING_CARD                 — Pass / Loan; one card click dispatches.
 //   AWAITING_CARDS_SCOUT          — Scout; toggle up to 3 distinct card
 //                                   indices, submit via endAction().
-//   AWAITING_CARD_DEVELOP         — Develop, step 1: waiting for a card click
-//                                   from hand to authorise the action.
-//   AWAITING_DEVELOP_INDUSTRIES   — Develop, step 2: card chosen; user picks
-//                                   1 or 2 mat industries from their own
-//                                   sub-panel. Auto-submit at 2; endAction()
-//                                   submits with 1.
+//   AWAITING_DEVELOP_INPUTS       — Develop; card + 1 or 2 industries picked
+//                                   in any order. Auto-submit when card +
+//                                   2 industries; endAction() submits when
+//                                   card + at least 1 industry.
+//   AWAITING_BUILD_INPUTS         — Build; card + slot + industry in any
+//                                   order. Auto-submit when all three set.
 //
-// Build / Network / Sell aren't yet wired through the wizard.
+// All non-trivial wizards follow the §10.1 convention:
+//   - Unique-cardinality inputs (card, slot, industry, line) are REPLACED
+//     by a second click of the same input type.
+//   - Variable-cardinality inputs (Develop industries[], Sell orders[],
+//     Scout cards[]) ACCUMULATE up to the action's cap; Reset Selection
+//     clears.
+//
+// Network / Sell aren't yet wired through the wizard.
 // =============================================================================
 
 import type { IndustryName, PlayerId } from "../../engine";
@@ -33,11 +40,12 @@ export type WizardState =
       readonly phase: "AWAITING_CARDS_SCOUT";
       readonly cardIndices: readonly number[];
     }
-  | { readonly phase: "AWAITING_CARD_DEVELOP" }
+  // §5.3 Develop — card + 1 or 2 industries, picked in any order. Auto-submit
+  // when card + 2 industries; End Action when card + at least 1.
   | {
-      readonly phase: "AWAITING_DEVELOP_INDUSTRIES";
-      readonly cardIndex: number;
+      readonly phase: "AWAITING_DEVELOP_INPUTS";
       readonly developSeatId: PlayerId;
+      readonly cardIndex: number | null;
       readonly industries: readonly IndustryName[];
     }
   // §5.1 Build — three fields picked in any order. Auto-submit when all
@@ -53,18 +61,11 @@ export type WizardAction =
   | { type: "START_PASS" }
   | { type: "START_LOAN" }
   | { type: "START_SCOUT" }
-  | { type: "START_DEVELOP" }
+  | { type: "START_DEVELOP"; developSeatId: PlayerId }
   | { type: "START_BUILD" }
   | { type: "TOGGLE_CARD"; cardIndex: number }
-  | {
-      type: "PICK_DEVELOP_CARD";
-      cardIndex: number;
-      developSeatId: PlayerId;
-    }
-  | {
-      type: "ADD_DEVELOP_INDUSTRY";
-      industry: IndustryName;
-    }
+  | { type: "DEVELOP_SET_CARD"; cardIndex: number }
+  | { type: "ADD_DEVELOP_INDUSTRY"; industry: IndustryName }
   | { type: "BUILD_SET_CARD"; cardIndex: number }
   | { type: "BUILD_SET_SLOT"; slot: BuildSlotPick }
   | { type: "BUILD_SET_INDUSTRY"; industry: IndustryName }
@@ -84,7 +85,12 @@ export function wizardReducer(
     case "START_SCOUT":
       return { phase: "AWAITING_CARDS_SCOUT", cardIndices: [] };
     case "START_DEVELOP":
-      return { phase: "AWAITING_CARD_DEVELOP" };
+      return {
+        phase: "AWAITING_DEVELOP_INPUTS",
+        developSeatId: action.developSeatId,
+        cardIndex: null,
+        industries: [],
+      };
     case "TOGGLE_CARD": {
       if (state.phase !== "AWAITING_CARDS_SCOUT") return state;
       const i = state.cardIndices.indexOf(action.cardIndex);
@@ -102,14 +108,10 @@ export function wizardReducer(
         cardIndices: [...state.cardIndices, action.cardIndex],
       };
     }
-    case "PICK_DEVELOP_CARD": {
-      if (state.phase !== "AWAITING_CARD_DEVELOP") return state;
-      return {
-        phase: "AWAITING_DEVELOP_INDUSTRIES",
-        cardIndex: action.cardIndex,
-        developSeatId: action.developSeatId,
-        industries: [],
-      };
+    case "DEVELOP_SET_CARD": {
+      // Card is a unique-cardinality input — second click REPLACES.
+      if (state.phase !== "AWAITING_DEVELOP_INPUTS") return state;
+      return { ...state, cardIndex: action.cardIndex };
     }
     case "ADD_DEVELOP_INDUSTRY": {
       // Develop allows TWO tiles from the same industry stack (§5.3 — the
@@ -117,7 +119,7 @@ export function wizardReducer(
       // stack). Each click ADDS a pick; we never deselect on click. Cap
       // at 2 — the wizard auto-submits there. Use Reset Selection to
       // clear and start over.
-      if (state.phase !== "AWAITING_DEVELOP_INDUSTRIES") return state;
+      if (state.phase !== "AWAITING_DEVELOP_INPUTS") return state;
       if (state.industries.length >= 2) return state;
       return {
         ...state,
@@ -154,7 +156,10 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
   if (state.phase === "AWAITING_CARDS_SCOUT") {
     return new Set(state.cardIndices);
   }
-  if (state.phase === "AWAITING_DEVELOP_INDUSTRIES") {
+  if (
+    state.phase === "AWAITING_DEVELOP_INPUTS" &&
+    state.cardIndex !== null
+  ) {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_BUILD_INPUTS" && state.cardIndex !== null) {

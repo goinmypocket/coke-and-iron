@@ -31,12 +31,11 @@ export function ActionsPanel() {
   const isPass = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "PASS";
   const isLoan = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "LOAN";
   const isScout = wizard.state.phase === "AWAITING_CARDS_SCOUT";
-  const isDevelop =
-    wizard.state.phase === "AWAITING_CARD_DEVELOP" ||
-    wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES";
+  const isDevelop = wizard.state.phase === "AWAITING_DEVELOP_INPUTS";
   const canEndDevelop =
-    wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES" &&
-    wizard.state.industries.length === 1;
+    wizard.state.phase === "AWAITING_DEVELOP_INPUTS" &&
+    wizard.state.cardIndex !== null &&
+    wizard.state.industries.length >= 1;
   const isBuild = wizard.state.phase === "AWAITING_BUILD_INPUTS";
   const canEndBuild =
     wizard.state.phase === "AWAITING_BUILD_INPUTS" &&

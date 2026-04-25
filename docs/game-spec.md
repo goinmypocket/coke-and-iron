@@ -925,9 +925,10 @@ the wizard offers a second-rail sub-state.
 Remove 1 or 2 industry tiles from the mat, paying 1 iron per
 removal.
 
-**UI flow.** Player picks a card and 1 or 2 industries from the
-mat. Auto-submits on the 2nd pick; "End Action" finalises with
-just 1.
+**UI flow.** Player picks — in any order — a card and 1 or 2
+industries from the mat. Auto-submits when both the card and a
+second industry are picked; "End Action" finalises with the card
+and just 1 industry.
 
 **Engine steps on dispatch:**
 
@@ -942,10 +943,10 @@ just 1.
 Flip any number of own built Cotton / Manufacturer / Pottery
 tiles, paying beer per tile.
 
-**UI flow.** Player picks a card and any number of their own
-built tiles. Per tile, the wizard prompts a merchant pick if
-multiple merchants accept, and a beer-source pick if ambiguous.
-"End Action" dispatches the accumulated orders.
+**UI flow.** Player picks — in any order — a card and any number
+of their own built tiles. Per tile, the wizard prompts a merchant
+pick if multiple merchants accept, and a beer-source pick if
+ambiguous. "End Action" dispatches the accumulated orders.
 
 **Engine steps on dispatch:**
 
@@ -1045,6 +1046,11 @@ Per barrel:
 ### 5.7 Scout
 
 Discard 3 non-wild cards for 1 Wild Location + 1 Wild Industry.
+
+**UI flow.** Player picks 3 distinct non-wild cards from the hand
+in any order. "End Action" dispatches once 3 are selected; an
+explicit submit is required because picks are toggleable up to
+the third.
 
 **Engine steps on dispatch:**
 
@@ -1290,12 +1296,29 @@ From IDLE:
 
 Inside a wizard:
 
-- Inputs are picked in **any order**. Picking the same input type
-  twice replaces the prior pick.
-- Structurally-invalid clicks (occupied slot during Build, merchant
-  city during a non-Sell action) are rejected with a reason toast.
-- Structurally-valid clicks are always accepted; the engine toasts
-  the final-combination reason when the dispatch fails.
+- Inputs are picked in **any order** — including the card.
+  Wizards never force a card-first ordering; the player may click
+  a slot, an industry, a tile, a line, or a card first, and the
+  wizard accepts it.
+- **Unique-cardinality inputs** (one card per Build / Develop /
+  Sell / Network / Loan / Pass; one slot per Build; one line per
+  Network) **replace** on a second click.
+- **Variable-cardinality inputs** (Develop's 1–2 industries,
+  Sell's tile orders, Scout's 3 cards) **accumulate** on each
+  click up to the action's cap; the player clears via Reset
+  Selection. Clicking the same target twice is allowed for
+  industries (Develop accepts 2-of-same per §5.3) and forbidden
+  for distinct-id targets (Scout cards must be distinct
+  per §5.7).
+- Auto-submit fires once every required input is set AND every
+  variable-arity input is at its cap. End Action submits when
+  required inputs are set even if a variable input hasn't hit its
+  cap (e.g. Develop with 1 industry, Sell with 1+ orders).
+- Structurally-invalid clicks (occupied slot during Build,
+  merchant city during a non-Sell action) are rejected with a
+  reason toast.
+- Structurally-valid clicks are always accepted; the engine
+  toasts the final-combination reason when the dispatch fails.
 
 Once card + primary inputs are set, the wizard transitions to its
 resource-picker sub-state(s) (coal / iron / beer). When no source

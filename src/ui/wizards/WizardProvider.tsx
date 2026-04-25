@@ -6,20 +6,31 @@
 //
 //   Pass / Loan       — card click dispatches immediately.
 //   Scout             — three card clicks then endAction().
-//   Develop           — card click captures cardIndex; mat clicks pick 1 or
-//                       2 industries. Auto-submit at 2, endAction() at 1.
-//                       Iron sources are auto-resolved at submit time:
-//                       cheapest free network iron (any unflipped Iron
-//                       Works tile, any owner) per pick, falling back to
-//                       MARKET when none remain.
+//   Develop           — card + 1 or 2 industries in any order.
+//                       Auto-submit when card + 2 industries; endAction()
+//                       submits with card + 1 industry. Iron auto-resolves
+//                       at submit time: cheapest free network iron (any
+//                       unflipped Iron Works, any owner) then market.
+//   Build             — card + slot + industry in any order. Auto-submit
+//                       when all three are set. Coal goes to market;
+//                       iron prefers free network iron.
 //
-// CONVENTION — clicks always ADD, never deselect.
-//   Wizards that accept REPEATED picks (Develop allows 2 of the same
-//   industry — the engine pops the stack in order, see develop.ts; the
-//   same will be true for Sell's beer sources, Build's coal sources, etc.)
-//   must NOT toggle on a duplicate click. Each click adds a pick; the
-//   user clears via "Reset Selection". Toggle-on-duplicate makes
-//   "click twice for two of the same" silently impossible to express.
+// CONVENTIONS for click-based input (per spec §10.1):
+//
+//   1. Order-agnostic. No wizard forces a card-first ordering. The user
+//      may click a slot, industry, line, tile, or card in whatever order
+//      suits them.
+//
+//   2. Unique-cardinality inputs REPLACE on a second click (e.g. picking
+//      a different card mid-Develop swaps the card; the prior card is
+//      no longer authorising the action).
+//
+//   3. Variable-cardinality inputs ACCUMULATE on each click up to the
+//      action's cap; the user clears via Reset Selection. Develop's
+//      industries[] is a known-repeatable case — clicking the same
+//      industry twice picks 2 tiles from that stack (engine pops the
+//      stack between iterations). Toggle-on-duplicate would silently
+//      make this impossible to express.
 //
 // Card-first flow (§10.1) is not yet implemented — clicks in IDLE no-op.
 // =============================================================================
@@ -81,16 +92,22 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const startPass = useCallback(() => dispatch({ type: "START_PASS" }), []);
   const startLoan = useCallback(() => dispatch({ type: "START_LOAN" }), []);
   const startScout = useCallback(() => dispatch({ type: "START_SCOUT" }), []);
-  const startDevelop = useCallback(
-    () => dispatch({ type: "START_DEVELOP" }),
-    [],
-  );
+  const startDevelop = useCallback(() => {
+    const liveState = engine.getState();
+    const seatId = liveState.turnOrder[liveState.currentPlayerIndex];
+    if (seatId === undefined) return;
+    dispatch({ type: "START_DEVELOP", developSeatId: seatId });
+  }, [engine]);
   const startBuild = useCallback(() => dispatch({ type: "START_BUILD" }), []);
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
   const submitDevelop = useCallback(
     (live: WizardState) => {
-      if (live.phase !== "AWAITING_DEVELOP_INDUSTRIES") return;
+      if (live.phase !== "AWAITING_DEVELOP_INPUTS") return;
+      if (live.cardIndex === null) {
+        toast.error("Pick a card to authorise Develop.");
+        return;
+      }
       if (live.industries.length === 0) {
         toast.error("Pick at least one industry to develop.");
         return;
@@ -184,18 +201,13 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "TOGGLE_CARD", cardIndex });
         return;
       }
-      if (live.phase === "AWAITING_CARD_DEVELOP") {
-        const liveState = engine.getState();
-        const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
-        dispatch({
-          type: "PICK_DEVELOP_CARD",
-          cardIndex,
-          developSeatId: playerId,
-        });
-        return;
-      }
-      if (live.phase === "AWAITING_DEVELOP_INDUSTRIES") {
-        // Card already picked — additional card clicks are no-ops.
+      if (live.phase === "AWAITING_DEVELOP_INPUTS") {
+        const projected: WizardState = { ...live, cardIndex };
+        dispatch({ type: "DEVELOP_SET_CARD", cardIndex });
+        // Auto-submit when card now joins 2-industry max.
+        if (projected.industries.length === 2) {
+          submitDevelop(projected);
+        }
         return;
       }
       if (live.phase === "AWAITING_BUILD_INPUTS") {
@@ -211,25 +223,26 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         return;
       }
     },
-    [engine, state, submitBuild],
+    [engine, state, submitBuild, submitDevelop],
   );
 
   const pickIndustry = useCallback(
     (seatId: PlayerId, industry: IndustryName) => {
       const live = state;
-      if (live.phase === "AWAITING_DEVELOP_INDUSTRIES") {
+      if (live.phase === "AWAITING_DEVELOP_INPUTS") {
         // Develop accepts two picks of the same industry (§5.3) — the
         // engine pops the stack in order between them. Each click here
         // ADDS one pick; never deselects. Reset Selection clears.
         if (live.developSeatId !== seatId) return;
         if (live.industries.length >= 2) return;
 
+        const projected: WizardState = {
+          ...live,
+          industries: [...live.industries, industry],
+        };
         dispatch({ type: "ADD_DEVELOP_INDUSTRY", industry });
-        if (live.industries.length + 1 === 2) {
-          const projected: WizardState = {
-            ...live,
-            industries: [...live.industries, industry],
-          };
+        // Auto-submit when card + 2 industries are both set.
+        if (projected.cardIndex !== null && projected.industries.length === 2) {
           submitDevelop(projected);
         }
         return;
@@ -294,7 +307,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
-    if (live.phase === "AWAITING_DEVELOP_INDUSTRIES") {
+    if (live.phase === "AWAITING_DEVELOP_INPUTS") {
       submitDevelop(live);
       return;
     }
