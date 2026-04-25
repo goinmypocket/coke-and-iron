@@ -94,11 +94,11 @@ Status keys:
   source picker (currently always market), explicit iron/coal
   source sub-states for ambiguity, visual narrowing of valid
   slots once card/industry is picked.
-- **[ui] Network wizard polish.** Card + line happy path shipped
-  (canal era + rail era first link). Coal source for rail era
-  always uses market — connectivity-aware free coal is TODO.
-  Second-rail-offer sub-state (Rail era only, per §10.1) still
-  TODO.
+- **[ui] Network wizard polish.** Card + line + second-rail
+  offer shipped. Coal source for rail era always uses market —
+  connectivity-aware free coal is TODO. Beer for the second rail
+  picks the first unflipped brewery (engine validates
+  connectivity); explicit picker is TODO.
 - **[ui] Sell wizard polish.** Card + tile picks happy path
   shipped. Still TODO: explicit merchant picker when multiple
   merchants accept, explicit beer-source picker, Gloucester

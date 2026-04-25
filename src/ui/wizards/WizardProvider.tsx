@@ -47,12 +47,16 @@ import { toast } from "sonner";
 import type {
   BeerSource,
   CoalSource,
+  Era,
   GameState,
   IndustryName,
   IronSource,
   PlayerId,
+  SecondRailLink,
   SellOrder,
 } from "../../engine";
+
+type NetworkSecondLink = SecondRailLink;
 import { reasonToText } from "../affordances/toast";
 import { useEngine } from "../hooks/useEngine";
 import {
@@ -298,13 +302,31 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
       const coalSources: CoalSource[] =
         liveState.era === "RAIL" ? [{ kind: "MARKET" }] : [];
+
+      let secondLink: NetworkSecondLink | null = null;
+      if (live.secondLineIndex !== null) {
+        // Second link in rail era only — engine rejects in canal anyway.
+        const breweryTileId = pickAnyUnflippedBreweryId(liveState);
+        if (breweryTileId === null) {
+          toast.error(
+            "Need an unflipped brewery to fuel the second rail link.",
+          );
+          return;
+        }
+        secondLink = {
+          lineIndex: live.secondLineIndex,
+          coalSources: [{ kind: "MARKET" }],
+          beerSource: { kind: "BREWERY", tileId: breweryTileId },
+        };
+      }
+
       const result = engine.dispatch({
         type: "NETWORK",
         playerId,
         cardIndex: live.cardIndex,
         lineIndex: live.lineIndex,
         coalSources,
-        secondLink: null,
+        secondLink,
       });
       if (result.ok) {
         dispatch({ type: "RESET" });
@@ -370,7 +392,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       if (live.phase === "AWAITING_NETWORK_INPUTS") {
         const projected: WizardState = { ...live, cardIndex };
         dispatch({ type: "NETWORK_SET_CARD", cardIndex });
-        if (projected.lineIndex !== null) {
+        if (shouldAutoSubmitNetwork(engine.getState().era, projected)) {
           submitNetwork(projected);
         }
         return;
@@ -448,13 +470,17 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     (lineIndex: number) => {
       const live = state;
       if (live.phase !== "AWAITING_NETWORK_INPUTS") return;
-      const projected: WizardState = { ...live, lineIndex };
-      dispatch({ type: "NETWORK_SET_LINE", lineIndex });
-      if (projected.cardIndex !== null) {
+      const era = engine.getState().era;
+      const allowSecond = era === "RAIL";
+      // Project the next state to detect the auto-submit condition
+      // without having to read post-dispatch state.
+      const projected = projectNetworkAfterToggle(live, lineIndex, allowSecond);
+      dispatch({ type: "NETWORK_TOGGLE_LINE", lineIndex, allowSecond });
+      if (shouldAutoSubmitNetwork(era, projected)) {
         submitNetwork(projected);
       }
     },
-    [state, submitNetwork],
+    [engine, state, submitNetwork],
   );
 
   const pickTile = useCallback((tileId: string) => {
@@ -559,6 +585,65 @@ export function useWizard(): WizardApi {
     throw new Error("useWizard must be used inside <WizardProvider>");
   }
   return ctx;
+}
+
+/**
+ * Network auto-submit predicate. Canal era submits as soon as the
+ * card + first line are set; rail era submits only when both links
+ * are picked (the explicit-second-line gesture). Otherwise the user
+ * hits End Action.
+ */
+function shouldAutoSubmitNetwork(era: Era, projected: WizardState): boolean {
+  if (projected.phase !== "AWAITING_NETWORK_INPUTS") return false;
+  if (projected.cardIndex === null || projected.lineIndex === null) {
+    return false;
+  }
+  if (era === "CANAL") return true;
+  return projected.secondLineIndex !== null;
+}
+
+/**
+ * Project what wizardState will look like after a NETWORK_TOGGLE_LINE
+ * action so callers can test the auto-submit predicate before the
+ * dispatch lands. Mirrors the reducer's case "NETWORK_TOGGLE_LINE".
+ */
+function projectNetworkAfterToggle(
+  state: WizardState,
+  lineIndex: number,
+  allowSecond: boolean,
+): WizardState {
+  if (state.phase !== "AWAITING_NETWORK_INPUTS") return state;
+  if (lineIndex === state.lineIndex) {
+    return {
+      ...state,
+      lineIndex: state.secondLineIndex,
+      secondLineIndex: null,
+    };
+  }
+  if (lineIndex === state.secondLineIndex) {
+    return { ...state, secondLineIndex: null };
+  }
+  if (state.lineIndex === null) return { ...state, lineIndex };
+  if (allowSecond && state.secondLineIndex === null) {
+    return { ...state, secondLineIndex: lineIndex };
+  }
+  return { ...state, lineIndex };
+}
+
+/**
+ * Pick the first unflipped brewery (any owner) with at least one
+ * barrel left. Returns null when no brewery has beer to give. Engine
+ * still validates the connectivity-to-line-endpoint requirement.
+ */
+function pickAnyUnflippedBreweryId(state: GameState): string | null {
+  for (const t of state.builtTiles) {
+    const spec = state.tileCatalogue[t.catalogueIndex];
+    if (spec?.industry !== "BREWERY") continue;
+    if (t.flipped) continue;
+    if (t.resources <= 0) continue;
+    return t.id;
+  }
+  return null;
 }
 
 /**

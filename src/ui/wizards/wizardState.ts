@@ -66,13 +66,16 @@ export type WizardState =
       readonly slot: BuildSlotPick | null;
       readonly industry: IndustryName | null;
     }
-  // §5.2 Network — card + line picked in any order. Auto-submit when both
-  // set. Second-rail offer (Rail era only) is deferred — captured on the
-  // roadmap.
+  // §5.2 Network — card + line(s) picked in any order. Canal era auto-
+  // submits when card + first line are set. Rail era waits for the user
+  // to either pick a second line (auto-submits at the second pick) or
+  // hit End Action with one line set. Line picks toggle on duplicate
+  // click and fill first → second in click order.
   | {
       readonly phase: "AWAITING_NETWORK_INPUTS";
       readonly cardIndex: number | null;
       readonly lineIndex: number | null;
+      readonly secondLineIndex: number | null;
     }
   // §5.4 Sell — card + variable-arity own-tile picks, in any order.
   // Tile picks TOGGLE on duplicate click (distinct-id collection).
@@ -99,7 +102,7 @@ export type WizardAction =
   | { type: "BUILD_SET_SLOT"; slot: BuildSlotPick }
   | { type: "BUILD_SET_INDUSTRY"; industry: IndustryName }
   | { type: "NETWORK_SET_CARD"; cardIndex: number }
-  | { type: "NETWORK_SET_LINE"; lineIndex: number }
+  | { type: "NETWORK_TOGGLE_LINE"; lineIndex: number; allowSecond: boolean }
   | { type: "START_SELL" }
   | { type: "SELL_SET_CARD"; cardIndex: number }
   | { type: "SELL_TOGGLE_TILE"; tileId: string }
@@ -188,14 +191,37 @@ export function wizardReducer(
         phase: "AWAITING_NETWORK_INPUTS",
         cardIndex: null,
         lineIndex: null,
+        secondLineIndex: null,
       };
     case "NETWORK_SET_CARD": {
       if (state.phase !== "AWAITING_NETWORK_INPUTS") return state;
       return { ...state, cardIndex: action.cardIndex };
     }
-    case "NETWORK_SET_LINE": {
+    case "NETWORK_TOGGLE_LINE": {
       if (state.phase !== "AWAITING_NETWORK_INPUTS") return state;
-      return { ...state, lineIndex: action.lineIndex };
+      const li = action.lineIndex;
+      // Toggle off if already picked.
+      if (li === state.lineIndex) {
+        // Promote second to first if any so the slots stay packed.
+        return {
+          ...state,
+          lineIndex: state.secondLineIndex,
+          secondLineIndex: null,
+        };
+      }
+      if (li === state.secondLineIndex) {
+        return { ...state, secondLineIndex: null };
+      }
+      // Fill first slot first, then second when allowed (rail era).
+      if (state.lineIndex === null) {
+        return { ...state, lineIndex: li };
+      }
+      if (action.allowSecond && state.secondLineIndex === null) {
+        return { ...state, secondLineIndex: li };
+      }
+      // Otherwise replace first (canal era's only "swap" gesture; or
+      // rail era when both are full and the user wants to redo).
+      return { ...state, lineIndex: li };
     }
     case "START_SELL":
       return {

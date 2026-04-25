@@ -58,8 +58,11 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
       const missing: string[] = [];
       if (state.cardIndex === null) missing.push("a card");
       if (state.lineIndex === null) missing.push("a canal/rail line");
-      if (missing.length === 0) return "Network — submitting…";
-      return `Network — pick ${missing.join(" and ")}.`;
+      if (missing.length > 0) return `Network — pick ${missing.join(" and ")}.`;
+      if (state.secondLineIndex === null) {
+        return "Network — pick a second rail line for the rail-era double, or End Action to lay just one.";
+      }
+      return "Network — submitting…";
     }
     case "AWAITING_SELL_INPUTS": {
       if (state.cardIndex === null && state.tileIds.length === 0) {

@@ -92,10 +92,17 @@ export function BoardPanel() {
   const slotsClickable = wizard.state.phase === "AWAITING_BUILD_INPUTS";
 
   const linesClickable = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
-  const linePick =
-    wizard.state.phase === "AWAITING_NETWORK_INPUTS"
-      ? wizard.state.lineIndex
-      : null;
+  const linePicks = useMemo(() => {
+    if (wizard.state.phase !== "AWAITING_NETWORK_INPUTS") {
+      return new Set<number>();
+    }
+    const set = new Set<number>();
+    if (wizard.state.lineIndex !== null) set.add(wizard.state.lineIndex);
+    if (wizard.state.secondLineIndex !== null) {
+      set.add(wizard.state.secondLineIndex);
+    }
+    return set;
+  }, [wizard.state]);
   const developedLineIndices = useMemo(() => {
     const set = new Set<number>();
     for (const l of view.developedLinks) set.add(l.lineIndex);
@@ -128,7 +135,7 @@ export function BoardPanel() {
           cityByName={cityByName}
           developedLineIndices={developedLineIndices}
           linesClickable={linesClickable}
-          pickedLineIndex={linePick}
+          pickedLineIndices={linePicks}
           onLineClick={(i) => wizard.pickLine(i)}
         />
         {view.districtCities.map((c) => (
@@ -298,7 +305,7 @@ function Lines({
   cityByName,
   developedLineIndices,
   linesClickable,
-  pickedLineIndex,
+  pickedLineIndices,
   onLineClick,
 }: {
   lines: readonly Line[];
@@ -306,7 +313,7 @@ function Lines({
   cityByName: ReadonlyMap<string, readonly [number, number]>;
   developedLineIndices: ReadonlySet<number>;
   linesClickable: boolean;
-  pickedLineIndex: number | null;
+  pickedLineIndices: ReadonlySet<number>;
   onLineClick: (lineIndex: number) => void;
 }) {
   return (
@@ -318,7 +325,7 @@ function Lines({
         if (points.length < 2) return null;
         const isEra = line.era === era;
         const developed = developedLineIndices.has(i);
-        const isPicked = pickedLineIndex === i;
+        const isPicked = pickedLineIndices.has(i);
         const stroke = isPicked
           ? "var(--warm-gold)"
           : line.era === "CANAL"
