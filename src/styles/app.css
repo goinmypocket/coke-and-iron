@@ -264,16 +264,19 @@ body {
 }
 .mat-grid {
   /* Each industry column takes only as much width as its rows
-   * need. A vertical separator sits between adjacent columns. */
+   * need. A vertical separator sits between adjacent columns.
+   * align-items: flex-end so columns of different heights line up
+   * along the bottom (their L1 / L6 rows share a baseline). */
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-end;
   gap: 0;
   padding-top: 0.25rem;
 }
 .mat-stack {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   align-items: stretch;
   gap: 0.1rem;
   font-size: 0.85em;

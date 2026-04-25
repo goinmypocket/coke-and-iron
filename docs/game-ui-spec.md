@@ -36,7 +36,8 @@ a single shared React component. Each component:
 | `CoalIcon` | small black square | — |
 | `IronIcon` | small orange square (`#d97706`) | — |
 | `BeerIcon` | beer-barrel ellipse | `consumption?` (default `false`) |
-| `LinkPointsIcon` | interlocking-rings glyph | — |
+| `LinkPointsIcon` | hexagon (matches VP) with a horizontal gold bar between two filled gold dots | — |
+| `LinkTileIcon` | rounded rect filled with the player's pawn colour, holding the canal-boat or steam-train asset (`assets/link_icons/canal.svg` / `rail.svg`) | `era` (`"CANAL"` / `"RAIL"`), `color`, optional `angle` |
 | `VictoryPointsIcon` | hex with VP value inside | `amount` |
 | `IncomeGainedIcon` | gold up-arrow with gain inside | `amount` |
 | `CurrentIncomeIcon` | open palm + coin, value to its right | `amount` |
@@ -52,6 +53,20 @@ Conventions:
   on Cotton/Manufacturer/Pottery).
 - `DevelopIcon consumption` flips to a struck-through bulb — used
   on the no-Develop flag for Pottery light-bulb tiles.
+- `VictoryPointsIcon` and `LinkPointsIcon` share a black-bg hexagon
+  with a dark-golden border (`#c89020`); their internal artwork
+  is in the same gold so they read together as a stylistic family.
+  All viewBox-relative — line widths, lengths, dot radii scale
+  proportionally with `size`.
+- `LinkTileIcon` is the digital stand-in for a physical canal /
+  rail link tile. It's used on the seat stats bar (with `×N`
+  remaining count), and on the board as the developed-link
+  marker (centred at the line midpoint for 2-endpoint links,
+  rotated by the line's angle so the asset reads "right-side up";
+  centred at the centroid horizontally for triple links).
+  The asset SVGs (`assets/link_icons/canal.svg`,
+  `assets/link_icons/rail.svg`) are detailed line-art that read
+  against any pawn colour.
 
 The components above are the only icon definitions in the codebase.
 No panel may invent or inline an alternative.
@@ -116,14 +131,30 @@ colour.
 
 ### 3.1 Stats bar
 
-`MoneyCoin · "VP" + total · CurrentIncomeIcon · LinkPointsIcon ×N`.
+`MoneyCoin · VictoryPointsIcon · CurrentIncomeIcon · LinkTileIcon ×N`.
+
+The `LinkTileIcon` here uses the seat's pawn colour and the
+current era's asset (canal in Canal era, rail in Rail era). `×N`
+is the remaining link tile supply.
 
 ### 3.2 Mat grid
 
 Six industry columns laid out as a flex row whose children size to
 content (no fixed-width grid). Manufacturer is the only column
 that's two sub-columns wide (L1-L5 left, L6-L8 right); the others
-are single-column. Each column has one row per fixed level.
+are single-column. Each column has one row per fixed level,
+ordered **bottom-up** — L1 (the next-to-build tile) at the bottom
+and the highest level at the top. Manufacturer's right column
+gets ghost cells at the **top** so its bottom row (L6) lines up
+with L1 in the left column.
+
+Adjacent columns are separated by a 1-px ink-coloured vertical
+rule (`border-left` on `.mat-stack + .mat-stack`) plus a small
+horizontal padding inside each column. The columns are
+**bottom-aligned** (`align-items: flex-end`), so columns of
+different heights share a baseline along the L1 row.
+
+The industry icon + name caption hangs **below** the column.
 
 A `<MatScaler>` wraps the grid: a `ResizeObserver` derives a
 `transform: scale()` factor from `clientWidth / scrollWidth`, so
@@ -199,8 +230,15 @@ ANY slot fills the D with three small industry icons in a triangle
 
 Canal blue `#5e8fc7`, rail brown `#9c7656`. Era-current lines render
 at 0.85 opacity, off-era at 0.18. Triple links centroid-junction
-to a small dot. Developed links carry an owner-coloured marker at
-the line midpoint.
+to a small dot. **Developed links** carry a `LinkTileIcon` —
+player-coloured rounded rectangle holding the canal-boat or
+steam-train asset:
+
+- 2-endpoint links — centred on the line midpoint, rotated by the
+  line's angle so the asset reads upright (rotation normalised to
+  the upper half-plane).
+- 3-endpoint (triple) links — centred at the centroid, **always
+  horizontal** (no rotation).
 
 ### 4.4 Markets widget
 

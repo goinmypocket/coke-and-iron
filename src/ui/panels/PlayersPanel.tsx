@@ -28,7 +28,7 @@ import {
 import { CoalIcon } from "../icons/CoalIcon";
 import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
 import { IronIcon } from "../icons/IronIcon";
-import { LinkPointsIcon } from "../icons/LinkPointsIcon";
+import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
@@ -130,7 +130,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
           className="seat-stats__link"
           title={`${view.era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`}
         >
-          <LinkPointsIcon size={14} />
+          <LinkTileIcon era={view.era} color={view.pawnColor} size={12} />
           ×{view.linkSupply}
         </span>
       </div>

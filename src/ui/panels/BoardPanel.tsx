@@ -42,6 +42,7 @@ import { CoalIcon } from "../icons/CoalIcon";
 import { DevelopIcon } from "../icons/DevelopIcon";
 import { IncomeGainedIcon } from "../icons/IncomeGainedIcon";
 import { IronIcon } from "../icons/IronIcon";
+import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
@@ -670,34 +671,28 @@ function LinkToken({
   cy,
   color,
   era,
+  angle = 0,
 }: {
   cx: number;
   cy: number;
   color: string;
   era: Era;
+  /** Rotation in degrees, applied around (cx, cy). 0 = horizontal. */
+  angle?: number;
 }) {
-  // Small owner-coloured shape at the line midpoint. Boat-ish circle for
-  // canal era, train-ish rect for rail era.
-  if (era === "CANAL") {
-    return (
-      <g>
-        <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="#1a1a1a" strokeWidth={1} />
-      </g>
-    );
-  }
+  // Player-coloured rounded rectangle with the canal / rail asset
+  // inside, painted at the line midpoint or centroid.
+  const tileH = 7;
+  const tileW = tileH * 2; // 14 wide
   return (
-    <g>
-      <rect
-        x={cx - 6}
-        y={cy - 3}
-        width={12}
-        height={6}
-        rx={1}
-        fill={color}
-        stroke="#1a1a1a"
-        strokeWidth={1}
-      />
-    </g>
+    <LinkTileIcon
+      era={era}
+      color={color}
+      size={tileH}
+      x={cx - tileW / 2}
+      y={cy - tileH / 2}
+      angle={angle}
+    />
   );
 }
 
@@ -749,6 +744,15 @@ function Lines({
         if (points.length === 2) {
           const mx = (points[0]![0] + points[1]![0]) / 2;
           const my = (points[0]![1] + points[1]![1]) / 2;
+          // Tile rotation aligns with the line direction. Atan2 gives
+          // an angle in [-90°, 90°] when we normalise to the upper
+          // half plane so the boat / train always reads "right-side up".
+          let lineAngle = (Math.atan2(
+            points[1]![1] - points[0]![1],
+            points[1]![0] - points[0]![0],
+          ) * 180) / Math.PI;
+          if (lineAngle > 90) lineAngle -= 180;
+          if (lineAngle < -90) lineAngle += 180;
           return (
             <g key={i} className={groupClass} onClick={handleClick}>
               <line
@@ -762,7 +766,13 @@ function Lines({
                 strokeLinecap="round"
               />
               {developed && ownerColor ? (
-                <LinkToken cx={mx} cy={my} color={ownerColor} era={line.era} />
+                <LinkToken
+                  cx={mx}
+                  cy={my}
+                  color={ownerColor}
+                  era={line.era}
+                  angle={lineAngle}
+                />
               ) : null}
               {clickable ? (
                 // Wider invisible hit-rect for easier clicking.
