@@ -1,17 +1,18 @@
 // =============================================================================
-// §11.1 Income Tracker — vertical ladder of 100 step rows (99 → 0).
+// §11.1 Income Tracker — vertical ladder of income LEVELS, level 30 at top.
 //
-// Each row is a single income step. The level badge is drawn only on the
-// first row visually-belonging to that level (= the row with the highest
-// step of the level). Pawn-coloured markers tile in a 2x2 grid when
-// multiple seats share a step.
+// Each row represents one income level. Within the row sits one cell per
+// raw step that belongs to that level (1 / 2 / 3 / or 4 cells, with
+// level 30 truncated to 3). Each seat's pawn-coloured marker drops into
+// the cell of its exact incomeStep. Markers in the same cell tile 2x2.
 // =============================================================================
 
 import { useMemo } from "react";
 import {
+  MAX_INCOME_LEVEL,
   MAX_INCOME_STEP,
+  MIN_INCOME_LEVEL,
   MIN_INCOME_STEP,
-  levelToHighestStep,
   stepToLevel,
 } from "../../engine";
 import type { PawnColor, PlayerId } from "../../engine";
@@ -22,6 +23,26 @@ interface SeatMarker {
   readonly seatId: PlayerId;
   readonly pawnColor: PawnColor;
 }
+
+// Pre-compute the step list for every level once at module load.
+// Iterating steps and bucketing by stepToLevel keeps the band geometry
+// (incl. level 30's three-cell truncation) authoritative in the engine.
+const STEPS_BY_LEVEL: ReadonlyMap<number, readonly number[]> = (() => {
+  const m = new Map<number, number[]>();
+  for (let s = MIN_INCOME_STEP; s <= MAX_INCOME_STEP; s++) {
+    const lv = stepToLevel(s);
+    const arr = m.get(lv) ?? [];
+    arr.push(s);
+    m.set(lv, arr);
+  }
+  return m;
+})();
+
+const LEVELS_TOP_DOWN: readonly number[] = (() => {
+  const arr: number[] = [];
+  for (let lv = MAX_INCOME_LEVEL; lv >= MIN_INCOME_LEVEL; lv--) arr.push(lv);
+  return arr;
+})();
 
 export function IncomeTrackerPanel() {
   // Read the players array directly — its outer reference is stable
@@ -40,40 +61,37 @@ export function IncomeTrackerPanel() {
     return m;
   }, [players]);
 
-  // Render top to bottom from highest step (level 30) down.
-  const rows: number[] = [];
-  for (let s = MAX_INCOME_STEP; s >= MIN_INCOME_STEP; s--) rows.push(s);
-
   return (
     <Panel id="income" title="Income" maximizable>
       <ol className="income-ladder">
-        {rows.map((step) => {
-          const level = stepToLevel(step);
-          // First-row-visually = top row of the level = highest step in
-          // the level. Anchor the level badge there.
-          const isLevelTopRow = levelToHighestStep(level) === step;
-          const cellMarkers = markersByStep.get(step) ?? [];
+        {LEVELS_TOP_DOWN.map((level) => {
+          const steps = STEPS_BY_LEVEL.get(level) ?? [];
           return (
-            <li key={step} className="income-row">
+            <li key={level} className="income-row">
               <div className="income-row__level">
-                {isLevelTopRow ? (
-                  <span className="income-row__level-badge">{level}</span>
-                ) : null}
+                <span className="income-row__level-badge">{level}</span>
               </div>
-              <div className="income-row__cell">
-                <span className="income-row__step">{step}</span>
-                {cellMarkers.length > 0 ? (
-                  <div className="income-row__markers">
-                    {cellMarkers.map((m) => (
-                      <span
-                        key={m.seatId}
-                        className="income-row__marker"
-                        style={{ background: m.pawnColor }}
-                        title={`Seat ${m.seatId + 1}`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+              <div className="income-row__cells">
+                {steps.map((step) => {
+                  const cellMarkers = markersByStep.get(step) ?? [];
+                  return (
+                    <div key={step} className="income-cell">
+                      <span className="income-cell__step">{step}</span>
+                      {cellMarkers.length > 0 ? (
+                        <div className="income-cell__markers">
+                          {cellMarkers.map((m) => (
+                            <span
+                              key={m.seatId}
+                              className="income-cell__marker"
+                              style={{ background: m.pawnColor }}
+                              title={`Seat ${m.seatId + 1}`}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </li>
           );
