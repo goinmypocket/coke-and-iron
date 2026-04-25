@@ -113,6 +113,13 @@ interface WizardApi {
   pickSellBeer(orderIndex: number, source: BeerSource): void;
   /** Clear all picks in the Sell resource picker. */
   resetSellResources(): void;
+  /** Pick a merchant slot for one tile during the Sell merchant
+   * picker phase. When every ambiguous tile has a chosen merchant
+   * the wizard auto-advances into beer / Gloucester / dispatch. */
+  pickSellMerchant(
+    tileId: string,
+    option: { merchantCityName: string; merchantSlotIndex: number },
+  ): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -505,7 +512,42 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       const liveState = engine.getState();
       const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
 
-      // Resolve merchants per order (auto: first matching slot).
+      // Merchant ambiguity check: any tile with 2+ matching merchant
+      // slots routes through the AWAITING_SELL_MERCHANT_CHOICE picker.
+      const choices = live.tileIds.map((tileId) => {
+        const options = listValidMerchantSlotsForTile(liveState, tileId);
+        return {
+          tileId,
+          options,
+          chosen: options.length === 1 ? options[0]! : null,
+        };
+      });
+      const anyAmbiguousMerchant = choices.some((c) => c.chosen === null);
+      if (anyAmbiguousMerchant) {
+        // Validate every tile has at least one option before entering.
+        const dead = choices.find((c) => c.options.length === 0);
+        if (dead) {
+          const tile = liveState.builtTiles.find((t) => t.id === dead.tileId);
+          const spec = tile
+            ? liveState.tileCatalogue[tile.catalogueIndex]
+            : null;
+          toast.error(
+            spec
+              ? `No reachable merchant accepts ${spec.industry}.`
+              : `Tile not sellable.`,
+          );
+          return;
+        }
+        dispatch({
+          type: "ENTER_SELL_MERCHANT_CHOICE",
+          cardIndex: live.cardIndex,
+          choices,
+        });
+        return;
+      }
+
+      // No merchant ambiguity — resolve with auto-picks (each tile has
+      // exactly one option) and continue into the existing path.
       const merchantOrders = resolveSellMerchants(
         liveState,
         playerId,
@@ -607,6 +649,89 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const resetSellResources = useCallback(() => {
     dispatch({ type: "SELL_RESOURCES_RESET" });
   }, []);
+
+  const advanceFromMerchantChoice = useCallback(
+    (
+      cardIndex: number,
+      tileIds: readonly string[],
+      chosenMap: ReadonlyMap<string, { merchantCityName: string; merchantSlotIndex: number }>,
+    ) => {
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const merchantOrders = resolveSellMerchants(
+        liveState,
+        playerId,
+        tileIds,
+        chosenMap,
+      );
+      if (merchantOrders === null) return;
+
+      // Same beer-ambiguity / Gloucester / direct-dispatch fork as the
+      // primary submit path, but with merchants resolved by user pick.
+      const anyBeerAmbiguous = merchantOrders.some(
+        (o) =>
+          listValidBeerSourcesForOrder(liveState, o, playerId).length > 1 &&
+          o.beerNeed > 0,
+      );
+      if (!anyBeerAmbiguous) {
+        const orders = autoResolveSellOrders(
+          liveState,
+          playerId,
+          tileIds,
+          chosenMap,
+        );
+        if (orders === null) return;
+        const gloucesterBeers = countGloucesterBeers(orders);
+        if (gloucesterBeers === 0) {
+          dispatchSellIntent(cardIndex, orders, []);
+          return;
+        }
+        dispatch({
+          type: "ENTER_SELL_GLOUCESTER",
+          cardIndex,
+          orders,
+          need: gloucesterBeers,
+        });
+        return;
+      }
+      dispatch({
+        type: "ENTER_SELL_RESOURCES",
+        cardIndex,
+        orders: merchantOrders,
+      });
+    },
+    [engine, dispatchSellIntent],
+  );
+
+  const pickSellMerchant = useCallback(
+    (
+      tileId: string,
+      option: { merchantCityName: string; merchantSlotIndex: number },
+    ) => {
+      const live = state;
+      if (live.phase !== "AWAITING_SELL_MERCHANT_CHOICE") return;
+      const projected: WizardState = {
+        ...live,
+        choices: live.choices.map((c) =>
+          c.tileId === tileId ? { ...c, chosen: option } : c,
+        ),
+      };
+      dispatch({ type: "SELL_MERCHANT_PICK", tileId, option });
+      // Auto-advance once every choice has been made.
+      const allChosen = projected.choices.every((c) => c.chosen !== null);
+      if (allChosen) {
+        const chosenMap = new Map(
+          projected.choices.map((c) => [c.tileId, c.chosen!]),
+        );
+        advanceFromMerchantChoice(
+          projected.cardIndex,
+          projected.choices.map((c) => c.tileId),
+          chosenMap,
+        );
+      }
+    },
+    [state, advanceFromMerchantChoice],
+  );
 
   const submitSellGloucester = useCallback(
     (live: WizardState) => {
@@ -1091,6 +1216,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       resetNetworkResources,
       pickSellBeer,
       resetSellResources,
+      pickSellMerchant,
       endAction,
       reset,
     }),
@@ -1119,6 +1245,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       resetNetworkResources,
       pickSellBeer,
       resetSellResources,
+      pickSellMerchant,
       endAction,
       reset,
     ],
@@ -1247,16 +1374,45 @@ function allNetworkResourcePicksFull(state: WizardState): boolean {
 }
 
 /**
- * Resolve the merchant slot for each tile being sold (auto-pick first
- * non-blank slot that accepts the tile's industry). The picker doesn't
- * cover merchant ambiguity at this milestone — that's a roadmap polish.
- * Returns null after a toast when a tile can't be sold (no merchant
- * accepts it, tile not owned by player, etc).
+ * List every merchant slot that could legally accept the given tile —
+ * accept-list matches industry (or ANY), is non-BLANK, and the tile's
+ * city is connected to the merchant through the any-player developed
+ * link graph (§5.4 connectivity). Used both to detect ambiguity and to
+ * populate the merchant-choice picker.
+ */
+export function listValidMerchantSlotsForTile(
+  state: GameState,
+  tileId: string,
+): readonly { merchantCityName: string; merchantSlotIndex: number }[] {
+  const tile = state.builtTiles.find((t) => t.id === tileId);
+  if (!tile) return [];
+  const spec = state.tileCatalogue[tile.catalogueIndex];
+  if (!spec) return [];
+  const dist = buildDistanceMap(state, [tile.cityName]);
+  const out: { merchantCityName: string; merchantSlotIndex: number }[] = [];
+  for (const ms of state.merchantSlots) {
+    if (ms.accept === "BLANK") continue;
+    if (ms.accept !== "ANY" && ms.accept !== spec.industry) continue;
+    if (!dist.has(ms.merchantCityName)) continue;
+    out.push({
+      merchantCityName: ms.merchantCityName,
+      merchantSlotIndex: ms.slotIndex,
+    });
+  }
+  return out;
+}
+
+/**
+ * Resolve a merchant slot per tile. If `chosen` map is provided, use
+ * it; otherwise auto-pick the first matching slot. Returns null after
+ * a toast when a tile can't be sold (no merchant accepts it, tile not
+ * owned, etc).
  */
 function resolveSellMerchants(
   state: GameState,
   playerId: PlayerId,
   tileIds: readonly string[],
+  chosen?: ReadonlyMap<string, { merchantCityName: string; merchantSlotIndex: number }>,
 ): SellResourceOrder[] | null {
   const out: SellResourceOrder[] = [];
   for (const tileId of tileIds) {
@@ -1270,19 +1426,19 @@ function resolveSellMerchants(
       toast.error(`Tile spec missing.`);
       return null;
     }
-    const merchantSlot = state.merchantSlots.find((ms) => {
-      if (ms.accept === "BLANK") return false;
-      if (ms.accept === "ANY") return true;
-      return ms.accept === spec.industry;
-    });
-    if (!merchantSlot) {
+    let pick = chosen?.get(tileId) ?? null;
+    if (pick === null) {
+      const options = listValidMerchantSlotsForTile(state, tileId);
+      pick = options[0] ?? null;
+    }
+    if (pick === null) {
       toast.error(`No merchant accepts ${spec.industry}.`);
       return null;
     }
     out.push({
       tileId,
-      merchantCityName: merchantSlot.merchantCityName,
-      merchantSlotIndex: merchantSlot.slotIndex,
+      merchantCityName: pick.merchantCityName,
+      merchantSlotIndex: pick.merchantSlotIndex,
       beerNeed: spec.beerToSell,
       beerPicks: [],
     });
@@ -1384,6 +1540,7 @@ function autoResolveSellOrders(
   state: GameState,
   playerId: PlayerId,
   tileIds: readonly string[],
+  chosenMerchants?: ReadonlyMap<string, { merchantCityName: string; merchantSlotIndex: number }>,
 ): SellOrder[] | null {
   // Track remaining beer-cube counts across the dispatch so we don't
   // double-claim a single barrel for two orders.
@@ -1412,12 +1569,21 @@ function autoResolveSellOrders(
       toast.error(`Tile spec missing.`);
       return null;
     }
-    // Find a merchant slot accepting this industry.
-    const merchantSlot = state.merchantSlots.find((ms) => {
-      if (ms.accept === "BLANK") return false;
-      if (ms.accept === "ANY") return true;
-      return ms.accept === spec.industry;
-    });
+    // Find a merchant slot accepting this industry. If the user
+    // already picked a merchant for this tile (during the merchant
+    // choice picker) honour their choice instead of auto-picking.
+    const userPick = chosenMerchants?.get(tileId);
+    const merchantSlot = userPick
+      ? state.merchantSlots.find(
+          (ms) =>
+            ms.merchantCityName === userPick.merchantCityName &&
+            ms.slotIndex === userPick.merchantSlotIndex,
+        )
+      : state.merchantSlots.find((ms) => {
+          if (ms.accept === "BLANK") return false;
+          if (ms.accept === "ANY") return true;
+          return ms.accept === spec.industry;
+        });
     if (!merchantSlot) {
       toast.error(`No merchant accepts ${spec.industry}.`);
       return null;

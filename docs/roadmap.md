@@ -61,9 +61,11 @@ Status keys:
   iron cubes / beer barrels on tiles + beer barrels on merchant
   slots + owner-coloured link tokens + market-tile widget per
   §2.11.3 (header strip with Buy / Sell / N/max cubes, "£X
-  (overflow)" when empty, "—" when full) shipped. Still TODO:
-  warm-gold glow on the markets widget during a coal-source
-  picker + clickable cubes-as-buy.
+  (overflow)" when empty, "—" when full) + warm-gold glow on the
+  whole widget when a coal- or iron-source picker is active
+  (tinted background + bold label on the active column) all
+  shipped. Still TODO: clickable cubes-as-buy (today the picker
+  overlay handles MARKET picks).
 - **[ui] Players panel polish (§11.3).** Sub-panel + minimal mat
   grid + Manufacturer spanning two columns (L1-5 / L6-8) +
   Pottery as 5 fixed-level rows + full cost / bonus margins per
@@ -95,10 +97,10 @@ Status keys:
 - **[ui] Network wizard polish.** Card + line + second-rail
   offer + explicit coal/beer pickers shipped.
 - **[ui] Sell wizard polish.** Card + tile picks + Gloucester
-  follow-up + explicit per-order beer picker shipped. Still
-  TODO: explicit merchant picker when multiple merchants accept
-  the same tile (today the wizard auto-picks the first matching
-  slot).
+  follow-up + explicit per-order beer picker + explicit merchant
+  picker (overlay listing every reachable merchant slot per
+  ambiguous tile, with bonus and beer-barrel state on each
+  option) all shipped.
 - **[ui] IDLE card-first polish.** Stash + auto-prefill +
   suggested-actions hinting (warm-gold border on actions where
   the stashed card naturally fits, dimmed on actions where the

@@ -173,7 +173,30 @@ export type WizardState =
       readonly phase: "AWAITING_SELL_RESOURCES";
       readonly cardIndex: number;
       readonly orders: readonly SellResourceOrder[];
+    }
+  // §5.4 explicit merchant picker — entered after Sell-input submit
+  // when at least one tile has 2+ valid merchant slots (matching
+  // accept-list AND connected through the any-player graph). The
+  // user clicks one option per ambiguous tile; tiles with a single
+  // option pre-fill. After every choice is resolved the wizard
+  // continues into the existing beer / Gloucester / direct-dispatch
+  // path with the chosen merchants.
+  | {
+      readonly phase: "AWAITING_SELL_MERCHANT_CHOICE";
+      readonly cardIndex: number;
+      readonly choices: readonly SellMerchantChoice[];
     };
+
+export interface SellMerchantOption {
+  readonly merchantCityName: string;
+  readonly merchantSlotIndex: number;
+}
+
+export interface SellMerchantChoice {
+  readonly tileId: string;
+  readonly options: readonly SellMerchantOption[];
+  readonly chosen: SellMerchantOption | null;
+}
 
 export interface SellResourceOrder {
   readonly tileId: string;
@@ -252,6 +275,16 @@ export type WizardAction =
     }
   | { type: "SELL_BEER_ADD_PICK"; orderIndex: number; source: BeerSource }
   | { type: "SELL_RESOURCES_RESET" }
+  | {
+      type: "ENTER_SELL_MERCHANT_CHOICE";
+      cardIndex: number;
+      choices: readonly SellMerchantChoice[];
+    }
+  | {
+      type: "SELL_MERCHANT_PICK";
+      tileId: string;
+      option: SellMerchantOption;
+    }
   | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
@@ -524,6 +557,21 @@ export function wizardReducer(
         orders: state.orders.map((o) => ({ ...o, beerPicks: [] })),
       };
     }
+    case "ENTER_SELL_MERCHANT_CHOICE":
+      return {
+        phase: "AWAITING_SELL_MERCHANT_CHOICE",
+        cardIndex: action.cardIndex,
+        choices: action.choices,
+      };
+    case "SELL_MERCHANT_PICK": {
+      if (state.phase !== "AWAITING_SELL_MERCHANT_CHOICE") return state;
+      return {
+        ...state,
+        choices: state.choices.map((c) =>
+          c.tileId === action.tileId ? { ...c, chosen: action.option } : c,
+        ),
+      };
+    }
     case "IDLE_STASH_CARD": {
       // Card-first flow only applies in IDLE. While a wizard is open
       // the wizard's own SET_CARD reducers handle card clicks.
@@ -575,6 +623,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_SELL_RESOURCES") {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_SELL_MERCHANT_CHOICE") {
     return new Set([state.cardIndex]);
   }
   return new Set();

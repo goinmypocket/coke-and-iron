@@ -121,5 +121,10 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
       if (total === 0) return "Sell resources — submitting…";
       return `Sell resources — pick ${total} more beer source${total === 1 ? "" : "s"} in the picker.`;
     }
+    case "AWAITING_SELL_MERCHANT_CHOICE": {
+      const left = state.choices.filter((c) => c.chosen === null).length;
+      if (left === 0) return "Sell merchants — confirming…";
+      return `Sell — pick a merchant for ${left} tile${left === 1 ? "" : "s"} in the picker.`;
+    }
   }
 }

@@ -491,6 +491,61 @@ body {
   font-size: 8px;
   fill: var(--ink);
 }
+.board-markets__tier-price--overflow {
+  font-style: italic;
+  fill: var(--muted);
+}
+.board-markets--active .board-markets__col--active .board-markets__row-label {
+  font-weight: 700;
+}
+
+.merchant-pick-row__tile {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.merchant-pick-row__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.merchant-pick-btn {
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 8rem;
+}
+.merchant-pick-btn:hover:not(:disabled) {
+  background: var(--soft-tint);
+}
+.merchant-pick-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.merchant-pick-btn--chosen {
+  background: var(--warm-gold);
+  color: white;
+  border-color: var(--warm-gold);
+  opacity: 1;
+}
+.merchant-pick-btn--chosen:disabled {
+  opacity: 1;
+}
+.merchant-pick-btn__sub {
+  font-size: 0.85em;
+  color: var(--muted);
+  font-weight: 400;
+}
+.merchant-pick-btn--chosen .merchant-pick-btn__sub {
+  color: rgba(255, 255, 255, 0.85);
+}
 
 /* ---------- Resource picker overlay (§5.6) ---------- */
 

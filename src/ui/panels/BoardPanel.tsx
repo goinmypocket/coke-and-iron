@@ -132,6 +132,18 @@ export function BoardPanel() {
     return m;
   }, [view.developedLinks]);
 
+  // Coal market glow per §2.11.3: any sub-state actively asking for
+  // coal lights the markets widget so it's an obvious click target.
+  const coalGlow =
+    (wizard.state.phase === "AWAITING_BUILD_RESOURCES" &&
+      wizard.state.coalPicks.length < wizard.state.coalNeed) ||
+    (wizard.state.phase === "AWAITING_NETWORK_RESOURCES" &&
+      (wizard.state.firstCoalPicks.length < wizard.state.firstCoalNeed ||
+        wizard.state.secondCoalPicks.length < wizard.state.secondCoalNeed));
+  const ironGlow =
+    wizard.state.phase === "AWAITING_BUILD_RESOURCES" &&
+    wizard.state.ironPicks.length < wizard.state.ironNeed;
+
   const sellMode = wizard.state.phase === "AWAITING_SELL_INPUTS";
   const sellPickedTileIds = useMemo(
     () =>
@@ -198,7 +210,12 @@ export function BoardPanel() {
           sellPickedTileIds={sellPickedTileIds}
           onTileClick={(tileId) => wizard.pickTile(tileId)}
         />
-        <Markets coal={view.coalMarket} iron={view.ironMarket} />
+        <Markets
+          coal={view.coalMarket}
+          iron={view.ironMarket}
+          coalGlow={coalGlow}
+          ironGlow={ironGlow}
+        />
       </svg>
     </Panel>
   );
@@ -716,15 +733,28 @@ function BuiltTiles({
   );
 }
 
-function Markets({ coal, iron }: { coal: Market; iron: Market }) {
-  // §2.11.3 widget — header row with live next-buy / next-sell prices,
-  // then a vertical column per market with two cube slots per tier
-  // (filled/empty). Coal: 8 tiers (£1..£8). Iron: 6 tiers (£1..£6).
+function Markets({
+  coal,
+  iron,
+  coalGlow,
+  ironGlow,
+}: {
+  coal: Market;
+  iron: Market;
+  coalGlow: boolean;
+  ironGlow: boolean;
+}) {
+  // §2.11.3 widget. Whole-widget glow when either market is an active
+  // pick target (warm-gold border + tinted background); per-column
+  // sub-glow on the active column.
   const widgetW = 160;
   const widgetH = 230;
+  const anyGlow = coalGlow || ironGlow;
   return (
     <g
-      className="board-markets"
+      className={
+        "board-markets" + (anyGlow ? " board-markets--active" : "")
+      }
       transform={`translate(${CANVAS - widgetW - 8}, ${CANVAS - widgetH - 8})`}
     >
       <rect
@@ -732,9 +762,9 @@ function Markets({ coal, iron }: { coal: Market; iron: Market }) {
         y={0}
         width={widgetW}
         height={widgetH}
-        fill="#fffdf6"
-        stroke="#1a1a1a"
-        strokeWidth={1}
+        fill={anyGlow ? "#fff7e0" : "#fffdf6"}
+        stroke={anyGlow ? "var(--warm-gold)" : "#1a1a1a"}
+        strokeWidth={anyGlow ? 2 : 1}
       />
       <text
         x={widgetW / 2}
@@ -744,8 +774,20 @@ function Markets({ coal, iron }: { coal: Market; iron: Market }) {
       >
         Markets
       </text>
-      <MarketColumn market={coal} label="Coal" cubeColor="#1a1a1a" x={12} />
-      <MarketColumn market={iron} label="Iron" cubeColor="#a8825a" x={88} />
+      <MarketColumn
+        market={coal}
+        label="Coal"
+        cubeColor="#1a1a1a"
+        x={12}
+        glow={coalGlow}
+      />
+      <MarketColumn
+        market={iron}
+        label="Iron"
+        cubeColor="#a8825a"
+        x={88}
+        glow={ironGlow}
+      />
     </g>
   );
 }
@@ -755,11 +797,13 @@ function MarketColumn({
   label,
   cubeColor,
   x,
+  glow,
 }: {
   market: Market;
   label: string;
   cubeColor: string;
   x: number;
+  glow: boolean;
 }) {
   // Stack tiers from highest price (top) to lowest (bottom). Header
   // strip + a row per priced tier. The top row is the overflow tier
@@ -800,8 +844,16 @@ function MarketColumn({
     });
   }
   return (
-    <g transform={`translate(${x}, 28)`}>
-      <text x={0} y={0} className="board-markets__row-label">
+    <g
+      transform={`translate(${x}, 28)`}
+      className={glow ? "board-markets__col board-markets__col--active" : "board-markets__col"}
+    >
+      <text
+        x={0}
+        y={0}
+        className="board-markets__row-label"
+        fill={glow ? "var(--warm-gold)" : undefined}
+      >
         {label}
       </text>
       <text x={0} y={12} className="board-markets__row-data">
