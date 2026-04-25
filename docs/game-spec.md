@@ -1359,21 +1359,31 @@ markers.
   (2*TILE × 2*TILE). 3-slot cities use the top row for slots 0
   and 1 and centre slot 2 in the bottom row. Empty slots show
   their accept-list icons; placed tiles render per §2.9.3.
-- **Merchant cities** on the board edges. Each renders as a
-  cluster of **D-shaped slots** — one D per active merchant tile
-  at this player count, sized like a district-city slot (TILE
-  wide). The D is a square top with a rounded bottom edge. The
-  slot face shows the **accept-list icon** (industry icon when
-  the slot accepts a specific industry, "ANY" glyph when ANY).
-  Below each D, a small square holds the **beer indicator**
-  (beer-barrel icon) when the slot still has its beer, and is
-  an empty outline when consumed. Above the cluster sits the
-  city name and a **bonus badge** that uses the bonus's own
-  icon — VP hex for `bonus = "VP"`, money coin for `"MONEY"`,
-  income arrow for `"INCOME"`, light-bulb for `"DEVELOP"` —
-  with its `bonusValue` overlaid. The fixed 2-link-point
-  contribution (§6.1) is implied by the merchant city's
-  presence and is not rendered separately on the slot.
+- **Merchant cities** on the board edges. **All five merchant
+  cities** (Shrewsbury, Nottingham, Gloucester, Oxford,
+  Warrington) render regardless of player count — only the slot
+  *fill* depends on whether the city is active for that count.
+  Each city renders as a cluster of **D-shaped slots** — one D
+  per `slotCount` (1 for Shrewsbury, 2 for the other four),
+  sized like a district-city slot (TILE wide). The D is a square
+  top with a rounded bottom edge. For an **active slot** (the
+  city is in `activePlayerCounts` and a merchant tile was
+  drawn into the slot), the D shows the **accept-list icon** —
+  industry icon when the slot accepts a specific industry, an
+  "ANY" glyph when wildcard, and an empty D when the bag drew
+  a `BLANK` tile. Below each active D a small square holds the
+  **beer indicator** (beer-barrel icon when the slot still has
+  its beer, empty outline when consumed). For an **inactive
+  city** at this player count (Nottingham at 2 players,
+  Warrington at 2 / 3 players), the D-slots render empty (no
+  accept icon) at slightly reduced opacity, and there is no
+  beer indicator. Above the cluster sits the city name and a
+  **bonus badge** that uses the bonus's own icon — VP hex for
+  `bonus = "VP"`, money coin for `"MONEY"`, income arrow for
+  `"INCOME"`, light-bulb for `"DEVELOP"` — with its
+  `bonusValue` overlaid. The fixed 2-link-point contribution
+  (§6.1) is implied by the merchant city's presence and is
+  not rendered separately on the slot.
 - **Canal and rail lines** — canal muted-blue during Canal era,
   hidden in Rail era; rail dim during Canal era, full-opacity in
   Rail era. Triple links show a centroid junction dot. Developed

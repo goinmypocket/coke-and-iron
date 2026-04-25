@@ -215,15 +215,33 @@ export function BoardPanel() {
             }
           />
         ))}
-        {view.merchantCities.map((m) => (
-          <MerchantCityShape
-            key={m.name}
-            city={m}
-            slots={view.merchantSlots
-              .filter((ms) => ms.merchantCityName === m.name)
-              .sort((a, b) => a.slotIndex - b.slotIndex)}
-          />
-        ))}
+        {view.merchantCities.map((m) => {
+          // All five merchant cities render even when not active for
+          // this player count. The slot map covers only the slots that
+          // were actually filled with a merchant tile; inactive cities
+          // (Nottingham at 2p, Warrington at 2p / 3p) draw empty D
+          // slots with no accept-list icon and no beer indicator.
+          const slotMap = new Map<
+            number,
+            { accept: MerchantTileAccept; hasBeer: boolean }
+          >();
+          for (const ms of view.merchantSlots) {
+            if (ms.merchantCityName !== m.name) continue;
+            slotMap.set(ms.slotIndex, {
+              accept: ms.accept,
+              hasBeer: ms.hasBeer,
+            });
+          }
+          const isActive = slotMap.size > 0;
+          return (
+            <MerchantCityShape
+              key={m.name}
+              city={m}
+              slotMap={slotMap}
+              active={isActive}
+            />
+          );
+        })}
         <BuiltTiles
           tiles={view.builtTiles}
           tileCatalogue={view.tileCatalogue}
@@ -406,21 +424,29 @@ const BEER_BOX = 10;
 
 function MerchantCityShape({
   city,
-  slots,
+  slotMap,
+  active,
 }: {
   city: MerchantCity;
-  slots: readonly { hasBeer: boolean; accept: MerchantTileAccept }[];
+  slotMap: ReadonlyMap<
+    number,
+    { accept: MerchantTileAccept; hasBeer: boolean }
+  >;
+  active: boolean;
 }) {
   const [x, y] = city.position;
   // Layout: name on top, bonus badge below name, then a row of D-slots
-  // (TILE × TILE each), each with a beer indicator below it.
-  const slotCount = Math.max(slots.length, 1);
+  // (TILE × TILE each), each with a beer indicator below it. The
+  // city always renders city.slotCount slots; inactive cities show
+  // empty D frames + no beer indicator.
+  const slotCount = Math.max(city.slotCount, 1);
   const clusterW = slotCount * TILE;
-  const totalH = TILE + BEER_BOX + 2; // slot + beer indicator + 2px gap
+  const totalH = TILE + BEER_BOX + 2;
   return (
     <g
-      className="board-merchant"
+      className={"board-merchant" + (active ? "" : " board-merchant--inactive")}
       transform={`translate(${x - clusterW / 2}, ${y - totalH / 2})`}
+      style={active ? undefined : { opacity: 0.7 }}
     >
       <text
         x={clusterW / 2}
@@ -433,18 +459,23 @@ function MerchantCityShape({
       <g transform={`translate(${clusterW / 2}, -3)`}>
         <BonusBadge bonus={city.bonus} value={city.bonusValue} />
       </g>
-      {slots.map((slot, i) => (
-        <g key={i} transform={`translate(${i * TILE}, 0)`}>
-          <DSlot accept={slot.accept} />
-          <BeerIndicator hasBeer={slot.hasBeer} />
-        </g>
-      ))}
+      {Array.from({ length: slotCount }).map((_, i) => {
+        const slot = slotMap.get(i);
+        return (
+          <g key={i} transform={`translate(${i * TILE}, 0)`}>
+            <DSlot accept={slot?.accept ?? null} />
+            {slot ? <BeerIndicator hasBeer={slot.hasBeer} /> : null}
+          </g>
+        );
+      })}
     </g>
   );
 }
 
-function DSlot({ accept }: { accept: MerchantTileAccept }) {
-  // D shape: square top with rounded bottom corners.
+function DSlot({ accept }: { accept: MerchantTileAccept | null }) {
+  // D shape: square top with rounded bottom corners. When accept is
+  // null (inactive merchant city) or "BLANK" (drawn-blank tile), the
+  // D renders empty — no icon, no glyph.
   const w = TILE;
   const h = TILE;
   const r = TILE / 3;
@@ -457,6 +488,7 @@ function DSlot({ accept }: { accept: MerchantTileAccept }) {
     `Q 0 ${h} 0 ${h - r}`,
     `Z`,
   ].join(" ");
+  const empty = accept === null || accept === "BLANK";
   return (
     <g>
       <path
@@ -464,26 +496,14 @@ function DSlot({ accept }: { accept: MerchantTileAccept }) {
         fill="#e5d9b4"
         stroke="#7d6a3a"
         strokeWidth={0.9}
+        opacity={empty ? 0.6 : 1}
       />
-      <SlotAcceptDisplay accept={accept} />
+      {empty ? null : <SlotAcceptDisplay accept={accept} />}
     </g>
   );
 }
 
 function SlotAcceptDisplay({ accept }: { accept: MerchantTileAccept }) {
-  if (accept === "BLANK") {
-    return (
-      <text
-        x={TILE / 2}
-        y={TILE / 2 + 3}
-        textAnchor="middle"
-        className="board-merchant__blank"
-        fill="#7d6a3a"
-      >
-        ·
-      </text>
-    );
-  }
   if (accept === "ANY") {
     return (
       <text
@@ -498,6 +518,7 @@ function SlotAcceptDisplay({ accept }: { accept: MerchantTileAccept }) {
       </text>
     );
   }
+  if (accept === "BLANK") return null;
   // accept is one of COTTON_MILL / MANUFACTURER / POTTERY
   const ind = accept as IndustryName;
   const size = TILE * 0.55;
