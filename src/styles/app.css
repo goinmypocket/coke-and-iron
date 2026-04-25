@@ -791,27 +791,14 @@ body {
 }
 .income-row {
   display: grid;
-  grid-template-columns: 1.6rem 1fr;
+  grid-template-columns: 1.4rem 1fr;
   align-items: center;
-  gap: 0.3rem;
-  min-height: 1.4rem;
+  gap: 0.25rem;
 }
 .income-row__level {
   display: flex;
   justify-content: center;
-}
-.income-row__level-badge {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 1.3rem;
-  height: 1.3rem;
-  border-radius: 50%;
-  background: #e5d9b4;
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 0.75rem;
-  border: 1px solid #7d6a3a;
 }
 .income-row__cells {
   display: grid;
@@ -820,29 +807,38 @@ body {
 }
 .income-cell {
   position: relative;
+  aspect-ratio: 1;
   background: #2a2a2a;
   color: #e5d9b4;
-  padding: 0.1rem 0.25rem;
-  min-height: 1.3rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   border: 1px solid #1a1a1a;
 }
 .income-cell__step {
-  font-size: 0.7rem;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  pointer-events: none;
 }
 .income-cell__markers {
+  /* Up to 4 pawn-coloured markers laid out 2 × 2 inside the cell.
+   * Each marker is sized to ~42% of the cell side (less than half),
+   * so a full 2 × 2 fits with a small gap. Markers sit on top of
+   * the step number — covering it is fine. */
+  position: absolute;
+  inset: 6%;
   display: grid;
-  grid-template-columns: repeat(2, auto);
-  gap: 0.1rem;
-  align-items: center;
-  justify-items: center;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4%;
+  pointer-events: none;
+  z-index: 1;
 }
 .income-cell__marker {
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
   border-radius: 50%;
   border: 1px solid var(--ink);
 }

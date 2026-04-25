@@ -328,7 +328,7 @@ specific-before-combo).
 
 | id | Title | Notes |
 |--|--|--|
-| `income` | Income Tracker | vertical ladder of income steps; pawn-coloured markers |
+| `income` | Income Tracker | vertical ladder of income LEVELS, level 30 at top. Each row = a `MoneyCoin` level badge (left) + a 4-up grid of square step cells (right). Cells have `aspect-ratio: 1`. A seat's pawn-coloured marker drops into the cell of its current step; markers are sized at ~42 % of the cell side, so up to four can tile inside one cell as a 2 × 2 grid. Markers cover the step number — that's by design. Result: a thin, dense ladder. |
 | `board` | Main Board | the 900 × 900 SVG |
 | `players` | Players (one sub-panel per seat) | mat per §3 |
 | `game_state` | Game state | era / round / phase / turn / actions left |

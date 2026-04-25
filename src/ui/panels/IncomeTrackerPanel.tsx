@@ -17,6 +17,7 @@ import {
 } from "../../engine";
 import type { PawnColor, PlayerId } from "../../engine";
 import { useGameState } from "../hooks/useGameState";
+import { MoneyCoin } from "../icons/MoneyCoin";
 import { Panel } from "../layout/Panel";
 
 interface SeatMarker {
@@ -69,7 +70,7 @@ export function IncomeTrackerPanel() {
           return (
             <li key={level} className="income-row">
               <div className="income-row__level">
-                <span className="income-row__level-badge">{level}</span>
+                <MoneyCoin amount={level} size={18} />
               </div>
               <div className="income-row__cells">
                 {steps.map((step) => {
