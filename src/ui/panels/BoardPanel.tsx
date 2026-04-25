@@ -678,7 +678,6 @@ function BuiltTiles({
               spec={spec}
               ownerColor={ownerColor}
               face={t.flipped ? "flipped" : "unflipped"}
-              context="board"
               resources={t.resources}
             />
             {isPicked ? (

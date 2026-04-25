@@ -386,139 +386,84 @@ look crisp at every zoom the game can reach. Practically:
 
 #### 2.9.3 Layout of an industry tile face
 
-Each tile face is a single rectangle with an ink border. Every
-sub-element the tile paints sits inside a named sub-rectangle of
-that outer rectangle. **Sub-rectangles never overlap, and no element
-ever extends beyond the tile border.** When the tile shrinks at a
-lower zoom, every sub-rectangle scales proportionally — overflow
-is never a fallback.
+Each tile face is a single rectangle with an ink border, painted
+in the owner's pawn colour. Every sub-element the tile draws sits
+inside a named sub-rectangle of that outer rectangle.
+**Sub-rectangles never overlap, and no element ever extends beyond
+the tile border.** When the tile shrinks at a lower zoom, every
+sub-rectangle scales proportionally — overflow is never a fallback.
 
-A tile has three distinct presentation contexts. Each uses the
-same corner-and-band skeleton; only the content inside some
-sub-rectangles differs.
+A tile has two distinct faces: **unflipped** (the player-facing side
+of every fresh build, used both on the mat and on the board until
+flip) and **flipped** (the scored / drained side, used only after
+the tile has flipped on the board).
 
-##### 2.9.3.a Mat face (unflipped, sitting on a player mat)
+##### 2.9.3.a Unflipped face
 
-Used when the tile is still on the player's mat, waiting to be
-built. The tile shows:
+Tiles sit on the mat with the unflipped face showing, and stay on
+the unflipped face when first built onto the board. The four
+corners and the centre carry:
 
-- **Top-left corner (TL)** — the **level** badge as a Roman numeral
-  in ink on a beige background.
-- **Top-right corner (TR)** — the **link-point** cluster — the
-  link-point icon (§2.9.2) repeated once per link point.
-- **Bottom-left corner (BL)** — the **cost** column: money coin
-  with £N, plus (when non-zero) coal-cube and iron-cube counts
-  beneath.
-- **Bottom-right corner (BR)** — the **income-bonus** arrow with
-  its step count inside (when non-zero).
-- **Centre band** — the **industry icon** (§2.9.2).
+- **Top-left (TL)** — the **level** Roman numeral in ink on a
+  pawn-colour-tinted background.
+- **Top-right (TR)** — the **beer-cost** glyph: a beer-barrel
+  icon struck through with a red diagonal line, with the
+  required count overlaid when greater than 1. Rendered only
+  when `beerToSell > 0` (Cotton / Manufacturer / Pottery).
+- **Bottom-left (BL)** — the **production count**: an
+  industry-appropriate resource token (coal cube / iron cube /
+  beer barrel) followed by the current resource count. On the
+  mat the count equals the level's max capacity for the current
+  era (`resourceCapacityRail ?? resourceCapacity`); on the
+  board the count tracks live `resources` so it drains as the
+  tile sells / is consumed. Rendered only for Coal Mine / Iron
+  Works / Brewery; other industries leave BL empty.
+- **Bottom-right (BR)** — the **no-Develop** glyph: a struck-through
+  bulb. Rendered only when `lightBulb === true` (Pottery
+  levels 1 and 3 in the published config).
+- **Centre** — the **industry icon** (§2.9.2).
 
-##### 2.9.3.b Board unflipped face (placed, not yet flipped)
+The build cost (money / coal / iron) is **not** carried on the
+tile face. It is rendered separately as a **cost-icon row** in the
+mat margin immediately left of the tile (§11.3). Once a tile has
+been built, its cost is no longer relevant and so does not appear
+on the board copy of the same tile.
 
-Used when the tile has been built onto the board but has not yet
-flipped. Identical skeleton to the mat face, but the cost corner
-(BL) is replaced by the **resource strip** (§2.9.3.d) when the
-tile is a Coal Mine, Iron Works, or Brewery. For
-Cotton / Manufacturer / Pottery the BL is empty on the board until
-flip.
+The link-point count and income bonus are not on the unflipped
+face either — they are on the flipped face (§2.9.3.b), so a
+player checking "what will this tile pay me when it flips?"
+inspects the flipped face on the mat-equivalent reference (or
+post-flip on the board).
 
-##### 2.9.3.c Board flipped face (scored)
+##### 2.9.3.b Flipped face
 
-Used when the tile has flipped — either by Sell (Cotton /
-Manufacturer / Pottery) or via its last resource draining (Coal
-Mine / Iron Works / Brewery). Shows:
+Used only when a tile has flipped on the board — either by Sell
+(Cotton / Manufacturer / Pottery) or by its last resource draining
+(Coal Mine / Iron Works / Brewery). The face's top half renders the
+owner's pawn colour at full saturation, the bottom half a paler
+tint of the same colour, so the badges read against contrasting
+fields:
 
-- **Top-left corner (TL)** — the **level** Roman numeral, drawn
-  in beige (because the top half of the tile is filled black).
-- **Top-right corner (TR)** — the **link-point** cluster — the
-  link-point icon (§2.9.2) repeated once per link point.
-- **Bottom-left corner (BL)** — the **VP** hex with the scored
-  VP inside.
-- **Bottom-right corner (BR)** — the **income-bonus** arrow with
-  its step count inside.
-- **Centre band** — the **industry icon**, rendered over the
-  black top half so its silhouette still reads.
+- **TL** — level Roman numeral in light fill.
+- **TR** — link-point cluster, one dot per link point.
+- **BL** — VP hex with the scored VP.
+- **BR** — income-bonus arrow with the step count inside.
+- **Centre** — the industry icon.
 
-A flipped tile never carries live resources, so it has no resource
-strip — the strip area is absorbed by the centre band.
-
-##### 2.9.3.d Resource strip (board unflipped only)
-
-The **resource strip** is a horizontal band carved from the
-bottom of the centre band on the board-unflipped face of
-Coal Mine / Iron Works / Brewery tiles. It's the only place live
-resources appear on a tile.
-
-- **Tokens** — coal cubes on a Coal Mine, iron cubes on an Iron
-  Works, beer barrels on a Brewery (§2.9.2.1 defines each
-  glyph).
-- **Packing** — tokens pack **column-major starting from the
-  bottom-right corner of the strip**. The first token sits in
-  the bottom-right. Additional tokens fill upward within that
-  same column before the packer starts a new column one step to
-  the left, from the bottom of that next column. As the tile
-  drains, tokens disappear from the top of the current column
-  first, which keeps the remaining stack rooted at the
-  bottom-right — the most-drained-recently end of the tile is
-  the easiest to read.
-- **Consistent padding (HARD RULE)** — the **horizontal gap
-  between columns** and the **vertical gap between tokens inside
-  a column** are a single pair of constants **used by every tile
-  at every level, on the board and in any mat-side hint**. A
-  level-4 coal mine with 5 cubes, a level-1 coal mine with 2
-  cubes, and a Brewery with 2 barrels all use the same
-  horizontal gap and the same vertical gap. The rhythm is
-  identical everywhere. This is the single biggest anti-drift
-  rule for tile rendering — whenever a tile draws resources,
-  the gap values come from one global constant, never from
-  per-level code.
-- **Inset from the border** — every token is rendered with the
-  same small inner margin from the tile's outer border. The
-  inset is another global constant. Tokens never touch the tile
-  border, and the outermost column never extends beyond the
-  strip's inner edge.
-- **Bounding (HARD RULE)** — **the resource strip, considered
-  as one unit, is fully contained inside the tile's outer
-  rectangle; no token the strip ever renders extends past the
-  strip's own boundaries.** The strip's token size is chosen
-  once so that the **worst-case resource count** for any
-  industry / level / era combination still fits at the fixed
-  gap + inset (e.g. a level-4 Iron Works at max capacity, a
-  level-3 Coal Mine at max capacity, a Rail-era Brewery with 2
-  barrels). The packer never grows the strip, never reduces the
-  gap, and never allows a token to overflow just to fit one
-  more marker. If a tile somehow exceeds the worst case, the
-  excess tokens are silently clipped by the tile's outer border
-  — but the tile data MUST be designed so this never happens
-  in practice.
-
-##### 2.9.3.e Mat and board consistency
-
-Whenever the mat draws a cube / barrel preview (to indicate what
-a tile will produce when built), the preview uses the **same
-token size, same horizontal gap, same vertical gap, and same
-inset** as the board-unflipped resource strip. There is one
-global set of four numbers — token size, inter-column gap,
-inter-token vertical gap, border inset — and every tile drawing
-resources, on mat or on board, pulls from that single set.
-
-The only per-industry difference across mat and board resource
-rendering is the **token shape** (cube vs. barrel). Counts,
-positions, spacing, and insets are identical so the player's eye
-never sees two different rhythms side-by-side.
+A flipped tile carries no live resources, so BL is the VP hex (the
+slot that carries the production count on the unflipped face).
 
 #### 2.9.4 Bounding rule — restatement
 
 **No element rendered on an industry tile — level badge,
 industry icon, resource token, VP hex, income arrow, link-point
-icon, count badge, or the resource strip as a whole — ever
-extends beyond the tile's outer rectangle. Sub-rectangles never
-overlap.** When the tile shrinks at a lower zoom, every
-sub-rectangle and every element inside it shrinks proportionally;
-when the tile would shrink below the point where every badge is
-legible, the viewport's zoom control (or a maximizable host
-panel) is the escape hatch — overflow is never used as a relief
-valve.
+icon, beer-cost glyph, or no-Develop glyph — ever extends beyond
+the tile's outer rectangle. Sub-rectangles never overlap.**
+When the tile shrinks at a lower zoom, every sub-rectangle and
+every element inside it shrinks proportionally; when the tile
+would shrink below the point where every badge is legible, the
+viewport's zoom control (or a maximizable host panel) is the
+escape hatch — overflow is never used as a relief valve.
 
 ### 2.10 Flipped vs unflipped
 
@@ -1474,15 +1419,30 @@ collapse).
   icon (boat in Canal era, train in Rail era, in pawn colour)
   with "x N" remaining link tiles.
 - **Mat grid** — six industry groups (Coal, Iron, Brewery, Cotton
-  Mill, Manufacturer, Pottery) in one or two boxed columns.
-  Manufacturer spans two columns (levels 1–5 and 6–8); Pottery
-  is a single column of 5 levels. Bottom row of each column is the lowest level
-  (next to build). Each level row = cost column (money / coal /
-  iron) in the left margin, tile face in the middle, bonus
-  column (link-point / income / VP where non-zero) in the right
-  margin. Industry name labels at column bottom.
-- The top-of-stack tile for a picked industry (during Build or
-  Develop) gets a warm-gold border.
+  Mill, Manufacturer, Pottery) laid out as columns. Manufacturer
+  spans two columns (levels 1–5 in the left, 6–8 in the right);
+  every other industry is a single column. Each industry column
+  has one row per level (top row = lowest level = next to build).
+- **Per-level row** — three slots, packed tightly with no
+  inter-element padding:
+  - **Cost-icon row** at the immediate left of the tile: a money
+    coin with `£N` overlaid, then a coal-cube badge with the
+    coal cost overlaid (only when `coalCost > 0`), then an
+    iron-cube badge with the iron cost (only when `ironCost > 0`).
+    Each icon is the same square size; cells with zero cost
+    drop out of the row entirely.
+  - **Tile face** in the centre — the unflipped face per
+    §2.9.3.a, painted in the seat's pawn colour. Tile size is
+    the global TILE constant, identical to board-side tiles.
+  - **Count** at the right: `×N` showing how many copies of
+    this level remain in the seat's stack. When the wizard has
+    reserved one or more picks at this level (Build / Develop /
+    Sell-Gloucester), the badge reads `×P/N` instead.
+- The lowest level still in the stack — the engine's `stack[0]`,
+  the next tile a Build or Develop will consume — is the click
+  target for the active pick. It is the only row with a
+  thicker outer border. Other rows are display-only. Spent
+  levels (`count === 0`) render muted at 35 % opacity.
 
 **Functionality (per seat).** Clicking a mat tile during Build
 selects that industry. Clicking a mat tile during Develop toggles

@@ -130,6 +130,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
             stack={view.stacks[col.industry]}
             tileCatalogue={view.tileCatalogue}
             pawnColor={view.pawnColor}
+            era={view.era}
             pickCount={pickCounts.get(col.industry) ?? 0}
             wantingIndustry={wantingIndustry}
             onPick={() => wizard.pickIndustry(seatId, col.industry)}
@@ -145,6 +146,7 @@ function IndustryColumn({
   stack,
   tileCatalogue,
   pawnColor,
+  era,
   pickCount,
   wantingIndustry,
   onPick,
@@ -153,6 +155,7 @@ function IndustryColumn({
   stack: readonly number[];
   tileCatalogue: readonly IndustryTileSpec[];
   pawnColor: string;
+  era: "CANAL" | "RAIL";
   pickCount: number;
   wantingIndustry: boolean;
   onPick: () => void;
@@ -200,6 +203,7 @@ function IndustryColumn({
             count={counts.get(level) ?? 0}
             spec={specForLevel(spec.industry, level, tileCatalogue)}
             pawnColor={pawnColor}
+            era={era}
             isNext={level === nextLevel}
             pickCount={level === nextLevel ? pickCount : 0}
             clickable={clickable && level === nextLevel}
@@ -224,6 +228,7 @@ function MatLevelRow({
   count,
   spec,
   pawnColor,
+  era,
   isNext,
   pickCount,
   clickable,
@@ -233,6 +238,7 @@ function MatLevelRow({
   count: number;
   spec: IndustryTileSpec | null;
   pawnColor: string;
+  era: "CANAL" | "RAIL";
   isNext: boolean;
   pickCount: number;
   clickable: boolean;
@@ -244,10 +250,13 @@ function MatLevelRow({
     isNext ? "mat-level-row--next" : "",
     pickCount > 0 ? "mat-level-row--picked" : "",
     clickable ? "mat-level-row--clickable" : "",
-    spec?.lightBulb ? "mat-level-row--lightbulb" : "",
   ]
     .filter(Boolean)
     .join(" ");
+  // Production count for Coal/Iron/Brewery: tile is "fresh" on the mat
+  // so the BL count reads its level capacity (rail-era brewery uses
+  // resourceCapacityRail when defined).
+  const matResources = spec ? matCapacityFor(spec, era) : 0;
   return (
     <div
       className={cls}
@@ -255,6 +264,19 @@ function MatLevelRow({
       role={clickable ? "button" : undefined}
       tabIndex={clickable ? 0 : undefined}
     >
+      <div className="mat-level-row__costs">
+        {spec ? (
+          <>
+            <CostCoin amount={spec.costMoney} />
+            {spec.coalCost > 0 ? (
+              <CostCube kind="coal" count={spec.coalCost} />
+            ) : null}
+            {spec.ironCost > 0 ? (
+              <CostCube kind="iron" count={spec.ironCost} />
+            ) : null}
+          </>
+        ) : null}
+      </div>
       {spec ? (
         <svg
           className="mat-level-row__tile"
@@ -264,41 +286,108 @@ function MatLevelRow({
           <TileFace
             spec={spec}
             ownerColor={pawnColor}
-            face="flipped"
-            context="mat"
+            face="unflipped"
+            resources={matResources}
           />
         </svg>
       ) : (
         <div className="mat-level-row__tile mat-level-row__tile--placeholder" />
       )}
-      <div className="mat-level-row__margin">
-        {spec ? (
-          <>
-            <span className="mat-level-row__cost">£{spec.costMoney}</span>
-            {spec.coalCost > 0 ? (
-              <span className="mat-level-row__resource">{spec.coalCost}c</span>
-            ) : null}
-            {spec.ironCost > 0 ? (
-              <span className="mat-level-row__resource">{spec.ironCost}i</span>
-            ) : null}
-            {spec.beerToSell > 0 ? (
-              <span className="mat-level-row__resource">{spec.beerToSell}b</span>
-            ) : null}
-            {spec.canalOnly ? (
-              <span className="mat-level-row__era">canal</span>
-            ) : spec.railOnly ? (
-              <span className="mat-level-row__era">rail</span>
-            ) : null}
-            {spec.lightBulb ? (
-              <NoDevelopGlyph title="Cannot Develop" />
-            ) : null}
-          </>
-        ) : null}
-      </div>
       <div className="mat-level-row__count">
         {pickCount > 0 ? `×${pickCount}/${count}` : `×${count}`}
       </div>
     </div>
+  );
+}
+
+function matCapacityFor(
+  spec: IndustryTileSpec,
+  era: "CANAL" | "RAIL",
+): number {
+  if (
+    spec.industry !== "COAL_MINE" &&
+    spec.industry !== "IRON_WORKS" &&
+    spec.industry !== "BREWERY"
+  ) {
+    return 0;
+  }
+  if (era === "RAIL" && spec.resourceCapacityRail !== null) {
+    return spec.resourceCapacityRail;
+  }
+  return spec.resourceCapacity;
+}
+
+const COST_ICON = 14;
+
+function CostCoin({ amount }: { amount: number }) {
+  return (
+    <svg
+      className="mat-cost__icon"
+      viewBox={`0 0 ${COST_ICON} ${COST_ICON}`}
+      width={COST_ICON}
+      height={COST_ICON}
+      aria-hidden
+    >
+      <circle
+        cx={COST_ICON / 2}
+        cy={COST_ICON / 2}
+        r={COST_ICON / 2 - 0.6}
+        fill="#d4a017"
+        stroke="#1a1a1a"
+        strokeWidth={0.7}
+      />
+      <text
+        x={COST_ICON / 2}
+        y={COST_ICON / 2 + 2.6}
+        textAnchor="middle"
+        fontSize={6.5}
+        fontWeight={700}
+        fill="#1a1a1a"
+      >
+        £{amount}
+      </text>
+    </svg>
+  );
+}
+
+function CostCube({
+  kind,
+  count,
+}: {
+  kind: "coal" | "iron";
+  count: number;
+}) {
+  const fill = kind === "coal" ? "#1a1a1a" : "#a8825a";
+  const strokeColor = kind === "coal" ? "#fffdf6" : "#1a1a1a";
+  const textColor = kind === "coal" ? "#fffdf6" : "#1a1a1a";
+  return (
+    <svg
+      className="mat-cost__icon"
+      viewBox={`0 0 ${COST_ICON} ${COST_ICON}`}
+      width={COST_ICON}
+      height={COST_ICON}
+      aria-hidden
+    >
+      <rect
+        x={1}
+        y={1}
+        width={COST_ICON - 2}
+        height={COST_ICON - 2}
+        fill={fill}
+        stroke={strokeColor}
+        strokeWidth={0.7}
+      />
+      <text
+        x={COST_ICON / 2}
+        y={COST_ICON / 2 + 2.4}
+        textAnchor="middle"
+        fontSize={6.5}
+        fontWeight={700}
+        fill={textColor}
+      >
+        {count}
+      </text>
+    </svg>
   );
 }
 
@@ -340,42 +429,6 @@ function nextPopLevel(
   const idx = stack[0];
   if (idx === undefined) return null;
   return catalogue[idx]?.level ?? null;
-}
-
-function NoDevelopGlyph({ title }: { title?: string }) {
-  // Small bulb icon with a diagonal strike-through. Stands in for the
-  // "light-bulb" property on tiles that cannot be Developed (§5.3).
-  return (
-    <svg
-      className="no-dev-glyph"
-      viewBox="0 0 12 12"
-      width={12}
-      height={12}
-      aria-label={title}
-    >
-      {title ? <title>{title}</title> : null}
-      {/* Bulb body */}
-      <path
-        d="M6 1.5 C 4 1.5 2.7 3 2.7 4.6 C 2.7 5.7 3.3 6.3 3.9 7.2 L 3.9 8.4 L 8.1 8.4 L 8.1 7.2 C 8.7 6.3 9.3 5.7 9.3 4.6 C 9.3 3 8 1.5 6 1.5 Z"
-        fill="#f0d050"
-        stroke="#1a1a1a"
-        strokeWidth={0.7}
-      />
-      {/* Bulb base */}
-      <rect x={4.2} y={8.4} width={3.6} height={1.4} fill="#888" stroke="#1a1a1a" strokeWidth={0.5} />
-      <rect x={4.6} y={9.8} width={2.8} height={0.8} fill="#888" stroke="#1a1a1a" strokeWidth={0.5} />
-      {/* Strike-through */}
-      <line
-        x1={1}
-        y1={11}
-        x2={11}
-        y2={1}
-        stroke="#b03030"
-        strokeWidth={1.4}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }
 
 function LinkSupplyGlyph({

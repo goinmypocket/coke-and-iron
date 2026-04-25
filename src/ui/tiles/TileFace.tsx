@@ -1,40 +1,23 @@
 // =============================================================================
 // §2.9.3 Industry tile face — single component used everywhere a tile
 // is drawn (board, mat). Always renders as a square of TILE × TILE
-// units. Owner pawn colour fills the body so the player can read which
-// seat owns the tile at a glance.
+// units in the owner's pawn colour.
 //
 // Two faces:
-//   - "unflipped" — the industry side. Corners: TL level (Roman), TR
-//     link-point cluster, BL cost block (£N + coal/iron costs), BR
-//     income arrow with step count. Centre band carries the industry
-//     icon. On the board, Coal Mine / Iron Works / Brewery additionally
-//     paint a resource strip across the bottom (§2.9.3.d). On the mat
-//     the BL is the cost block as authored.
-//   - "flipped" — the VP side. Corners: TL level (Roman, in beige),
-//     TR link-point cluster, BL VP hex with the scored VP, BR income
-//     arrow. No resource strip. The top half is darkened with the
-//     pawn colour at full saturation; the bottom half holds the icon
-//     band over a paler tint of the same colour.
-//
-// On the player's mat we show the flipped face — the side-margin
-// alongside each row carries the cost details that the flipped face
-// drops, so the mat still surfaces every piece of info per the user's
-// requirement that the mat reveal what the unflipped side shows.
+//   - "unflipped" — TL level, TR crossed-out beer (if beerToSell > 0),
+//     BL production count cube + N (Coal/Iron/Brewery only), BR
+//     no-Develop bulb (Pottery light-bulb only), centre industry
+//     icon. The build cost (money / coal / iron) is NOT on the tile —
+//     it lives in the mat row's cost-icon column (§11.3).
+//   - "flipped" — TL level, TR link points, BL VP hex, BR income
+//     arrow, centre industry icon. Top half full pawn colour, bottom
+//     half a paler tint of the same colour.
 // =============================================================================
 
 import type { IndustryName, IndustryTileSpec } from "../../engine";
 import { INDUSTRY_ICON } from "../industryIcons";
 
 export const TILE = 28;
-
-// Resource strip constants — single global set per §2.9.3.e so every
-// resource render uses the same rhythm.
-const STRIP_HEIGHT = 7;
-const STRIP_INSET = 1.5;
-const TOKEN_SIZE = 2.6;
-const TOKEN_GAP_H = 1;
-const TOKEN_GAP_V = 1;
 
 const ROMAN: readonly string[] = [
   "",
@@ -52,14 +35,9 @@ interface TileFaceProps {
   spec: IndustryTileSpec;
   ownerColor: string;
   face: "unflipped" | "flipped";
-  // For board-unflipped: live resource count drives the resource
-  // strip. Mat / board-flipped ignore this field.
+  // Live resource count for the BL production badge on board-unflipped
+  // tiles. Mat / flipped ignore this and read 0 if omitted.
   resources?: number;
-  // For unflipped mat tiles, the cost block goes in BL. For
-  // unflipped board tiles, the cost block is replaced by a resource
-  // strip (Coal/Iron/Brewery). Pottery/Cotton/Manufacturer board-
-  // unflipped have an empty BL.
-  context: "mat" | "board";
 }
 
 export function TileFace({
@@ -67,7 +45,6 @@ export function TileFace({
   ownerColor,
   face,
   resources,
-  context,
 }: TileFaceProps) {
   if (face === "flipped") {
     return <FlippedFace spec={spec} ownerColor={ownerColor} />;
@@ -77,7 +54,6 @@ export function TileFace({
       spec={spec}
       ownerColor={ownerColor}
       resources={resources ?? 0}
-      context={context}
     />
   );
 }
@@ -89,8 +65,6 @@ function FlippedFace({
   spec: IndustryTileSpec;
   ownerColor: string;
 }) {
-  // Top half full pawn colour (darker reading); bottom half a paler
-  // tint so the level / VP / icon all read against contrasting fields.
   const topColor = ownerColor;
   const bottomColor = mix(ownerColor, "#fffdf6", 0.55);
   return (
@@ -109,7 +83,6 @@ function FlippedFace({
       <CornerLinkPoints linkPoints={spec.linkPoints} ownerColor={ownerColor} />
       <CornerVp vp={spec.vp} />
       <CornerIncome income={spec.incomeBonus} />
-      {spec.lightBulb ? <CornerLightBulb /> : null}
       <CenterIcon industry={spec.industry} y={TILE * 0.62} />
     </g>
   );
@@ -119,16 +92,13 @@ function UnflippedFace({
   spec,
   ownerColor,
   resources,
-  context,
 }: {
   spec: IndustryTileSpec;
   ownerColor: string;
   resources: number;
-  context: "mat" | "board";
 }) {
   const tint = mix(ownerColor, "#fffdf6", 0.7);
-  const showResourceStrip =
-    context === "board" && carriesResources(spec.industry);
+  const showProduction = carriesResources(spec.industry);
   return (
     <g>
       <rect width={TILE} height={TILE} rx={2} fill={tint} />
@@ -141,20 +111,14 @@ function UnflippedFace({
         strokeWidth={0.7}
       />
       <CornerLevel level={spec.level} fill="#1a1a1a" />
-      <CornerLinkPoints linkPoints={spec.linkPoints} ownerColor={ownerColor} />
-      {context === "mat" ? (
-        <CornerCost
-          costMoney={spec.costMoney}
-          coalCost={spec.coalCost}
-          ironCost={spec.ironCost}
-        />
+      {spec.beerToSell > 0 ? (
+        <CornerBeerCrossed count={spec.beerToSell} />
       ) : null}
-      <CornerIncome income={spec.incomeBonus} />
-      {spec.lightBulb ? <CornerLightBulb /> : null}
-      <CenterIcon industry={spec.industry} y={showResourceStrip ? TILE * 0.42 : TILE * 0.5} />
-      {showResourceStrip ? (
-        <ResourceStrip industry={spec.industry} count={resources} ownerColor={ownerColor} />
+      {showProduction ? (
+        <CornerProduction industry={spec.industry} count={resources} />
       ) : null}
+      {spec.lightBulb ? <CornerNoDev /> : null}
+      <CenterIcon industry={spec.industry} y={TILE * 0.5} />
     </g>
   );
 }
@@ -182,7 +146,6 @@ function CornerLinkPoints({
   ownerColor: string;
 }) {
   if (linkPoints <= 0) return null;
-  // Stack small dots at TR, one per link point.
   const dots: JSX.Element[] = [];
   for (let i = 0; i < linkPoints; i++) {
     dots.push(
@@ -200,51 +163,116 @@ function CornerLinkPoints({
   return <g>{dots}</g>;
 }
 
-function CornerCost({
-  costMoney,
-  coalCost,
-  ironCost,
-}: {
-  costMoney: number;
-  coalCost: number;
-  ironCost: number;
-}) {
-  // BL: stacked cost lines. Tight at this tile size — single-line £N
-  // with optional resource indicators stacked above.
-  const lines: string[] = [];
-  if (coalCost > 0) lines.push(`${coalCost}c`);
-  if (ironCost > 0) lines.push(`${ironCost}i`);
+function CornerBeerCrossed({ count }: { count: number }) {
+  // TR: beer-barrel ellipse with diagonal red strikethrough.
+  const cx = TILE - 5.5;
+  const cy = 5.5;
+  const rx = 3.2;
+  const ry = 2.6;
   return (
-    <g>
-      <text
-        x={2}
-        y={TILE - 2}
-        fontSize={5}
-        fontWeight={600}
-        fill="#1a1a1a"
-        style={{ pointerEvents: "none" }}
-      >
-        £{costMoney}
-      </text>
-      {lines.map((l, i) => (
+    <g style={{ pointerEvents: "none" }}>
+      <title>Beer cost — consumed when this tile sells</title>
+      <ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx}
+        ry={ry}
+        fill="#c79b3f"
+        stroke="#5b4516"
+        strokeWidth={0.4}
+      />
+      {/* Two horizontal stave lines for barrel character. */}
+      <line x1={cx - rx + 0.3} y1={cy - 0.5} x2={cx + rx - 0.3} y2={cy - 0.5} stroke="#5b4516" strokeWidth={0.25} />
+      <line x1={cx - rx + 0.3} y1={cy + 0.7} x2={cx + rx - 0.3} y2={cy + 0.7} stroke="#5b4516" strokeWidth={0.25} />
+      <line
+        x1={cx - rx - 0.4}
+        y1={cy + ry + 0.4}
+        x2={cx + rx + 0.4}
+        y2={cy - ry - 0.4}
+        stroke="#b03030"
+        strokeWidth={0.9}
+        strokeLinecap="round"
+      />
+      {count > 1 ? (
         <text
-          key={i}
-          x={2}
-          y={TILE - 2 - 5 * (lines.length - i)}
-          fontSize={4.5}
+          x={cx + rx + 1.2}
+          y={cy + 1.5}
+          fontSize={3.3}
+          fontWeight={700}
           fill="#1a1a1a"
-          style={{ pointerEvents: "none" }}
         >
-          {l}
+          {count}
         </text>
-      ))}
+      ) : null}
+    </g>
+  );
+}
+
+function CornerProduction({
+  industry,
+  count,
+}: {
+  industry: IndustryName;
+  count: number;
+}) {
+  // BL: industry-appropriate token + count.
+  const cy = TILE - 4.5;
+  const left = 2;
+  const tokenSize = 4;
+  if (industry === "BREWERY") {
+    return (
+      <g style={{ pointerEvents: "none" }}>
+        <title>Beer barrels remaining</title>
+        <ellipse
+          cx={left + tokenSize / 2}
+          cy={cy}
+          rx={tokenSize / 2}
+          ry={tokenSize / 2 + 0.4}
+          fill="#c79b3f"
+          stroke="#5b4516"
+          strokeWidth={0.3}
+        />
+        <text
+          x={left + tokenSize + 1}
+          y={cy + 1.6}
+          fontSize={4.6}
+          fontWeight={700}
+          fill="#1a1a1a"
+        >
+          {count}
+        </text>
+      </g>
+    );
+  }
+  const cubeFill = industry === "COAL_MINE" ? "#1a1a1a" : "#a8825a";
+  const cubeStroke = industry === "COAL_MINE" ? "#fffdf6" : "#1a1a1a";
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      <title>{industry === "COAL_MINE" ? "Coal cubes" : "Iron cubes"} remaining</title>
+      <rect
+        x={left}
+        y={cy - tokenSize / 2}
+        width={tokenSize}
+        height={tokenSize}
+        fill={cubeFill}
+        stroke={cubeStroke}
+        strokeWidth={0.3}
+      />
+      <text
+        x={left + tokenSize + 1}
+        y={cy + 1.6}
+        fontSize={4.6}
+        fontWeight={700}
+        fill="#1a1a1a"
+      >
+        {count}
+      </text>
     </g>
   );
 }
 
 function CornerVp({ vp }: { vp: number }) {
   if (vp <= 0) return null;
-  // BL hex with VP value inside (flipped face).
   const cx = 5;
   const cy = TILE - 5;
   const r = 4;
@@ -274,7 +302,6 @@ function CornerVp({ vp }: { vp: number }) {
 
 function CornerIncome({ income }: { income: number }) {
   if (income <= 0) return null;
-  // BR: small upward arrow with step count.
   const cx = TILE - 5;
   const cy = TILE - 5;
   return (
@@ -300,43 +327,38 @@ function CornerIncome({ income }: { income: number }) {
   );
 }
 
-function CornerLightBulb() {
-  // Tiny bulb-with-strikethrough centred along the top edge — signals
-  // "cannot Develop" without colliding with the corner badges (level
-  // TL, link points TR).
-  const cx = TILE / 2;
-  const cy = 3.5;
-  const w = 4.2;
-  const h = 4.2;
-  const left = cx - w / 2;
-  const top = cy - h / 2;
+function CornerNoDev() {
+  // BR: small bulb-with-strikethrough. Yellow bulb body + grey base
+  // + diagonal red strike. Only Pottery light-bulb tiles render this.
+  const cx = TILE - 4;
+  const cy = TILE - 4.3;
   return (
     <g style={{ pointerEvents: "none" }}>
-      <title>Light-bulb — cannot Develop</title>
+      <title>Cannot Develop</title>
       <circle
         cx={cx}
-        cy={cy - 0.4}
-        r={1.4}
+        cy={cy - 0.5}
+        r={1.7}
         fill="#f0d050"
         stroke="#1a1a1a"
         strokeWidth={0.3}
       />
       <rect
-        x={cx - 0.7}
-        y={cy + 0.8}
-        width={1.4}
-        height={0.6}
+        x={cx - 0.9}
+        y={cy + 1}
+        width={1.8}
+        height={0.7}
         fill="#888"
         stroke="#1a1a1a"
         strokeWidth={0.2}
       />
       <line
-        x1={left}
-        y1={top + h}
-        x2={left + w}
-        y2={top}
+        x1={cx - 2.3}
+        y1={cy + 2.3}
+        x2={cx + 2.3}
+        y2={cy - 2.3}
         stroke="#b03030"
-        strokeWidth={0.6}
+        strokeWidth={0.85}
         strokeLinecap="round"
       />
     </g>
@@ -363,111 +385,6 @@ function CenterIcon({
   );
 }
 
-function ResourceStrip({
-  industry,
-  count,
-  ownerColor,
-}: {
-  industry: IndustryName;
-  count: number;
-  ownerColor: string;
-}) {
-  if (count <= 0) return null;
-  // Pack column-major from bottom-right (§2.9.3.d). Worst case is a
-  // level-3 Coal Mine at 5 cubes / level-4 Iron Works at 6 cubes; the
-  // strip dimensions are sized so those fit without overflow.
-  const yTop = TILE - STRIP_HEIGHT;
-  const xRight = TILE - STRIP_INSET;
-  const yBottom = TILE - STRIP_INSET;
-  const colStep = TOKEN_SIZE + TOKEN_GAP_H;
-  const rowStep = TOKEN_SIZE + TOKEN_GAP_V;
-  const tokens: JSX.Element[] = [];
-  // tokens-per-column = how many fit vertically inside the strip.
-  const usableHeight = STRIP_HEIGHT - 2 * STRIP_INSET;
-  const perColumn = Math.max(1, Math.floor((usableHeight + TOKEN_GAP_V) / rowStep));
-  for (let i = 0; i < count; i++) {
-    const col = Math.floor(i / perColumn);
-    const rowFromBottom = i % perColumn;
-    const cx = xRight - TOKEN_SIZE / 2 - col * colStep;
-    const cy = yBottom - TOKEN_SIZE / 2 - rowFromBottom * rowStep;
-    tokens.push(
-      <ResourceToken
-        key={i}
-        kind={resourceKindFor(industry)}
-        cx={cx}
-        cy={cy}
-        ownerColor={ownerColor}
-      />,
-    );
-  }
-  return (
-    <g>
-      <rect
-        x={0}
-        y={yTop}
-        width={TILE}
-        height={STRIP_HEIGHT}
-        fill="rgba(0,0,0,0.06)"
-      />
-      {tokens}
-    </g>
-  );
-}
-
-function ResourceToken({
-  kind,
-  cx,
-  cy,
-  ownerColor,
-}: {
-  kind: "coal" | "iron" | "beer";
-  cx: number;
-  cy: number;
-  ownerColor: string;
-}) {
-  const half = TOKEN_SIZE / 2;
-  if (kind === "coal") {
-    return (
-      <rect
-        x={cx - half}
-        y={cy - half}
-        width={TOKEN_SIZE}
-        height={TOKEN_SIZE}
-        fill="#1a1a1a"
-        stroke="#fffdf6"
-        strokeWidth={0.2}
-      />
-    );
-  }
-  if (kind === "iron") {
-    return (
-      <rect
-        x={cx - half}
-        y={cy - half}
-        width={TOKEN_SIZE}
-        height={TOKEN_SIZE}
-        fill="#a8825a"
-        stroke="#1a1a1a"
-        strokeWidth={0.2}
-      />
-    );
-  }
-  // beer barrel — tiny ellipse
-  return (
-    <ellipse
-      cx={cx}
-      cy={cy}
-      rx={half}
-      ry={half * 1.1}
-      fill="#c79b3f"
-      stroke="#5b4516"
-      strokeWidth={0.2}
-    >
-      <title>Beer (owner {ownerColor})</title>
-    </ellipse>
-  );
-}
-
 function carriesResources(industry: IndustryName): boolean {
   return (
     industry === "COAL_MINE" ||
@@ -476,14 +393,7 @@ function carriesResources(industry: IndustryName): boolean {
   );
 }
 
-function resourceKindFor(industry: IndustryName): "coal" | "iron" | "beer" {
-  if (industry === "COAL_MINE") return "coal";
-  if (industry === "IRON_WORKS") return "iron";
-  return "beer";
-}
-
 function hexPoints(cx: number, cy: number, r: number): string {
-  // Pointy-top hex.
   const pts: [number, number][] = [];
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 3) * i - Math.PI / 2;
@@ -492,7 +402,6 @@ function hexPoints(cx: number, cy: number, r: number): string {
   return pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
 }
 
-/** Linear blend between two CSS hex colours by ratio of `b` (0..1). */
 function mix(a: string, b: string, ratio: number): string {
   const A = parseHex(a);
   const B = parseHex(b);
