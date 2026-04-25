@@ -1,4 +1,5 @@
-// Victory-points glyph: pointy-top hex with the VP value inside.
+// Victory-points glyph: pointy-top hexagon with the VP value inside.
+// Black background, dark-golden border, dark-golden value.
 
 import type { CSSProperties } from "react";
 
@@ -13,6 +14,9 @@ const HEX_POINTS = (() => {
   }
   return pts.map(([px, py]) => `${px.toFixed(2)},${py.toFixed(2)}`).join(" ");
 })();
+
+const VP_BG = "#0a0a0a";
+const VP_GOLD = "#c89020";
 
 export function VictoryPointsIcon({
   amount,
@@ -39,9 +43,10 @@ export function VictoryPointsIcon({
     >
       <polygon
         points={HEX_POINTS}
-        fill="#fffdf6"
-        stroke="#1a1a1a"
-        strokeWidth={0.8}
+        fill={VP_BG}
+        stroke={VP_GOLD}
+        strokeWidth={1.1}
+        strokeLinejoin="round"
       />
       <text
         x={8}
@@ -49,7 +54,7 @@ export function VictoryPointsIcon({
         textAnchor="middle"
         fontSize={8}
         fontWeight={700}
-        fill="#1a1a1a"
+        fill={VP_GOLD}
       >
         {amount}
       </text>

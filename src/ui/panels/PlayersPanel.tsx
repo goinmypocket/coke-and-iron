@@ -30,6 +30,7 @@ import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
 import { IronIcon } from "../icons/IronIcon";
 import { LinkPointsIcon } from "../icons/LinkPointsIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
+import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
 import { TileSideColumn } from "../tiles/TileSideColumn";
@@ -119,7 +120,9 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
         <span title="Money" className="seat-stats__money">
           <MoneyCoin amount={view.money} size={13} />
         </span>
-        <span title="Victory points">{view.vp} VP</span>
+        <span title="Victory points">
+          <VictoryPointsIcon amount={view.vp} size={14} />
+        </span>
         <span title="Current income level">
           <CurrentIncomeIcon amount={stepToLevel(view.incomeStep)} size={14} />
         </span>

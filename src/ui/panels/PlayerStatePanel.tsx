@@ -1,5 +1,8 @@
 import { stepToLevel } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
+import { MoneyCoin } from "../icons/MoneyCoin";
+import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
 import type { PlayerId } from "../../engine";
 
@@ -81,10 +84,16 @@ function PlayerRow({
         />
       </td>
       <td>{row.name}</td>
-      <td>£{row.money}</td>
-      <td>{row.vp}</td>
+      <td>
+        <MoneyCoin amount={row.money} size={14} />
+      </td>
+      <td>
+        <VictoryPointsIcon amount={row.vp} size={14} />
+      </td>
       <td>{row.incomeStep}</td>
-      <td>{stepToLevel(row.incomeStep)}</td>
+      <td>
+        <CurrentIncomeIcon amount={stepToLevel(row.incomeStep)} size={14} />
+      </td>
       <td>{row.spentThisRound}</td>
       <td>
         {ordinal}

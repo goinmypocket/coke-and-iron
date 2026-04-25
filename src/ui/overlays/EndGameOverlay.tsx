@@ -14,6 +14,7 @@ import { useEngine } from "../hooks/useEngine";
 import { useGameState } from "../hooks/useGameState";
 import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
+import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 
 const TIE_BREAK_LABEL: Readonly<Record<RankReason, string>> = {
   VP: "VP",
@@ -76,7 +77,9 @@ export function EndGameOverlay() {
                   />
                 </td>
                 <td>{row.displayName}</td>
-                <td>{row.vp}</td>
+                <td>
+                  <VictoryPointsIcon amount={row.vp} size={14} />
+                </td>
                 <td>
                   <CurrentIncomeIcon amount={row.incomeLevel} size={14} />
                 </td>
