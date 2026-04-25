@@ -102,6 +102,18 @@ export function BoardPanel() {
     return set;
   }, [view.developedLinks]);
 
+  const sellMode = wizard.state.phase === "AWAITING_SELL_INPUTS";
+  const sellPickedTileIds = useMemo(
+    () =>
+      wizard.state.phase === "AWAITING_SELL_INPUTS"
+        ? new Set(wizard.state.tileIds)
+        : new Set<string>(),
+    [wizard.state],
+  );
+  const activeSeatId = useGameState(
+    (s) => s.turnOrder[s.currentPlayerIndex] ?? null,
+  );
+
   return (
     <Panel id="board" title="Board" maximizable>
       <svg
@@ -142,6 +154,10 @@ export function BoardPanel() {
           tiles={view.builtTiles}
           tileCatalogue={view.tileCatalogue}
           districtCities={view.districtCities}
+          sellMode={sellMode}
+          activeSeatId={activeSeatId}
+          sellPickedTileIds={sellPickedTileIds}
+          onTileClick={(tileId) => wizard.pickTile(tileId)}
         />
         <Markets coal={view.coalMarket} iron={view.ironMarket} />
       </svg>
@@ -382,14 +398,28 @@ function Lines({
   );
 }
 
+const SELLABLE_INDUSTRIES: ReadonlySet<IndustryName> = new Set([
+  "COTTON_MILL",
+  "MANUFACTURER",
+  "POTTERY",
+]);
+
 function BuiltTiles({
   tiles,
   tileCatalogue,
   districtCities,
+  sellMode,
+  activeSeatId,
+  sellPickedTileIds,
+  onTileClick,
 }: {
   tiles: readonly PlacedIndustryTile[];
   tileCatalogue: readonly IndustryTileSpec[];
   districtCities: readonly DistrictCity[];
+  sellMode: boolean;
+  activeSeatId: number | null;
+  sellPickedTileIds: ReadonlySet<string>;
+  onTileClick: (tileId: string) => void;
 }) {
   const cityByName = useMemo(() => {
     const m = new Map<string, DistrictCity>();
@@ -407,15 +437,29 @@ function BuiltTiles({
         const slotW = CITY_W / slotCount;
         const ox = city.position[0] - CITY_W / 2 + t.slotIndex * slotW + 2;
         const oy = city.position[1] + CITY_H / 2 + 4;
+        const clickable =
+          sellMode &&
+          t.owner === activeSeatId &&
+          !t.flipped &&
+          SELLABLE_INDUSTRIES.has(spec.industry);
+        const isPicked = sellPickedTileIds.has(t.id);
+        const cls = clickable
+          ? "board-tile board-tile--clickable"
+          : "board-tile";
         return (
-          <g key={t.id} transform={`translate(${ox}, ${oy})`}>
+          <g
+            key={t.id}
+            transform={`translate(${ox}, ${oy})`}
+            className={cls}
+            onClick={clickable ? () => onTileClick(t.id) : undefined}
+          >
             <rect
               width={slotW - 4}
               height={16}
               rx={2}
               fill={t.flipped ? "#d8d4c2" : "#fffdf6"}
-              stroke="#1a1a1a"
-              strokeWidth={0.8}
+              stroke={isPicked ? "var(--warm-gold)" : "#1a1a1a"}
+              strokeWidth={isPicked ? 2 : 0.8}
             />
             <text
               x={(slotW - 4) / 2}

@@ -19,6 +19,10 @@
 //                                   Auto-submit when both set. Rail-era
 //                                   coal source auto-resolves to market;
 //                                   second-rail-offer is deferred.
+//   AWAITING_SELL_INPUTS          — Sell; card + 1+ own unflipped sellable
+//                                   tiles in any order. Tile picks toggle
+//                                   on duplicate click. End Action
+//                                   submits; merchant + beer auto-resolve.
 //
 // All non-trivial wizards follow the §10.1 convention:
 //   - Unique-cardinality inputs (card, slot, industry, line) are REPLACED
@@ -67,6 +71,16 @@ export type WizardState =
       readonly phase: "AWAITING_NETWORK_INPUTS";
       readonly cardIndex: number | null;
       readonly lineIndex: number | null;
+    }
+  // §5.4 Sell — card + variable-arity own-tile picks, in any order.
+  // Tile picks TOGGLE on duplicate click (distinct-id collection).
+  // endAction submits with card + 1+ tiles. Merchant + beer sources are
+  // auto-resolved at submit time; explicit pickers + Gloucester
+  // follow-up are deferred to roadmap.
+  | {
+      readonly phase: "AWAITING_SELL_INPUTS";
+      readonly cardIndex: number | null;
+      readonly tileIds: readonly string[];
     };
 
 export type WizardAction =
@@ -84,6 +98,9 @@ export type WizardAction =
   | { type: "BUILD_SET_INDUSTRY"; industry: IndustryName }
   | { type: "NETWORK_SET_CARD"; cardIndex: number }
   | { type: "NETWORK_SET_LINE"; lineIndex: number }
+  | { type: "START_SELL" }
+  | { type: "SELL_SET_CARD"; cardIndex: number }
+  | { type: "SELL_TOGGLE_TILE"; tileId: string }
   | { type: "RESET" };
 
 export const INITIAL_WIZARD: WizardState = { phase: "IDLE" };
@@ -174,6 +191,29 @@ export function wizardReducer(
       if (state.phase !== "AWAITING_NETWORK_INPUTS") return state;
       return { ...state, lineIndex: action.lineIndex };
     }
+    case "START_SELL":
+      return {
+        phase: "AWAITING_SELL_INPUTS",
+        cardIndex: null,
+        tileIds: [],
+      };
+    case "SELL_SET_CARD": {
+      if (state.phase !== "AWAITING_SELL_INPUTS") return state;
+      return { ...state, cardIndex: action.cardIndex };
+    }
+    case "SELL_TOGGLE_TILE": {
+      // Distinct-id collection — same target click toggles the selection
+      // (you can't sell the same tile twice, so toggle is the natural
+      // "deselect" gesture).
+      if (state.phase !== "AWAITING_SELL_INPUTS") return state;
+      const has = state.tileIds.includes(action.tileId);
+      return {
+        ...state,
+        tileIds: has
+          ? state.tileIds.filter((id) => id !== action.tileId)
+          : [...state.tileIds, action.tileId],
+      };
+    }
     case "RESET":
       return { phase: "IDLE" };
   }
@@ -198,6 +238,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     state.phase === "AWAITING_NETWORK_INPUTS" &&
     state.cardIndex !== null
   ) {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_SELL_INPUTS" && state.cardIndex !== null) {
     return new Set([state.cardIndex]);
   }
   return new Set();

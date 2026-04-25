@@ -108,9 +108,12 @@ Status keys:
   always uses market — connectivity-aware free coal is TODO.
   Second-rail-offer sub-state (Rail era only, per §10.1) still
   TODO.
-- **[ui] Sell wizard.** Tile picks, merchant pick when ambiguous,
-  beer-source sub-state per order, Gloucester follow-up. Needs
-  board panel + mat panel.
+- **[ui] Sell wizard polish.** Card + tile picks happy path
+  shipped. Still TODO: explicit merchant picker when multiple
+  merchants accept, explicit beer-source picker, Gloucester
+  follow-up sub-state (§5.4 step 3). Today's auto-resolver picks
+  the first matching merchant and prefers own brewery > buying
+  merchant beer > opponent brewery.
 - **[ui] RESOLVE_SHORTFALL UI.** When `state.pendingShortfalls` is
   non-empty, prompt the head-of-queue player to pick tiles to
   remove. Currently the engine accepts the intent but no UI surfaces

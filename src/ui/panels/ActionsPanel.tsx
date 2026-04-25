@@ -47,6 +47,11 @@ export function ActionsPanel() {
     wizard.state.phase === "AWAITING_NETWORK_INPUTS" &&
     wizard.state.cardIndex !== null &&
     wizard.state.lineIndex !== null;
+  const isSell = wizard.state.phase === "AWAITING_SELL_INPUTS";
+  const canEndSell =
+    wizard.state.phase === "AWAITING_SELL_INPUTS" &&
+    wizard.state.cardIndex !== null &&
+    wizard.state.tileIds.length >= 1;
 
   const onEndTurn = () => {
     if (flags.activePlayerId === null) return;
@@ -81,9 +86,9 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="Sell"
-            disabled
-            tooltip={NOT_IMPLEMENTED}
-            onClick={() => {}}
+            active={isSell}
+            disabled={!flags.canAct}
+            onClick={wizard.startSell}
           />
           <ActionButton
             label="Loan"
@@ -114,7 +119,11 @@ export function ActionsPanel() {
           <ActionButton
             label="End Action"
             disabled={
-              !isScout && !canEndDevelop && !canEndBuild && !canEndNetwork
+              !isScout &&
+              !canEndDevelop &&
+              !canEndBuild &&
+              !canEndNetwork &&
+              !canEndSell
             }
             onClick={wizard.endAction}
           />

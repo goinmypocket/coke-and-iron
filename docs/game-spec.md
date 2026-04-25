@@ -1304,12 +1304,18 @@ Inside a wizard:
   Sell / Network / Loan / Pass; one slot per Build; one line per
   Network) **replace** on a second click.
 - **Variable-cardinality inputs** (Develop's 1–2 industries,
-  Sell's tile orders, Scout's 3 cards) **accumulate** on each
-  click up to the action's cap; the player clears via Reset
-  Selection. Clicking the same target twice is allowed for
-  industries (Develop accepts 2-of-same per §5.3) and forbidden
-  for distinct-id targets (Scout cards must be distinct
-  per §5.7).
+  Sell's tile orders, Scout's 3 cards) accumulate on each click up
+  to the action's cap; the player clears via Reset Selection.
+  Same-target re-click behaviour depends on whether duplicates are
+  semantically meaningful:
+  - **Repeatable targets** (Develop industries — 2 of the same
+    industry pops 2 tiles from one stack, §5.3). A second click
+    ADDS another instance.
+  - **Distinct-id targets** (Sell tile orders, Scout cards — each
+    target is a unique id and "selling the same tile twice" or
+    "discarding the same card twice" is meaningless). A second
+    click TOGGLES the prior pick off, so the player can deselect
+    without clearing the whole wizard.
 - Auto-submit fires once every required input is set AND every
   variable-arity input is at its cap. End Action submits when
   required inputs are set even if a variable input hasn't hit its

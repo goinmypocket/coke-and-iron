@@ -45,11 +45,13 @@ import {
 } from "react";
 import { toast } from "sonner";
 import type {
+  BeerSource,
   CoalSource,
   GameState,
   IndustryName,
   IronSource,
   PlayerId,
+  SellOrder,
 } from "../../engine";
 import { reasonToText } from "../affordances/toast";
 import { useEngine } from "../hooks/useEngine";
@@ -71,6 +73,7 @@ interface WizardApi {
   startDevelop(): void;
   startBuild(): void;
   startNetwork(): void;
+  startSell(): void;
   /** Click on a card from HandPanel. Routes to the active phase. */
   pickCard(cardIndex: number): void;
   /** Click on a mat top-tile from a player sub-panel. */
@@ -79,6 +82,8 @@ interface WizardApi {
   pickSlot(slot: BuildSlotPick): void;
   /** Click on a canal/rail line from BoardPanel. Network wizard only. */
   pickLine(lineIndex: number): void;
+  /** Click on a built tile from BoardPanel. Sell wizard only. */
+  pickTile(tileId: string): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -106,6 +111,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => dispatch({ type: "START_NETWORK" }),
     [],
   );
+  const startSell = useCallback(() => dispatch({ type: "START_SELL" }), []);
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
   const submitDevelop = useCallback(
@@ -175,6 +181,37 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         industry: live.industry,
         coalSources,
         ironSources,
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
+  const submitSell = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_SELL_INPUTS") return;
+      if (live.cardIndex === null) {
+        toast.error("Pick a card to authorise Sell.");
+        return;
+      }
+      if (live.tileIds.length === 0) {
+        toast.error("Pick at least one tile to sell.");
+        return;
+      }
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const orders = autoResolveSellOrders(liveState, playerId, live.tileIds);
+      if (orders === null) return;
+      const result = engine.dispatch({
+        type: "SELL",
+        playerId,
+        cardIndex: live.cardIndex,
+        orders,
+        gloucesterDevelops: [],
       });
       if (result.ok) {
         dispatch({ type: "RESET" });
@@ -269,6 +306,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (live.phase === "AWAITING_SELL_INPUTS") {
+        // Sell does NOT auto-submit on card pick — tile picks are
+        // variable-arity and the player explicitly ends the action.
+        dispatch({ type: "SELL_SET_CARD", cardIndex });
+        return;
+      }
     },
     [engine, state, submitBuild, submitDevelop, submitNetwork],
   );
@@ -345,6 +388,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     [state, submitNetwork],
   );
 
+  const pickTile = useCallback((tileId: string) => {
+    // Sell tile picks are a distinct-id collection: clicking the same
+    // tile toggles the selection. End Action submits.
+    dispatch({ type: "SELL_TOGGLE_TILE", tileId });
+  }, []);
+
   const endAction = useCallback(() => {
     const live = state;
     if (live.phase === "AWAITING_CARDS_SCOUT") {
@@ -379,7 +428,18 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitNetwork(live);
       return;
     }
-  }, [engine, state, submitDevelop, submitBuild, submitNetwork]);
+    if (live.phase === "AWAITING_SELL_INPUTS") {
+      submitSell(live);
+      return;
+    }
+  }, [
+    engine,
+    state,
+    submitDevelop,
+    submitBuild,
+    submitNetwork,
+    submitSell,
+  ]);
 
   const api = useMemo<WizardApi>(
     () => ({
@@ -391,10 +451,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       startDevelop,
       startBuild,
       startNetwork,
+      startSell,
       pickCard,
       pickIndustry,
       pickSlot,
       pickLine,
+      pickTile,
       endAction,
       reset,
     }),
@@ -406,10 +468,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       startDevelop,
       startBuild,
       startNetwork,
+      startSell,
       pickCard,
       pickIndustry,
       pickSlot,
       pickLine,
+      pickTile,
       endAction,
       reset,
     ],
@@ -426,6 +490,118 @@ export function useWizard(): WizardApi {
     throw new Error("useWizard must be used inside <WizardProvider>");
   }
   return ctx;
+}
+
+/**
+ * Build SellOrder[] for the picked tiles. For each tile:
+ *   - merchant: first non-blank merchant slot whose accept matches the
+ *     tile's industry (or "ANY"). Connectivity isn't pre-validated here;
+ *     the engine will reject and toast if the tile isn't connected.
+ *   - beer sources: in priority order — own unflipped brewery cubes,
+ *     then merchant beer at the buying merchant tile, then any
+ *     unflipped brewery (opponent). Decrements local counts so two
+ *     orders don't double-claim the same barrel.
+ *
+ * Returns null after firing a toast if any tile can't be resolved (no
+ * matching merchant, no unflipped sellable tile under that id, etc).
+ */
+function autoResolveSellOrders(
+  state: GameState,
+  playerId: PlayerId,
+  tileIds: readonly string[],
+): SellOrder[] | null {
+  // Track remaining beer-cube counts across the dispatch so we don't
+  // double-claim a single barrel for two orders.
+  const breweryRemaining = new Map<string, number>();
+  for (const t of state.builtTiles) {
+    const spec = state.tileCatalogue[t.catalogueIndex];
+    if (spec?.industry !== "BREWERY") continue;
+    if (t.flipped) continue;
+    if (t.resources <= 0) continue;
+    breweryRemaining.set(t.id, t.resources);
+  }
+  const merchantBeerRemaining = new Map<string, boolean>();
+  for (const ms of state.merchantSlots) {
+    merchantBeerRemaining.set(`${ms.merchantCityName}#${ms.slotIndex}`, ms.hasBeer);
+  }
+
+  const orders: SellOrder[] = [];
+  for (const tileId of tileIds) {
+    const tile = state.builtTiles.find((t) => t.id === tileId);
+    if (!tile || tile.owner !== playerId || tile.flipped) {
+      toast.error(`Tile not sellable.`);
+      return null;
+    }
+    const spec = state.tileCatalogue[tile.catalogueIndex];
+    if (!spec) {
+      toast.error(`Tile spec missing.`);
+      return null;
+    }
+    // Find a merchant slot accepting this industry.
+    const merchantSlot = state.merchantSlots.find((ms) => {
+      if (ms.accept === "BLANK") return false;
+      if (ms.accept === "ANY") return true;
+      return ms.accept === spec.industry;
+    });
+    if (!merchantSlot) {
+      toast.error(`No merchant accepts ${spec.industry}.`);
+      return null;
+    }
+    // Build beer source list.
+    const beerSources: BeerSource[] = [];
+    let needed = spec.beerToSell;
+    // Priority 1: own brewery
+    for (let i = 0; i < state.builtTiles.length && needed > 0; i++) {
+      const b = state.builtTiles[i]!;
+      if (b.owner !== playerId) continue;
+      const bSpec = state.tileCatalogue[b.catalogueIndex];
+      if (bSpec?.industry !== "BREWERY") continue;
+      const left = breweryRemaining.get(b.id) ?? 0;
+      while (left > 0 && needed > 0) {
+        beerSources.push({ kind: "BREWERY", tileId: b.id });
+        breweryRemaining.set(b.id, (breweryRemaining.get(b.id) ?? 0) - 1);
+        needed--;
+      }
+    }
+    // Priority 2: merchant beer at the BUYING merchant tile only (§5.6.3).
+    if (
+      needed > 0 &&
+      merchantBeerRemaining.get(
+        `${merchantSlot.merchantCityName}#${merchantSlot.slotIndex}`,
+      )
+    ) {
+      beerSources.push({ kind: "MERCHANT" });
+      merchantBeerRemaining.set(
+        `${merchantSlot.merchantCityName}#${merchantSlot.slotIndex}`,
+        false,
+      );
+      needed--;
+    }
+    // Priority 3: any opponent unflipped brewery
+    for (let i = 0; i < state.builtTiles.length && needed > 0; i++) {
+      const b = state.builtTiles[i]!;
+      if (b.owner === playerId) continue;
+      const bSpec = state.tileCatalogue[b.catalogueIndex];
+      if (bSpec?.industry !== "BREWERY") continue;
+      const left = breweryRemaining.get(b.id) ?? 0;
+      while (left > 0 && needed > 0) {
+        beerSources.push({ kind: "BREWERY", tileId: b.id });
+        breweryRemaining.set(b.id, (breweryRemaining.get(b.id) ?? 0) - 1);
+        needed--;
+      }
+    }
+    if (needed > 0) {
+      toast.error(`Not enough beer available for ${spec.industry}.`);
+      return null;
+    }
+    orders.push({
+      tileId,
+      merchantCityName: merchantSlot.merchantCityName,
+      merchantSlotIndex: merchantSlot.slotIndex,
+      beerSources,
+    });
+  }
+  return orders;
 }
 
 /**

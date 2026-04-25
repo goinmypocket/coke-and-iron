@@ -283,6 +283,12 @@ body {
 .board-line--clickable:hover line {
   stroke-opacity: 1;
 }
+.board-tile--clickable {
+  cursor: pointer;
+}
+.board-tile--clickable:hover rect {
+  fill: var(--soft-tint);
+}
 .board-merchant__label {
   font-size: 11px;
   font-weight: 600;
