@@ -986,14 +986,23 @@ function Markets({
   ironGlow: boolean;
 }) {
   // §2.11.3 widget. Whole-widget glow when either market is an active
-  // pick target. Two columns side by side; each column shows the
-  // industry icon at top and a stack of price-coin + cube-slot rows
-  // below. No header text, no Buy/Sell summary, no cube-count line.
-  const widgetW = 120;
-  const widgetH = 170;
-  const innerPadX = 4;
+  // pick target. Two columns side by side; each column is a stack of
+  // price-coin + cube-slot rows with the industry icon BELOW the rows
+  // (aligned to the same y baseline across both columns so the icons
+  // sit symmetrically along the bottom). No header text, no
+  // Buy/Sell summary, no cube-count line.
+  const widgetW = 112;
+  // Widget height accommodates the taller coal column (8 rows) plus
+  // the icon and even padding top + bottom.
+  const innerPadX = 8;
   const innerPadY = 8;
+  const ICON = 20;
+  const ROW_H = 13;
+  const ROW_GAP = 5;
+  const coalRows = coal.tiers.length + 1;
+  const widgetH = innerPadY + coalRows * ROW_H + ROW_GAP + ICON + innerPadY;
   const colW = (widgetW - innerPadX * 2) / 2;
+  const iconY = widgetH - innerPadY - ICON;
   const anyGlow = coalGlow || ironGlow;
   return (
     <g
@@ -1016,7 +1025,10 @@ function Markets({
         industry="COAL_MINE"
         cubeColor="#1a1a1a"
         x={innerPadX}
-        y={innerPadY}
+        rowsTopY={innerPadY}
+        iconY={iconY}
+        iconSize={ICON}
+        rowH={ROW_H}
         colW={colW}
         glow={coalGlow}
       />
@@ -1025,7 +1037,10 @@ function Markets({
         industry="IRON_WORKS"
         cubeColor="#a8825a"
         x={innerPadX + colW}
-        y={innerPadY}
+        rowsTopY={innerPadY}
+        iconY={iconY}
+        iconSize={ICON}
+        rowH={ROW_H}
         colW={colW}
         glow={ironGlow}
       />
@@ -1038,7 +1053,10 @@ function MarketColumn({
   industry,
   cubeColor,
   x,
-  y,
+  rowsTopY,
+  iconY,
+  iconSize,
+  rowH,
   colW,
   glow,
 }: {
@@ -1046,22 +1064,25 @@ function MarketColumn({
   industry: IndustryName;
   cubeColor: string;
   x: number;
-  y: number;
+  rowsTopY: number;
+  iconY: number;
+  iconSize: number;
+  rowH: number;
   colW: number;
   glow: boolean;
 }) {
   const tiers = market.tiers;
-  const rowH = 12;
-  const cubeSize = 7;
-  const cubeGap = 1.5;
-  const coinSize = 9;
-  const iconSize = 18;
-  // Row content: coin + spacer + cube + gap + cube. Centred inside the
-  // column so a column with fewer rows still aligns to the same x.
-  const rowContentW = coinSize + 4 + cubeSize * 2 + cubeGap;
+  const cubeSize = 9;
+  const cubeGap = 4;
+  const coinSize = 10;
+  // Row content layout: coin + spacer + cube + gap + cube. Centred
+  // inside the column so a column with fewer rows still aligns to
+  // the same horizontal axis.
+  const coinSpacer = 4;
+  const rowContentW = coinSize + coinSpacer + cubeSize * 2 + cubeGap;
   const rowStartX = x + (colW - rowContentW) / 2;
   const coinCx = rowStartX + coinSize / 2;
-  const cube0X = rowStartX + coinSize + 4;
+  const cube0X = rowStartX + coinSize + coinSpacer;
   const cube1X = cube0X + cubeSize + cubeGap;
   // Compose rows: overflow on top, then priced tiers high-to-low.
   const rows: { price: number; cubes: number; isOverflow: boolean }[] = [
@@ -1080,19 +1101,9 @@ function MarketColumn({
         glow ? "board-markets__col board-markets__col--active" : "board-markets__col"
       }
     >
-      {/* Industry icon centred at the top of the column. */}
-      <image
-        href={INDUSTRY_ICON[industry]}
-        x={x + (colW - iconSize) / 2}
-        y={y}
-        width={iconSize}
-        height={iconSize}
-        preserveAspectRatio="xMidYMid meet"
-        opacity={glow ? 1 : 0.95}
-      />
-      {/* Tier rows below the icon. */}
+      {/* Tier rows from top down. */}
       {rows.map((row, rowIdx) => {
-        const rowY = y + iconSize + 4 + rowIdx * rowH + rowH / 2;
+        const rowY = rowsTopY + rowIdx * rowH + rowH / 2;
         return (
           <g key={rowIdx}>
             <SvgMoneyCoin
@@ -1122,7 +1133,7 @@ function MarketColumn({
               fill={row.cubes > 0 ? cubeColor : "#fffdf6"}
               stroke="#1a1a1a"
               strokeWidth={0.6}
-              strokeDasharray={row.isOverflow ? "1.2 1.2" : undefined}
+              strokeDasharray={row.isOverflow ? "1.4 1.4" : undefined}
             />
             <rect
               x={cube1X}
@@ -1132,11 +1143,23 @@ function MarketColumn({
               fill={row.cubes > 1 ? cubeColor : "#fffdf6"}
               stroke="#1a1a1a"
               strokeWidth={0.6}
-              strokeDasharray={row.isOverflow ? "1.2 1.2" : undefined}
+              strokeDasharray={row.isOverflow ? "1.4 1.4" : undefined}
             />
           </g>
         );
       })}
+      {/* Industry icon centred at the bottom of the column, aligned
+       * with the icon in the other column so they sit on a shared
+       * baseline regardless of how many rows each column has. */}
+      <image
+        href={INDUSTRY_ICON[industry]}
+        x={x + (colW - iconSize) / 2}
+        y={iconY}
+        width={iconSize}
+        height={iconSize}
+        preserveAspectRatio="xMidYMid meet"
+        opacity={glow ? 1 : 0.95}
+      />
     </g>
   );
 }

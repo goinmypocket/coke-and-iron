@@ -359,17 +359,33 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       const closestMines =
         coalNeed > 0 ? listClosestCoalMines(liveState, [live.slot.cityName]) : [];
       const ironTiles = ironNeed > 0 ? listUnflippedIronWorks(liveState) : [];
-      const coalAmbiguous = closestMines.length > 1;
+      // Coal is ambiguous when there are 2+ tied closest mines, OR
+      // when a single closest mine doesn't have enough cubes to cover
+      // the demand (the player has to decide whether to drain it
+      // partially and top up from elsewhere). Otherwise the auto path
+      // below handles it.
+      const singleMine = closestMines.length === 1 ? closestMines[0]! : null;
+      const coalAmbiguous =
+        closestMines.length > 1 ||
+        (singleMine !== null && singleMine.remaining < coalNeed);
       const ironAmbiguous = ironTiles.length > 1;
 
       if (!coalAmbiguous && !ironAmbiguous) {
-        // Existing auto-resolve path: iron from first available tile
-        // (no connectivity), coal from market.
+        // Auto-resolve path: iron from first available tile (no
+        // connectivity); coal from the single reachable mine if there
+        // is one — drain it cube-by-cube per §5.6.1 priority 1 — and
+        // fall through to MARKET once the mine has nothing left.
         const ironSources = autoResolveIronSources(liveState, ironNeed);
-        const coalSources: CoalSource[] = Array.from(
-          { length: coalNeed },
-          () => ({ kind: "MARKET" }),
-        );
+        const coalSources: CoalSource[] = [];
+        let mineLeft = singleMine?.remaining ?? 0;
+        for (let i = 0; i < coalNeed; i++) {
+          if (singleMine && mineLeft > 0) {
+            coalSources.push({ kind: "TILE", tileId: singleMine.tileId });
+            mineLeft -= 1;
+          } else {
+            coalSources.push({ kind: "MARKET" });
+          }
+        }
         dispatchBuildIntent(
           live.cardIndex,
           live.slot,
@@ -381,15 +397,23 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       }
 
       // Pre-fill the non-ambiguous side so the player only clicks for
-      // what's actually under-determined.
-      const prefillCoal: CoalSource[] = coalAmbiguous
-        ? []
-        : Array.from({ length: coalNeed }, (): CoalSource => {
-            const single = closestMines[0];
-            return single
-              ? { kind: "TILE", tileId: single.tileId }
-              : { kind: "MARKET" };
-          });
+      // what's actually under-determined. Same cube-by-cube logic as
+      // the auto-dispatch path: drain the single closest mine first,
+      // then fall through to MARKET.
+      const prefillCoal: CoalSource[] = (() => {
+        if (coalAmbiguous) return [];
+        const out: CoalSource[] = [];
+        let mineLeft = singleMine?.remaining ?? 0;
+        for (let i = 0; i < coalNeed; i++) {
+          if (singleMine && mineLeft > 0) {
+            out.push({ kind: "TILE", tileId: singleMine.tileId });
+            mineLeft -= 1;
+          } else {
+            out.push({ kind: "MARKET" });
+          }
+        }
+        return out;
+      })();
       const prefillIron: IronSource[] = ironAmbiguous
         ? []
         : autoResolveIronSources(liveState, ironNeed);
