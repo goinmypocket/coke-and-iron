@@ -13,7 +13,8 @@
 // panel until reshuffled).
 // =============================================================================
 
-import type { Card, GameState } from "../../engine";
+import { useMemo } from "react";
+import type { Card, DistrictCity } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 
@@ -38,12 +39,19 @@ export function RemainingCardsPanel() {
     return {
       drawDeck: s.drawDeck,
       removedCount: s.removedCards.length,
-      cityToDistrict: cityDistrictMap(s),
+      districtCities: s.districtCities,
       total,
     };
   }, shallowEqual);
 
-  const groups = groupCards(view.drawDeck, view.cityToDistrict);
+  // Built outside the selector so the snapshot stays referentially stable
+  // (a fresh Map on every selector call would defeat shallowEqual and
+  // trigger useSyncExternalStore's unstable-snapshot guard).
+  const cityToDistrict = useMemo(
+    () => cityDistrictMap(view.districtCities),
+    [view.districtCities],
+  );
+  const groups = groupCards(view.drawDeck, cityToDistrict);
 
   return (
     <Panel
@@ -99,9 +107,11 @@ function Group({
   );
 }
 
-function cityDistrictMap(state: GameState): ReadonlyMap<string, string> {
+function cityDistrictMap(
+  cities: readonly DistrictCity[],
+): ReadonlyMap<string, string> {
   const m = new Map<string, string>();
-  for (const c of state.districtCities) m.set(c.name, c.districtTag);
+  for (const c of cities) m.set(c.name, c.districtTag);
   return m;
 }
 
