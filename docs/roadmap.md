@@ -39,9 +39,14 @@ Status keys:
 
 ## Engine polish
 
-- **[engine] Spec §13 verification-checklist walk.** Confirm every
-  item in the spec's verification checklist is covered by an
-  automated test. Add what's missing.
+- **[engine] Spec §13 verification-checklist walk — partial.**
+  Rules section 1-12 audited; coverage existed for 9 items.
+  Added tests for the 3 gaps: rounds-per-era invariant
+  (deck-size.test.ts), income level 30 hard ceiling
+  (advanceSteps clamp), iron-market-no-connection (counterpart
+  to existing coal_market_not_connected). UI section of the
+  checklist still TODO — needs manual verification, not
+  automated tests.
 - **[engine] Repository visibility / `.claude/settings.json`.** Was
   pulled into a refactor commit by accident; consider whether it
   should live in `.gitignore`.

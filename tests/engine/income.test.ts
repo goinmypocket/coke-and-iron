@@ -4,6 +4,7 @@ import {
   MAX_INCOME_STEP,
   MIN_INCOME_LEVEL,
   MIN_INCOME_STEP,
+  advanceSteps,
   levelToHighestStep,
   moveBackLevels,
   stepToLevel,
@@ -117,6 +118,25 @@ describe("income ladder (§6.3)", () => {
       const m = moveBackLevels(3, 3);
       expect(m.level).toBe(-10);
       expect(m.step).toBe(0);
+    });
+  });
+
+  describe("§13 Rules — income level 30 hard ceiling", () => {
+    it("advanceSteps from 99 stays at 99 regardless of delta", () => {
+      expect(advanceSteps(99, 1)).toBe(MAX_INCOME_STEP);
+      expect(advanceSteps(99, 50)).toBe(MAX_INCOME_STEP);
+    });
+
+    it("advanceSteps clamps when crossing the ceiling", () => {
+      // From the highest step of level 29 (96) advancing 10 steps would
+      // overshoot the ladder; the ceiling clamps to step 99 (level 30).
+      expect(advanceSteps(96, 10)).toBe(MAX_INCOME_STEP);
+      expect(stepToLevel(advanceSteps(96, 10))).toBe(MAX_INCOME_LEVEL);
+    });
+
+    it("MIN_INCOME_STEP is the floor for negative deltas", () => {
+      // Mirror sanity check: advanceSteps clamps below at 0 too.
+      expect(advanceSteps(0, -5)).toBe(MIN_INCOME_STEP);
     });
   });
 });

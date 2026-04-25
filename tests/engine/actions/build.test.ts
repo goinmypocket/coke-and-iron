@@ -678,6 +678,37 @@ describe("§5.1 Build — era / money / resources", () => {
     expect(after.builtTiles).toHaveLength(0);
   });
 
+  it("Iron Market needs no connection — Brewery first-build pulls from market with no network", () => {
+    // §13 Rules item 6: "Iron Market does not [require connection]."
+    // Mirror of the coal test below: no built tiles, no links, no
+    // merchant connectivity. Iron from the market still succeeds.
+    const base = initialState({ seed: 1, playerCount: 2 });
+    const id = activeSeatId(base);
+    const farmCity = base.districtCities.find((c) => c.farmBrewery)!;
+    const state = withCardAt(base, id, 0, {
+      kind: "INDUSTRY",
+      industries: ["BREWERY"],
+    });
+    expect(state.developedLinks.length).toBe(0); // truly disconnected
+    expect(
+      state.builtTiles.some(
+        (t) => state.tileCatalogue[t.catalogueIndex]?.industry === "IRON_WORKS",
+      ),
+    ).toBe(false);
+    const engine = engineFromState(state);
+    const r = engine.dispatch({
+      type: "BUILD",
+      playerId: id,
+      cardIndex: 0,
+      cityName: farmCity.name,
+      slotIndex: 0,
+      industry: "BREWERY",
+      coalSources: [],
+      ironSources: [{ kind: "MARKET" }],
+    });
+    expect(r.ok).toBe(true);
+  });
+
   it("rejects coal_market_not_connected when coal cost > 0 and no mine/merchant is reachable", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
     const id = activeSeatId(base);
