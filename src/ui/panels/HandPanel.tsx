@@ -1,14 +1,16 @@
+import { useMemo } from "react";
+import type { Card, DistrictCity, IndustryName } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
-import type { Card } from "../../engine";
 
 /**
- * §11.7 Hand — active seat's hand as a 2x4 grid. Clicking a card during
- * a wizard either dispatches (Pass / Loan) or toggles selection (Scout);
- * picked cards render with a warm-gold border. Clicks on non-active
- * seats and clicks while no wizard is open are ignored — the
- * card-first IDLE flow (§10.1) is not yet implemented.
+ * §11.7 Hand — active seat's hand as a 2x4 grid of small cards.
+ * Location cards show the city name coloured by its district.
+ * Industry cards show the industry icon (single or vertically stacked
+ * for the Cotton/Manufacturer dual). Wild cards show a compact "WL"
+ * or "WI" label.
  */
 export function HandPanel() {
   const wizard = useWizard();
@@ -19,12 +21,14 @@ export function HandPanel() {
     return {
       name: active?.displayName ?? "—",
       hand: active?.hand ?? [],
+      districtCities: s.districtCities,
     };
   }, shallowEqual);
 
-  // Cards are clickable both during a wizard (Pass / Loan / Scout / etc.)
-  // and in IDLE (card-first stash, §10.1).
-  const cardsClickable = true;
+  const cityToDistrict = useMemo(
+    () => indexCityDistricts(view.districtCities),
+    [view.districtCities],
+  );
 
   return (
     <Panel id="hand" title={`Hand — ${view.name}`} maximizable>
@@ -34,7 +38,7 @@ export function HandPanel() {
             key={i}
             card={card}
             picked={wizard.picked.has(i)}
-            clickable={cardsClickable}
+            cityToDistrict={cityToDistrict}
             onClick={() => wizard.pickCard(i)}
           />
         ))}
@@ -46,81 +50,89 @@ export function HandPanel() {
 function CardFace({
   card,
   picked,
-  clickable,
+  cityToDistrict,
   onClick,
 }: {
   card: Card;
   picked: boolean;
-  clickable: boolean;
+  cityToDistrict: ReadonlyMap<string, string>;
   onClick: () => void;
 }) {
-  const className = [
+  const baseCls = [
     "card-face",
     picked ? "card-face--picked" : "",
-    clickable ? "card-face--clickable" : "",
+    "card-face--clickable",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const handleClick = clickable ? onClick : undefined;
-  const role = clickable ? "button" : undefined;
-  const tabIndex = clickable ? 0 : undefined;
-
   switch (card.kind) {
-    case "LOCATION":
+    case "LOCATION": {
+      const tag = cityToDistrict.get(card.cityName);
+      const color = tag ? DISTRICT_FILL[tag as keyof typeof DISTRICT_FILL] : undefined;
       return (
         <div
-          className={className}
-          onClick={handleClick}
-          role={role}
-          tabIndex={tabIndex}
+          className={`${baseCls} card-face--location`}
+          onClick={onClick}
+          role="button"
+          tabIndex={0}
         >
-          {card.cityName}
+          <span className="card-face__city" style={color ? { color } : undefined}>
+            {card.cityName}
+          </span>
         </div>
       );
+    }
     case "INDUSTRY":
       return (
         <div
-          className={`${className} card-face--industry`}
-          onClick={handleClick}
-          role={role}
-          tabIndex={tabIndex}
+          className={`${baseCls} card-face--industry`}
+          onClick={onClick}
+          role="button"
+          tabIndex={0}
+          title={card.industries.join(" / ")}
         >
           {card.industries.map((ind) => (
-            <span key={ind} className="card-face__industry">
-              {prettyIndustry(ind)}
-            </span>
+            <img
+              key={ind}
+              src={INDUSTRY_ICON[ind as IndustryName]}
+              className="card-face__industry-icon"
+              alt={ind}
+            />
           ))}
         </div>
       );
     case "WILD_LOCATION":
       return (
         <div
-          className={`${className} card-face--wild`}
-          onClick={handleClick}
-          role={role}
-          tabIndex={tabIndex}
+          className={`${baseCls} card-face--wild`}
+          onClick={onClick}
+          role="button"
+          tabIndex={0}
+          title="Wild Location"
         >
-          Wild Location
+          WL
         </div>
       );
     case "WILD_INDUSTRY":
       return (
         <div
-          className={`${className} card-face--wild`}
-          onClick={handleClick}
-          role={role}
-          tabIndex={tabIndex}
+          className={`${baseCls} card-face--wild`}
+          onClick={onClick}
+          role="button"
+          tabIndex={0}
+          title="Wild Industry"
         >
-          Wild Industry
+          WI
         </div>
       );
   }
 }
 
-function prettyIndustry(name: string): string {
-  return name
-    .split("_")
-    .map((part) => part[0]! + part.slice(1).toLowerCase())
-    .join(" ");
+function indexCityDistricts(
+  cities: readonly DistrictCity[],
+): ReadonlyMap<string, string> {
+  const m = new Map<string, string>();
+  for (const c of cities) m.set(c.name, c.districtTag);
+  return m;
 }

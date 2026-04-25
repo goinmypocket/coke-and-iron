@@ -96,9 +96,10 @@ export function RemainingCardsPanel() {
     >
       <div className="remaining-cards__grid">
         {DISTRICT_ORDER.map((tag) => {
-          const entries = (universe.locations[tag] ?? []).map((name) => ({
-            name,
-            count: counts.locations.get(name) ?? 0,
+          const entries = (universe.locations[tag] ?? []).map((u) => ({
+            name: u.name,
+            count: counts.locations.get(u.name) ?? 0,
+            total: u.total,
           }));
           return (
             <Group
@@ -112,9 +113,10 @@ export function RemainingCardsPanel() {
         <Group
           tag={null}
           label="Industry"
-          entries={universe.industries.map((label) => ({
-            name: label,
-            count: counts.industries.get(label) ?? 0,
+          entries={universe.industries.map((u) => ({
+            name: u.name,
+            count: counts.industries.get(u.name) ?? 0,
+            total: u.total,
           }))}
         />
       </div>
@@ -137,7 +139,7 @@ function Group({
 }: {
   tag: DistrictTag | null;
   label: string;
-  entries: readonly { name: string; count: number }[];
+  entries: readonly { name: string; count: number; total: number }[];
 }) {
   if (entries.length === 0) return null;
   const swatchColor = tag ? DISTRICT_FILL[tag] : undefined;
@@ -160,7 +162,7 @@ function Group({
             }
           >
             <span>{e.name}</span>
-            <span>×{e.count}</span>
+            <span>{e.count}/{e.total}</span>
           </li>
         ))}
       </ul>
@@ -180,28 +182,33 @@ function groupCanonicalCards(
   deck: readonly Card[],
   cityToDistrict: ReadonlyMap<string, DistrictTag>,
 ): {
-  locations: Record<string, string[]>;
-  industries: string[];
+  locations: Record<string, { name: string; total: number }[]>;
+  industries: { name: string; total: number }[];
 } {
-  const locByDistrict: Record<string, Set<string>> = {};
-  const industries = new Set<string>();
+  const locByDistrict: Record<string, Map<string, number>> = {};
+  const industriesMap = new Map<string, number>();
   for (const card of deck) {
     if (card.kind === "LOCATION") {
       const tag = cityToDistrict.get(card.cityName) ?? "other";
-      const set = locByDistrict[tag] ?? new Set<string>();
-      set.add(card.cityName);
-      locByDistrict[tag] = set;
+      const m = locByDistrict[tag] ?? new Map<string, number>();
+      m.set(card.cityName, (m.get(card.cityName) ?? 0) + 1);
+      locByDistrict[tag] = m;
     } else if (card.kind === "INDUSTRY") {
-      industries.add(card.industries.map(prettyIndustry).join(" / "));
+      const label = card.industries.map(prettyIndustry).join(" / ");
+      industriesMap.set(label, (industriesMap.get(label) ?? 0) + 1);
     }
   }
-  const locations: Record<string, string[]> = {};
-  for (const [tag, set] of Object.entries(locByDistrict)) {
-    locations[tag] = [...set].sort((a, b) => a.localeCompare(b));
+  const locations: Record<string, { name: string; total: number }[]> = {};
+  for (const [tag, m] of Object.entries(locByDistrict)) {
+    locations[tag] = [...m.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, total]) => ({ name, total }));
   }
   return {
     locations,
-    industries: [...industries].sort((a, b) => a.localeCompare(b)),
+    industries: [...industriesMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, total]) => ({ name, total })),
   };
 }
 
