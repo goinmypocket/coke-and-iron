@@ -66,6 +66,7 @@ import {
   wizardReducer,
   type BreweryBeerSource,
   type BuildSlotPick,
+  type SellResourceOrder,
   type WizardState,
 } from "./wizardState";
 
@@ -108,6 +109,10 @@ interface WizardApi {
   pickNetworkBeer(source: BreweryBeerSource): void;
   /** Clear all picks in the Network resource picker. */
   resetNetworkResources(): void;
+  /** Click a beer source for a specific Sell order. */
+  pickSellBeer(orderIndex: number, source: BeerSource): void;
+  /** Clear all picks in the Sell resource picker. */
+  resetSellResources(): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -499,16 +504,68 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       }
       const liveState = engine.getState();
       const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
-      const orders = autoResolveSellOrders(liveState, playerId, live.tileIds);
-      if (orders === null) return;
+
+      // Resolve merchants per order (auto: first matching slot).
+      const merchantOrders = resolveSellMerchants(
+        liveState,
+        playerId,
+        live.tileIds,
+      );
+      if (merchantOrders === null) return;
+
+      // Per-order beer ambiguity: if every order has 0 or 1 distinct
+      // beer source available, we can auto-resolve via the existing
+      // priority walker. Otherwise enter the picker.
+      const anyAmbiguous = merchantOrders.some(
+        (o) =>
+          listValidBeerSourcesForOrder(liveState, o, playerId).length > 1 &&
+          o.beerNeed > 0,
+      );
+
+      if (!anyAmbiguous) {
+        const orders = autoResolveSellOrders(liveState, playerId, live.tileIds);
+        if (orders === null) return;
+        const gloucesterBeers = countGloucesterBeers(orders);
+        if (gloucesterBeers === 0) {
+          dispatchSellIntent(live.cardIndex, orders, []);
+          return;
+        }
+        dispatch({
+          type: "ENTER_SELL_GLOUCESTER",
+          cardIndex: live.cardIndex,
+          orders,
+          need: gloucesterBeers,
+        });
+        return;
+      }
+
+      dispatch({
+        type: "ENTER_SELL_RESOURCES",
+        cardIndex: live.cardIndex,
+        orders: merchantOrders,
+      });
+    },
+    [engine, dispatchSellIntent],
+  );
+
+  const submitSellResources = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_SELL_RESOURCES") return;
+      const allFilled = live.orders.every(
+        (o) => o.beerPicks.length === o.beerNeed,
+      );
+      if (!allFilled) return;
+      const orders = live.orders.map((o) => ({
+        tileId: o.tileId,
+        merchantCityName: o.merchantCityName,
+        merchantSlotIndex: o.merchantSlotIndex,
+        beerSources: o.beerPicks,
+      }));
       const gloucesterBeers = countGloucesterBeers(orders);
       if (gloucesterBeers === 0) {
         dispatchSellIntent(live.cardIndex, orders, []);
         return;
       }
-      // Hand off to the Gloucester sub-state — the player picks one
-      // mat industry per Gloucester beer consumed; the wizard then
-      // dispatches the full Sell intent with gloucesterDevelops set.
       dispatch({
         type: "ENTER_SELL_GLOUCESTER",
         cardIndex: live.cardIndex,
@@ -516,8 +573,40 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         need: gloucesterBeers,
       });
     },
-    [engine, dispatchSellIntent],
+    [dispatchSellIntent],
   );
+
+  const pickSellBeer = useCallback(
+    (orderIndex: number, source: BeerSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_SELL_RESOURCES") return;
+      const order = live.orders[orderIndex];
+      if (!order) return;
+      if (order.beerPicks.length >= order.beerNeed) return;
+      const updatedOrder = {
+        ...order,
+        beerPicks: [...order.beerPicks, source],
+      };
+      const projected: WizardState = {
+        ...live,
+        orders: live.orders.map((o, i) =>
+          i === orderIndex ? updatedOrder : o,
+        ),
+      };
+      dispatch({ type: "SELL_BEER_ADD_PICK", orderIndex, source });
+      const allFilled = projected.orders.every(
+        (o) => o.beerPicks.length === o.beerNeed,
+      );
+      if (allFilled) {
+        submitSellResources(projected);
+      }
+    },
+    [state, submitSellResources],
+  );
+
+  const resetSellResources = useCallback(() => {
+    dispatch({ type: "SELL_RESOURCES_RESET" });
+  }, []);
 
   const submitSellGloucester = useCallback(
     (live: WizardState) => {
@@ -957,6 +1046,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitNetworkResources(live);
       return;
     }
+    if (live.phase === "AWAITING_SELL_RESOURCES") {
+      submitSellResources(live);
+      return;
+    }
   }, [
     engine,
     state,
@@ -968,6 +1061,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     submitDevelopIron,
     submitBuildResources,
     submitNetworkResources,
+    submitSellResources,
   ]);
 
   const api = useMemo<WizardApi>(
@@ -995,6 +1089,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickNetworkSecondCoal,
       pickNetworkBeer,
       resetNetworkResources,
+      pickSellBeer,
+      resetSellResources,
       endAction,
       reset,
     }),
@@ -1021,6 +1117,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickNetworkSecondCoal,
       pickNetworkBeer,
       resetNetworkResources,
+      pickSellBeer,
+      resetSellResources,
       endAction,
       reset,
     ],
@@ -1149,13 +1247,116 @@ function allNetworkResourcePicksFull(state: WizardState): boolean {
 }
 
 /**
+ * Resolve the merchant slot for each tile being sold (auto-pick first
+ * non-blank slot that accepts the tile's industry). The picker doesn't
+ * cover merchant ambiguity at this milestone — that's a roadmap polish.
+ * Returns null after a toast when a tile can't be sold (no merchant
+ * accepts it, tile not owned by player, etc).
+ */
+function resolveSellMerchants(
+  state: GameState,
+  playerId: PlayerId,
+  tileIds: readonly string[],
+): SellResourceOrder[] | null {
+  const out: SellResourceOrder[] = [];
+  for (const tileId of tileIds) {
+    const tile = state.builtTiles.find((t) => t.id === tileId);
+    if (!tile || tile.owner !== playerId || tile.flipped) {
+      toast.error(`Tile not sellable.`);
+      return null;
+    }
+    const spec = state.tileCatalogue[tile.catalogueIndex];
+    if (!spec) {
+      toast.error(`Tile spec missing.`);
+      return null;
+    }
+    const merchantSlot = state.merchantSlots.find((ms) => {
+      if (ms.accept === "BLANK") return false;
+      if (ms.accept === "ANY") return true;
+      return ms.accept === spec.industry;
+    });
+    if (!merchantSlot) {
+      toast.error(`No merchant accepts ${spec.industry}.`);
+      return null;
+    }
+    out.push({
+      tileId,
+      merchantCityName: merchantSlot.merchantCityName,
+      merchantSlotIndex: merchantSlot.slotIndex,
+      beerNeed: spec.beerToSell,
+      beerPicks: [],
+    });
+  }
+  return out;
+}
+
+/**
+ * List every valid beer source for one Sell order — own breweries
+ * (no-connectivity), merchant beer at THIS order's buying slot only
+ * (§5.6.3 priority 3), and any opponent brewery reachable through
+ * the any-player developed-link graph from the tile's city.
+ */
+export interface AvailableBeerSource {
+  readonly kind: "BREWERY" | "MERCHANT";
+  readonly tileId?: string;
+  readonly remaining: number;
+  readonly ownerId?: PlayerId;
+  readonly cityName: string;
+  readonly merchantSlotIndex?: number;
+}
+
+export function listValidBeerSourcesForOrder(
+  state: GameState,
+  order: { tileId: string; merchantCityName: string; merchantSlotIndex: number },
+  playerId: PlayerId,
+): readonly AvailableBeerSource[] {
+  const tile = state.builtTiles.find((t) => t.id === order.tileId);
+  if (!tile) return [];
+  const consumerCities = [tile.cityName];
+  const dist = buildDistanceMap(state, consumerCities);
+  const out: AvailableBeerSource[] = [];
+
+  for (const t of state.builtTiles) {
+    const spec = state.tileCatalogue[t.catalogueIndex];
+    if (spec?.industry !== "BREWERY") continue;
+    if (t.flipped || t.resources <= 0) continue;
+    if (t.owner !== playerId && !dist.has(t.cityName)) continue;
+    out.push({
+      kind: "BREWERY",
+      tileId: t.id,
+      remaining: t.resources,
+      ownerId: t.owner,
+      cityName: t.cityName,
+    });
+  }
+
+  // Merchant beer is restricted to the buying merchant tile (§5.6.3 pri 3).
+  const buyingSlot = state.merchantSlots.find(
+    (ms) =>
+      ms.merchantCityName === order.merchantCityName &&
+      ms.slotIndex === order.merchantSlotIndex,
+  );
+  if (buyingSlot && buyingSlot.hasBeer) {
+    out.push({
+      kind: "MERCHANT",
+      remaining: 1,
+      cityName: order.merchantCityName,
+      merchantSlotIndex: order.merchantSlotIndex,
+    });
+  }
+  return out;
+}
+
+/**
  * Count how many Gloucester merchant beers are consumed across the
  * given orders. Each order's beerSources may include MERCHANT entries
  * — those always come from the order's own buying merchant slot per
  * §5.6.3 priority 3, so a MERCHANT entry on a Gloucester order is the
  * Gloucester barrel.
  */
-function countGloucesterBeers(orders: readonly SellOrder[]): number {
+function countGloucesterBeers(
+  orders: readonly { merchantCityName: string; beerSources: readonly BeerSource[] }[],
+): number {
   let n = 0;
   for (const o of orders) {
     if (o.merchantCityName !== "Gloucester") continue;

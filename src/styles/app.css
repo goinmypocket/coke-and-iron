@@ -438,6 +438,21 @@ body {
   padding-bottom: 0.15rem;
   border-bottom: 1px solid var(--soft-tint);
 }
+.picker-overlay__order {
+  border: 1px solid var(--soft-tint);
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.picker-overlay__order-head {
+  font-size: 0.9em;
+}
+.picker-overlay__order-done {
+  font-size: 0.85em;
+  color: var(--muted);
+  font-style: italic;
+}
 .picker-overlay__owner {
   font-size: 0.8em;
   color: var(--muted);

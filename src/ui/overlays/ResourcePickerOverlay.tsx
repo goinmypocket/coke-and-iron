@@ -12,10 +12,11 @@
 import {
   listClosestCoalMines,
   listUnflippedIronWorks,
+  listValidBeerSourcesForOrder,
   listValidBreweries,
   useWizard,
 } from "../wizards/WizardProvider";
-import type { CoalSource, IronSource } from "../../engine";
+import type { BeerSource, CoalSource, IronSource } from "../../engine";
 import type { BreweryBeerSource } from "../wizards/wizardState";
 import { useEngine } from "../hooks/useEngine";
 
@@ -29,6 +30,9 @@ export function ResourcePickerOverlay() {
   }
   if (wizard.state.phase === "AWAITING_NETWORK_RESOURCES") {
     return <NetworkResourcePicker />;
+  }
+  if (wizard.state.phase === "AWAITING_SELL_RESOURCES") {
+    return <SellResourcePicker />;
   }
   return null;
 }
@@ -350,6 +354,133 @@ function NetworkResourcePicker() {
   );
 }
 
+function SellResourcePicker() {
+  const wizard = useWizard();
+  const engine = useEngine();
+  if (wizard.state.phase !== "AWAITING_SELL_RESOURCES") return null;
+  const live = wizard.state;
+  const liveState = engine.getState();
+  const playerId = liveState.turnOrder[liveState.currentPlayerIndex];
+
+  const totalLeft = live.orders.reduce(
+    (a, o) => a + (o.beerNeed - o.beerPicks.length),
+    0,
+  );
+
+  const pickedChips: string[] = [];
+  for (const o of live.orders) {
+    for (const p of o.beerPicks) {
+      pickedChips.push(
+        p.kind === "BREWERY"
+          ? `beer @ ${shortId(p.tileId)}`
+          : `merchant beer @ ${o.merchantCityName}`,
+      );
+    }
+  }
+
+  return (
+    <PickerShell
+      title="Sell beer — pick sources for each order"
+      lead="Each tile being sold needs beer. Beer comes from your own breweries (no connection check), the buying merchant's own beer slot, or any opponent brewery connected to the tile's city."
+      pickedChips={pickedChips}
+      pendingChipCount={totalLeft}
+      onReset={pickedChips.length > 0 ? () => wizard.resetSellResources() : null}
+      onCancel={() => wizard.reset()}
+    >
+      {live.orders.map((order, idx) => {
+        const left = order.beerNeed - order.beerPicks.length;
+        const sources =
+          left > 0 && playerId !== undefined
+            ? listValidBeerSourcesForOrder(liveState, order, playerId)
+            : [];
+        // Track local cube counts so we don't double-claim a barrel
+        // across orders within this dispatch.
+        const remainingByKey = new Map<string, number>();
+        for (const s of sources) {
+          remainingByKey.set(beerKey(s), s.remaining);
+        }
+        for (const o of live.orders) {
+          for (const p of o.beerPicks) {
+            const k =
+              p.kind === "BREWERY"
+                ? `BREWERY:${p.tileId}`
+                : `MERCHANT:${o.merchantCityName}#${o.merchantSlotIndex}`;
+            remainingByKey.set(k, (remainingByKey.get(k) ?? 0) - 1);
+          }
+        }
+        const tile = liveState.builtTiles.find((t) => t.id === order.tileId);
+        const cityName = tile?.cityName ?? "?";
+        return (
+          <li key={order.tileId} className="picker-overlay__order">
+            <div className="picker-overlay__order-head">
+              <strong>
+                Order {idx + 1}: {cityName} → {order.merchantCityName}
+                {order.beerNeed > 0
+                  ? ` (need ${order.beerNeed} beer)`
+                  : " (no beer needed)"}
+              </strong>
+            </div>
+            {left > 0 ? (
+              <ul className="picker-overlay__sources">
+                {sources.map((s) => {
+                  const remaining = remainingByKey.get(beerKey(s)) ?? 0;
+                  if (s.kind === "BREWERY" && s.tileId !== undefined) {
+                    const sub =
+                      s.ownerId !== undefined
+                        ? `seat ${s.ownerId + 1}`
+                        : "";
+                    return (
+                      <SourceRow
+                        key={beerKey(s)}
+                        label={`Brewery @ ${s.cityName} (×${remaining})`}
+                        sub={sub}
+                        disabled={remaining <= 0}
+                        onClick={() =>
+                          wizard.pickSellBeer(idx, {
+                            kind: "BREWERY",
+                            tileId: s.tileId!,
+                          } satisfies BeerSource)
+                        }
+                      />
+                    );
+                  }
+                  return (
+                    <SourceRow
+                      key={beerKey(s)}
+                      label={`Merchant beer @ ${s.cityName}`}
+                      sub={`fires merchant bonus`}
+                      disabled={remaining <= 0}
+                      onClick={() =>
+                        wizard.pickSellBeer(idx, {
+                          kind: "MERCHANT",
+                        } satisfies BeerSource)
+                      }
+                    />
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="picker-overlay__order-done">
+                Beer picks complete.
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </PickerShell>
+  );
+}
+
+function beerKey(s: {
+  kind: string;
+  tileId?: string;
+  cityName: string;
+  merchantSlotIndex?: number;
+}): string {
+  if (s.kind === "BREWERY") return `BREWERY:${s.tileId ?? ""}`;
+  return `MERCHANT:${s.cityName}#${s.merchantSlotIndex ?? 0}`;
+}
+
 // -----------------------------------------------------------------------------
 // Shared UI primitives
 
@@ -417,7 +548,7 @@ function SourceRow({
   onClick,
 }: {
   label: string;
-  sub?: string;
+  sub?: string | undefined;
   disabled: boolean;
   onClick: () => void;
 }) {

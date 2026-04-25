@@ -40,6 +40,7 @@
 // =============================================================================
 
 import type {
+  BeerSource,
   CoalSource,
   IndustryName,
   IronSource,
@@ -161,7 +162,26 @@ export type WizardState =
       readonly firstCoalPicks: readonly CoalSource[];
       readonly secondCoalPicks: readonly CoalSource[];
       readonly beerPicks: readonly BreweryBeerSource[];
+    }
+  // §5.6.3 Sell resource picker — entered when one or more Sell
+  // orders has multiple beer sources to choose between. Each order
+  // carries its merchant choice (auto-resolved: first matching slot)
+  // and its required beer count. Beer can come from own brewery
+  // (no-connect), merchant beer at THIS order's buying slot only
+  // (§5.6.3 priority 3), or any connected opponent brewery.
+  | {
+      readonly phase: "AWAITING_SELL_RESOURCES";
+      readonly cardIndex: number;
+      readonly orders: readonly SellResourceOrder[];
     };
+
+export interface SellResourceOrder {
+  readonly tileId: string;
+  readonly merchantCityName: string;
+  readonly merchantSlotIndex: number;
+  readonly beerNeed: number;
+  readonly beerPicks: readonly BeerSource[];
+}
 
 export type WizardAction =
   | { type: "START_PASS" }
@@ -225,6 +245,13 @@ export type WizardAction =
   | { type: "NETWORK_SECOND_COAL_ADD_PICK"; source: CoalSource }
   | { type: "NETWORK_BEER_ADD_PICK"; source: BreweryBeerSource }
   | { type: "NETWORK_RESOURCES_RESET" }
+  | {
+      type: "ENTER_SELL_RESOURCES";
+      cardIndex: number;
+      orders: readonly SellResourceOrder[];
+    }
+  | { type: "SELL_BEER_ADD_PICK"; orderIndex: number; source: BeerSource }
+  | { type: "SELL_RESOURCES_RESET" }
   | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
@@ -468,6 +495,35 @@ export function wizardReducer(
         beerPicks: [],
       };
     }
+    case "ENTER_SELL_RESOURCES":
+      return {
+        phase: "AWAITING_SELL_RESOURCES",
+        cardIndex: action.cardIndex,
+        orders: action.orders,
+      };
+    case "SELL_BEER_ADD_PICK": {
+      if (state.phase !== "AWAITING_SELL_RESOURCES") return state;
+      const order = state.orders[action.orderIndex];
+      if (!order) return state;
+      if (order.beerPicks.length >= order.beerNeed) return state;
+      const updatedOrder: SellResourceOrder = {
+        ...order,
+        beerPicks: [...order.beerPicks, action.source],
+      };
+      return {
+        ...state,
+        orders: state.orders.map((o, i) =>
+          i === action.orderIndex ? updatedOrder : o,
+        ),
+      };
+    }
+    case "SELL_RESOURCES_RESET": {
+      if (state.phase !== "AWAITING_SELL_RESOURCES") return state;
+      return {
+        ...state,
+        orders: state.orders.map((o) => ({ ...o, beerPicks: [] })),
+      };
+    }
     case "IDLE_STASH_CARD": {
       // Card-first flow only applies in IDLE. While a wizard is open
       // the wizard's own SET_CARD reducers handle card clicks.
@@ -516,6 +572,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_NETWORK_RESOURCES") {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_SELL_RESOURCES") {
     return new Set([state.cardIndex]);
   }
   return new Set();

@@ -113,5 +113,13 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
       if (parts.length === 0) return "Network resources — submitting…";
       return `Network resources — pick ${parts.join(" + ")} in the picker.`;
     }
+    case "AWAITING_SELL_RESOURCES": {
+      const total = state.orders.reduce(
+        (a, o) => a + (o.beerNeed - o.beerPicks.length),
+        0,
+      );
+      if (total === 0) return "Sell resources — submitting…";
+      return `Sell resources — pick ${total} more beer source${total === 1 ? "" : "s"} in the picker.`;
+    }
   }
 }

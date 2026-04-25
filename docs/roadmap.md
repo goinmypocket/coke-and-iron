@@ -90,25 +90,16 @@ Status keys:
 
 ## UI — wizards still to build
 
-- **[ui] Develop wizard — iron-source sub-state.** Auto-resolution
-  of free network iron > market is wired. Manual iron source
-  picker (when ambiguous, e.g. multiple unflipped Iron Works) is
-  still TODO; today the wizard just walks builtTiles in order.
 - **[ui] Build wizard polish.** Three-pick happy path + overbuild
-  click target shipped. Still TODO: connectivity-aware free coal
-  source picker (currently always market), explicit iron/coal
-  source sub-states for ambiguity, visual narrowing of valid
-  slots once card/industry is picked.
+  click target + explicit coal/iron pickers shipped. Still TODO:
+  visual narrowing of valid slots once card/industry is picked.
 - **[ui] Network wizard polish.** Card + line + second-rail
-  offer shipped. Coal source for rail era always uses market —
-  connectivity-aware free coal is TODO. Beer for the second rail
-  picks the first unflipped brewery (engine validates
-  connectivity); explicit picker is TODO.
+  offer + explicit coal/beer pickers shipped.
 - **[ui] Sell wizard polish.** Card + tile picks + Gloucester
-  follow-up sub-state shipped. Still TODO: explicit merchant
-  picker when multiple merchants accept, explicit beer-source
-  picker. Auto-resolver picks the first matching merchant and
-  prefers own brewery > buying merchant beer > opponent brewery.
+  follow-up + explicit per-order beer picker shipped. Still
+  TODO: explicit merchant picker when multiple merchants accept
+  the same tile (today the wizard auto-picks the first matching
+  slot).
 - **[ui] IDLE card-first polish.** Stash + auto-prefill shipped.
   Future polish: highlight only action buttons that the stashed
   card could legally authorise (e.g. a Brewery industry card
