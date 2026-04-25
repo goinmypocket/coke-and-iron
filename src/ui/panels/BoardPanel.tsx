@@ -368,17 +368,80 @@ function DistrictCityShape({
   );
 }
 
+/** Compute icon centre positions and a unit icon size for n icons
+ *  packed inside a TILE-sized cell. Centroid of the centres equals
+ *  the slot's centre. */
+function iconCentroidPositions(
+  n: number,
+  cx: number,
+  cy: number,
+): { size: number; centres: readonly (readonly [number, number])[] } {
+  if (n <= 1) {
+    // Single icon: large, centred.
+    return { size: TILE * 0.7, centres: [[cx, cy]] };
+  }
+  if (n === 2) {
+    // Side by side, midpoint at centre.
+    const size = TILE * 0.42;
+    const offset = size / 2 + 1;
+    return {
+      size,
+      centres: [
+        [cx - offset, cy],
+        [cx + offset, cy],
+      ],
+    };
+  }
+  if (n === 3) {
+    // Equilateral triangle: top, bottom-left, bottom-right. Centroid
+    // sits at (cx, cy) by construction.
+    const size = TILE * 0.36;
+    const r = TILE * 0.26;
+    const sin60 = Math.sqrt(3) / 2;
+    return {
+      size,
+      centres: [
+        [cx, cy - r],
+        [cx - r * sin60, cy + r * 0.5],
+        [cx + r * sin60, cy + r * 0.5],
+      ],
+    };
+  }
+  // 4+ icons → 2×2 grid (positions form a regular grid whose centroid
+  // is the slot centre). Extras cycle inside the grid.
+  const cols = 2;
+  const rows = Math.ceil(n / 2);
+  const size = Math.min(TILE * 0.32, (TILE - 4) / rows);
+  const centres: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = cx + (col - (cols - 1) / 2) * size;
+    const y = cy + (row - (rows - 1) / 2) * size;
+    centres.push([x, y]);
+  }
+  return { size, centres };
+}
+
 function SlotAcceptGlyph({
   accept,
 }: {
   accept: readonly IndustryName[];
 }) {
-  // Slot cell is TILE × TILE; the glyph centres inside it.
+  // Slot cell is TILE × TILE; the centroid of the icon-centre positions
+  // is always the slot's own centre. Sizing rules:
+  //   1 industry  → big centred icon
+  //   2 industries → side-by-side, midpoint at centre
+  //   3 industries → triangle (top, bottom-left, bottom-right)
+  //   4+ industries → 2×2 grid (rare combo case)
+  //   wildcard (empty list) → "ANY" text
+  const cx = TILE / 2;
+  const cy = TILE / 2;
   if (accept.length === 0) {
     return (
       <text
-        x={TILE / 2}
-        y={TILE / 2 + 3}
+        x={cx}
+        y={cy + 3}
         className="board-slot__label"
         textAnchor="middle"
       >
@@ -386,31 +449,16 @@ function SlotAcceptGlyph({
       </text>
     );
   }
-  // Pack accept-list icons in a square grid inside the cell. 1-2 icons
-  // sit on a single row; 3 icons → 2 on top + 1 centred below; 4+ →
-  // 2×2 grid (capped). Icons stay sized so the rhythm matches a
-  // single-icon slot.
-  const n = accept.length;
-  const cols = n <= 2 ? n : 2;
-  const rows = n <= 2 ? 1 : Math.ceil(n / 2);
-  const iconSize = Math.min(11, (TILE - 4) / Math.max(cols, rows));
-  const cells: { ind: IndustryName; x: number; y: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    const isOddLast = n === 3 && i === 2;
-    const col = isOddLast ? 0.5 : i % 2;
-    const row = isOddLast ? 1 : Math.floor(i / 2);
-    const x = TILE / 2 + (col - 0.5) * iconSize - iconSize / 2 + iconSize / 2;
-    const y = TILE / 2 + (row - (rows - 1) / 2) * iconSize - iconSize / 2;
-    cells.push({ ind: accept[i]!, x: x - iconSize / 2, y });
-  }
+  const positions = iconCentroidPositions(accept.length, cx, cy);
+  const iconSize = positions.size;
   return (
     <g>
-      {cells.map(({ ind, x, y }, i) => (
+      {accept.map((ind, i) => (
         <image
           key={ind + i}
           href={INDUSTRY_ICON[ind]}
-          x={x}
-          y={y}
+          x={positions.centres[i]![0] - iconSize / 2}
+          y={positions.centres[i]![1] - iconSize / 2}
           width={iconSize}
           height={iconSize}
           preserveAspectRatio="xMidYMid meet"
@@ -501,32 +549,47 @@ function DSlot({ accept }: { accept: MerchantTileAccept | null }) {
   );
 }
 
+const MERCHANT_ANY_INDUSTRIES: readonly IndustryName[] = [
+  "COTTON_MILL",
+  "MANUFACTURER",
+  "POTTERY",
+];
+
 function SlotAcceptDisplay({ accept }: { accept: MerchantTileAccept }) {
+  if (accept === "BLANK") return null;
+  // ANY merchant slot → render the three sellable industries in a
+  // triangle, same centroid-at-centre rule as building slots.
   if (accept === "ANY") {
+    const positions = iconCentroidPositions(3, TILE / 2, TILE / 2);
+    const iconSize = positions.size;
     return (
-      <text
-        x={TILE / 2}
-        y={TILE / 2 + 3}
-        textAnchor="middle"
-        fontSize={7}
-        fontWeight={700}
-        fill="#1a1a1a"
-      >
-        ANY
-      </text>
+      <g>
+        {MERCHANT_ANY_INDUSTRIES.map((ind, i) => (
+          <image
+            key={ind}
+            href={INDUSTRY_ICON[ind]}
+            x={positions.centres[i]![0] - iconSize / 2}
+            y={positions.centres[i]![1] - iconSize / 2}
+            width={iconSize}
+            height={iconSize}
+            preserveAspectRatio="xMidYMid meet"
+          />
+        ))}
+      </g>
     );
   }
-  if (accept === "BLANK") return null;
-  // accept is one of COTTON_MILL / MANUFACTURER / POTTERY
+  // Specific industry — single big centred icon (matches the city
+  // slot's single-industry rendering).
+  const positions = iconCentroidPositions(1, TILE / 2, TILE / 2);
+  const iconSize = positions.size;
   const ind = accept as IndustryName;
-  const size = TILE * 0.55;
   return (
     <image
       href={INDUSTRY_ICON[ind]}
-      x={TILE / 2 - size / 2}
-      y={TILE / 2 - size / 2 - 1}
-      width={size}
-      height={size}
+      x={positions.centres[0]![0] - iconSize / 2}
+      y={positions.centres[0]![1] - iconSize / 2}
+      width={iconSize}
+      height={iconSize}
       preserveAspectRatio="xMidYMid meet"
     />
   );
