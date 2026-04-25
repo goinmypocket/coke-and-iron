@@ -1,4 +1,4 @@
-import { useGameState } from "../hooks/useGameState";
+import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 import type { Card } from "../../engine";
@@ -20,7 +20,7 @@ export function HandPanel() {
       name: active?.displayName ?? "—",
       hand: active?.hand ?? [],
     };
-  });
+  }, shallowEqual);
 
   const wizardOpen = wizard.state.phase !== "IDLE";
 

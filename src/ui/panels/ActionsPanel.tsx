@@ -10,7 +10,7 @@
 import { toast } from "sonner";
 import { reasonToText } from "../affordances/toast";
 import { useEngine } from "../hooks/useEngine";
-import { useGameState } from "../hooks/useGameState";
+import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
 
@@ -24,7 +24,7 @@ export function ActionsPanel() {
     canAct: s.actionsRemaining > 0 && s.pendingShortfalls.length === 0 && s.phase === "PLAYER_TURNS",
     canEndTurn: s.actionsRemaining === 0 && s.pendingShortfalls.length === 0 && s.phase === "PLAYER_TURNS",
     activePlayerId: s.turnOrder[s.currentPlayerIndex] ?? null,
-  }));
+  }), shallowEqual);
 
   const wizardActive = wizard.state.phase !== "IDLE";
   const isPass = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "PASS";

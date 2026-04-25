@@ -1,4 +1,4 @@
-import { useGameState } from "../hooks/useGameState";
+import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 
 /**
@@ -21,7 +21,7 @@ export function GameStatePanel() {
       activeName: active?.displayName ?? "—",
       activeColor: active?.pawnColor ?? "var(--muted)",
     };
-  });
+  }, shallowEqual);
 
   return (
     <Panel id="game_state" title="Game state">
