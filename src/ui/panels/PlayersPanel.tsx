@@ -61,7 +61,7 @@ const INDUSTRY_COLUMNS: readonly IndustryColumnSpec[] = [
 export function PlayersPanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
   return (
-    <Panel id="players" title="Players">
+    <Panel id="player_mats" title="Player Mats">
       <div className="players-panel">
         {turnOrder.map((seatId) => (
           <PlayerSubPanel key={seatId} seatId={seatId} />

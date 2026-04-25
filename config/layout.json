@@ -1,16 +1,16 @@
 {
-	"_comment": "Grid placement for named panels. Panel ids must match the registry in UI spec §6. Income on the far left, board fills the centre under a player_state scoreboard strip, all other panels stack on the right column in the order: game_state, players, remaining_cards, actions, hand, recent_actions.",
-	"columns": "auto 2fr 1.4fr",
-	"rows": "auto 0.7fr 2.4fr 1.4fr 0.7fr 1.2fr 1.4fr",
+	"_comment": "Grid placement for named panels. Panel ids must match the registry in UI spec §6. Income on the far left (fixed width — its content is intrinsically narrow), board fills the centre top with player mats stacked below it, and the right column carries the dense info panels in the order: game_state, player_info, remaining_cards, actions, hand, recent_actions.",
+	"columns": "8rem 2fr 1.4fr",
+	"rows": "1fr 1fr 1.2fr 1.2fr 1.4fr 1.6fr",
 	"panels": [
-		{ "id": "income", "column": "1 / 2", "row": "1 / 8" },
-		{ "id": "player_state", "column": "2 / 3", "row": "1 / 2" },
-		{ "id": "board", "column": "2 / 3", "row": "2 / 8" },
-		{ "id": "game_state", "column": "3 / 4", "row": "1 / 3" },
-		{ "id": "players", "column": "3 / 4", "row": "3 / 4" },
-		{ "id": "remaining_cards", "column": "3 / 4", "row": "4 / 5" },
-		{ "id": "actions", "column": "3 / 4", "row": "5 / 6" },
-		{ "id": "hand", "column": "3 / 4", "row": "6 / 7" },
-		{ "id": "recent_actions", "column": "3 / 4", "row": "7 / 8" }
+		{ "id": "income", "column": "1 / 2", "row": "1 / 7" },
+		{ "id": "board", "column": "2 / 3", "row": "1 / 5" },
+		{ "id": "player_mats", "column": "2 / 3", "row": "5 / 7" },
+		{ "id": "game_state", "column": "3 / 4", "row": "1 / 2" },
+		{ "id": "player_info", "column": "3 / 4", "row": "2 / 3" },
+		{ "id": "remaining_cards", "column": "3 / 4", "row": "3 / 4" },
+		{ "id": "actions", "column": "3 / 4", "row": "4 / 5" },
+		{ "id": "hand", "column": "3 / 4", "row": "5 / 6" },
+		{ "id": "recent_actions", "column": "3 / 4", "row": "6 / 7" }
 	]
 }

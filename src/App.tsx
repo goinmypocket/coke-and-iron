@@ -44,8 +44,8 @@ export function App() {
           <PanelGrid>
             {{
               game_state: <GameStatePanel />,
-              player_state: <PlayerStatePanel />,
-              players: <PlayersPanel />,
+              player_info: <PlayerStatePanel />,
+              player_mats: <PlayersPanel />,
               board: <BoardPanel />,
               income: <IncomeTrackerPanel />,
               hand: <HandPanel />,

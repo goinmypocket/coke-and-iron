@@ -23,7 +23,7 @@ export function PlayerStatePanel() {
   const currentPlayerIndex = useGameState((s) => s.currentPlayerIndex);
 
   return (
-    <Panel id="player_state" title="Players">
+    <Panel id="player_info" title="Player Info">
       <table className="player-table">
         <thead>
           <tr>

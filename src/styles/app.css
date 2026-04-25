@@ -121,17 +121,9 @@ body {
 [data-panel-id="actions"] .panel__content,
 [data-panel-id="recent_actions"] .panel__content,
 [data-panel-id="game_state"] .panel__content,
-[data-panel-id="player_state"] .panel__content,
-[data-panel-id="players"] .panel__content {
+[data-panel-id="player_info"] .panel__content,
+[data-panel-id="player_mats"] .panel__content {
   font-size: clamp(0.6rem, 4cqi, 1rem);
-}
-[data-panel-id="hand"] .panel__title,
-[data-panel-id="actions"] .panel__title,
-[data-panel-id="recent_actions"] .panel__title,
-[data-panel-id="game_state"] .panel__title,
-[data-panel-id="player_state"] .panel__title,
-[data-panel-id="players"] .panel__title {
-  font-size: clamp(0.7rem, 4.4cqi, 1.05rem);
 }
 .panel--emphasized {
   outline: 2px solid var(--warm-gold);
@@ -150,12 +142,13 @@ body {
   z-index: 100;
 }
 .panel__title {
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.45rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--ink);
   font-weight: 600;
+  font-size: 0.8rem;
 }
 .panel__maximize {
   background: transparent;
@@ -175,16 +168,15 @@ body {
   overflow: auto;
 }
 
-/* Income panel is very dense — override the framework's generic
- * floors so it can shrink to just the width of the income ladder. */
+/* Income panel is very dense — turn off inline-size containment so its
+ * intrinsic width is honoured (otherwise the auto-sized track sees a
+ * 0px content width and collapses), and let it shrink hug the ladder. */
 [data-panel-id="income"] {
   min-width: 0;
+  container-type: normal;
 }
 [data-panel-id="income"] .panel__content {
   padding: 0.25rem 0.2rem;
-}
-[data-panel-id="income"] .panel__title {
-  padding: 0.2rem 0.4rem;
 }
 
 /* ---------- Panel-specific rules (just enough to render legibly) ---------- */
@@ -200,15 +192,18 @@ body {
 }
 
 .player-table {
-  width: 100%;
+  /* width:auto so each column snaps to its content's natural width
+   * rather than stretching to fill the panel. */
+  width: auto;
   border-collapse: collapse;
   font-size: 0.95em;
 }
 .player-table th,
 .player-table td {
   text-align: left;
-  padding: 0.25rem 0.5rem;
+  padding: 0.15rem 0.35rem;
   border-bottom: 1px solid var(--soft-tint);
+  white-space: nowrap;
 }
 .player-table tr.player-row--active {
   background: var(--soft-tint);
@@ -235,8 +230,7 @@ body {
   width: 3.4em;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  padding: 0.2em;
-  font-size: 0.95em;
+  padding: 0.15em;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -245,6 +239,7 @@ body {
   user-select: none;
   cursor: pointer;
   border-radius: 2px;
+  overflow: hidden;
 }
 .card-face:hover {
   background: var(--soft-tint);
@@ -252,11 +247,15 @@ body {
 .card-face--wild {
   background: var(--soft-tint);
   font-weight: 700;
-  font-size: 0.85em;
+  font-size: 0.7em;
 }
 .card-face__city {
+  /* Card body is ~3.4em wide; long city names like "Birmingham" must
+   * wrap into the available height, so size text well below the panel
+   * font and let break-word/hyphens kick in. */
+  font-size: 0.6em;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.05;
   word-break: break-word;
   hyphens: auto;
 }
