@@ -13,6 +13,14 @@
 //                       Works tile, any owner) per pick, falling back to
 //                       MARKET when none remain.
 //
+// CONVENTION — clicks always ADD, never deselect.
+//   Wizards that accept REPEATED picks (Develop allows 2 of the same
+//   industry — the engine pops the stack in order, see develop.ts; the
+//   same will be true for Sell's beer sources, Build's coal sources, etc.)
+//   must NOT toggle on a duplicate click. Each click adds a pick; the
+//   user clears via "Reset Selection". Toggle-on-duplicate makes
+//   "click twice for two of the same" silently impossible to express.
+//
 // Card-first flow (§10.1) is not yet implemented — clicks in IDLE no-op.
 // =============================================================================
 
@@ -143,19 +151,19 @@ export function WizardProvider({ children }: { children: ReactNode }) {
 
   const pickIndustry = useCallback(
     (seatId: PlayerId, industry: IndustryName) => {
+      // Develop accepts two picks of the same industry (§5.3) — the engine
+      // pops the stack in order between them. Each click here ADDS one
+      // pick; never deselects. Reset Selection clears the wizard if the
+      // player wants to start over.
       const live = state;
       if (live.phase !== "AWAITING_DEVELOP_INDUSTRIES") return;
       if (live.developSeatId !== seatId) return;
+      if (live.industries.length >= 2) return;
 
-      const already = live.industries.includes(industry);
-      const nextCount = already
-        ? live.industries.length - 1
-        : live.industries.length + 1;
+      dispatch({ type: "ADD_DEVELOP_INDUSTRY", industry });
 
-      dispatch({ type: "TOGGLE_DEVELOP_INDUSTRY", industry });
-
-      // Auto-submit when we just landed on 2 picks.
-      if (!already && nextCount === 2) {
+      // Auto-submit on the second pick.
+      if (live.industries.length + 1 === 2) {
         const projected: WizardState = {
           ...live,
           industries: [...live.industries, industry],

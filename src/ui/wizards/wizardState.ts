@@ -48,7 +48,7 @@ export type WizardAction =
       developSeatId: PlayerId;
     }
   | {
-      type: "TOGGLE_DEVELOP_INDUSTRY";
+      type: "ADD_DEVELOP_INDUSTRY";
       industry: IndustryName;
     }
   | { type: "RESET" };
@@ -94,15 +94,13 @@ export function wizardReducer(
         industries: [],
       };
     }
-    case "TOGGLE_DEVELOP_INDUSTRY": {
+    case "ADD_DEVELOP_INDUSTRY": {
+      // Develop allows TWO tiles from the same industry stack (§5.3 — the
+      // engine pops them in order, so the second pop sees a depleted
+      // stack). Each click ADDS a pick; we never deselect on click. Cap
+      // at 2 — the wizard auto-submits there. Use Reset Selection to
+      // clear and start over.
       if (state.phase !== "AWAITING_DEVELOP_INDUSTRIES") return state;
-      const i = state.industries.indexOf(action.industry);
-      if (i >= 0) {
-        return {
-          ...state,
-          industries: state.industries.filter((x) => x !== action.industry),
-        };
-      }
       if (state.industries.length >= 2) return state;
       return {
         ...state,

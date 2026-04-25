@@ -223,6 +223,11 @@ body {
   font-size: 0.7em;
   color: var(--muted);
 }
+.mat-tile__pick-count {
+  font-size: 0.75em;
+  color: var(--warm-gold);
+  font-weight: 700;
+}
 .mat-tile--empty {
   opacity: 0.4;
   justify-content: center;

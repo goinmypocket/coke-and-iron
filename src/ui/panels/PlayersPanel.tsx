@@ -78,10 +78,13 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
   const wantingIndustry =
     wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES" &&
     wizard.state.developSeatId === seatId;
-  const pickedIndustries =
+  // industries can repeat (Develop allows 2-of-same per §5.3) — so render a
+  // count rather than a binary picked / not-picked state.
+  const pickCounts = countBy(
     wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES"
       ? wizard.state.industries
-      : [];
+      : [],
+  );
 
   return (
     <Panel
@@ -102,7 +105,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
           const topIdx = stack[0];
           const topSpec =
             topIdx === undefined ? null : view.tileCatalogue[topIdx] ?? null;
-          const picked = pickedIndustries.includes(industry);
+          const pickCount = pickCounts.get(industry) ?? 0;
           const clickable =
             wantingIndustry && topSpec !== null && !topSpec.lightBulb;
           return (
@@ -111,7 +114,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
               industry={industry}
               topSpec={topSpec}
               remaining={stack.length}
-              picked={picked}
+              pickCount={pickCount}
               clickable={clickable}
               onClick={
                 clickable
@@ -130,20 +133,20 @@ function MatStack({
   industry,
   topSpec,
   remaining,
-  picked,
+  pickCount,
   clickable,
   onClick,
 }: {
   industry: IndustryName;
   topSpec: IndustryTileSpec | null;
   remaining: number;
-  picked: boolean;
+  pickCount: number;
   clickable: boolean;
   onClick: (() => void) | undefined;
 }) {
   const tileClassName = [
     "mat-tile",
-    picked ? "mat-tile--picked" : "",
+    pickCount > 0 ? "mat-tile--picked" : "",
     clickable ? "mat-tile--clickable" : "",
     topSpec?.lightBulb ? "mat-tile--lightbulb" : "",
     topSpec === null ? "mat-tile--empty" : "",
@@ -185,10 +188,21 @@ function MatStack({
                 no-dev
               </div>
             ) : null}
+            {pickCount > 0 ? (
+              <div className="mat-tile__pick-count">×{pickCount}</div>
+            ) : null}
           </>
         )}
       </div>
       <div className="mat-stack__remaining">×{remaining}</div>
     </div>
   );
+}
+
+function countBy(
+  industries: readonly IndustryName[],
+): ReadonlyMap<IndustryName, number> {
+  const m = new Map<IndustryName, number>();
+  for (const ind of industries) m.set(ind, (m.get(ind) ?? 0) + 1);
+  return m;
 }
