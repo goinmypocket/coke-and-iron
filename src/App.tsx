@@ -5,9 +5,11 @@ import { LoopbackTransport } from "./network/LoopbackTransport";
 import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { PanelGrid } from "./ui/layout/PanelGrid";
+import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { GameStatePanel } from "./ui/panels/GameStatePanel";
 import { HandPanel } from "./ui/panels/HandPanel";
 import { PlayerStatePanel } from "./ui/panels/PlayerStatePanel";
+import { WizardProvider } from "./ui/wizards/WizardProvider";
 
 export function App() {
   const [engine, setEngine] = useState<Engine | null>(null);
@@ -23,14 +25,17 @@ export function App() {
 
   return (
     <EngineProvider engine={engine}>
-      <PanelGrid>
-        {{
-          game_state: <GameStatePanel />,
-          player_state: <PlayerStatePanel />,
-          hand: <HandPanel />,
-        }}
-      </PanelGrid>
-      <Toaster position="bottom-center" duration={2000} />
+      <WizardProvider>
+        <PanelGrid>
+          {{
+            game_state: <GameStatePanel />,
+            player_state: <PlayerStatePanel />,
+            hand: <HandPanel />,
+            actions: <ActionsPanel />,
+          }}
+        </PanelGrid>
+        <Toaster position="bottom-center" duration={2000} />
+      </WizardProvider>
     </EngineProvider>
   );
 }

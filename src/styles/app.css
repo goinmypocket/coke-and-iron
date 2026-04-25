@@ -139,3 +139,61 @@ body {
   font-size: 0.7em;
   line-height: 0.5;
 }
+.card-face--picked {
+  outline: 2px solid var(--warm-gold);
+  outline-offset: -2px;
+}
+.card-face--clickable {
+  cursor: pointer;
+}
+.card-face--clickable:hover {
+  background: var(--soft-tint);
+}
+.card-face--clickable.card-face--wild:hover {
+  filter: brightness(0.97);
+}
+
+/* ---------- Actions panel ---------- */
+
+.actions-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+}
+.actions-panel__verbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
+  gap: 0.3rem;
+}
+.actions-panel__controls {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  border-top: 1px dashed var(--soft-tint);
+  padding-top: 0.5rem;
+}
+.action-btn {
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  cursor: pointer;
+  background: var(--panel-bg);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+}
+.action-btn:hover:not(:disabled) {
+  background: var(--soft-tint);
+}
+.action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.action-btn--active {
+  background: var(--warm-gold);
+  color: white;
+  border-color: var(--warm-gold);
+}
+.action-btn--active:hover:not(:disabled) {
+  background: var(--warm-gold);
+  filter: brightness(0.95);
+}
