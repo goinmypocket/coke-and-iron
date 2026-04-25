@@ -12,7 +12,7 @@
 // effectively frozen.
 // =============================================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { GameState, IndustryName, PlayerId } from "../../engine";
 import { reasonToText } from "../affordances/toast";
@@ -29,25 +29,32 @@ const INDUSTRY_LABEL: Readonly<Record<IndustryName, string>> = {
 };
 
 export function ShortfallOverlay() {
+  // Subscribe to stable refs only (no fresh-filter inside the
+  // selector) — we derive the per-player view via useMemo below so
+  // the snapshot stays cache-stable.
   const view = useGameState((s) => {
     const head = s.pendingShortfalls[0];
     if (!head) return null;
     const player = s.players.find((p) => p.id === head.playerId);
     if (!player) return null;
-    const ownTiles = s.builtTiles.filter((t) => t.owner === head.playerId);
     return {
       headPlayerId: head.playerId,
       headPlayerName: player.displayName,
       pawnColor: player.pawnColor,
       owed: head.owed,
       vp: player.vp,
-      ownTiles,
+      builtTiles: s.builtTiles,
       tileCatalogue: s.tileCatalogue,
     };
   }, shallowEqual);
 
+  const ownTiles = useMemo(() => {
+    if (!view) return [];
+    return view.builtTiles.filter((t) => t.owner === view.headPlayerId);
+  }, [view]);
+
   if (!view) return null;
-  return <ShortfallBody view={view} />;
+  return <ShortfallBody view={{ ...view, ownTiles }} />;
 }
 
 interface View {
@@ -56,6 +63,7 @@ interface View {
   readonly pawnColor: string;
   readonly owed: number;
   readonly vp: number;
+  readonly builtTiles: GameState["builtTiles"];
   readonly ownTiles: GameState["builtTiles"];
   readonly tileCatalogue: GameState["tileCatalogue"];
 }

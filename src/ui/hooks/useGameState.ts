@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { useContext, useRef, useSyncExternalStore } from "react";
 import type { GameState } from "../../engine/types";
 import { EngineContext } from "./EngineProvider";
@@ -7,16 +8,34 @@ const UNINITIALIZED = Symbol("uninitialized");
 /**
  * Subscribe to the engine and project a slice of GameState.
  *
- * Caches the most recent selector result so getSnapshot returns a
- * REFERENCE-stable value while the underlying state is unchanged
- * (per `isEqual`). useSyncExternalStore throws "The result of
- * getSnapshot should be cached to avoid an infinite loop" otherwise —
- * which is exactly what selectors building object literals do
- * (`s => ({a: s.x, b: s.y})`).
+ * **Two-tier cache** that defends against `useSyncExternalStore`'s
+ * "The result of getSnapshot should be cached to avoid an infinite
+ * loop" error:
  *
- * Pass `shallowEqual` for selectors that return objects or arrays
- * whose contents are stable but whose outer reference changes per
- * call.
+ *   1. **State-reference cache** — the engine returns the SAME
+ *      GameState object until something mutates it. We memoise the
+ *      selector against that ref, so getSnapshot calls within a
+ *      single render hit the cache without re-running the selector
+ *      AT ALL. This is the load-bearing fix: even an unstable
+ *      selector like `s => s.players.map(...)` (which builds a fresh
+ *      array of fresh objects) returns the same memoised reference
+ *      while state is unchanged, satisfying React's stability
+ *      requirement.
+ *
+ *   2. **Value-equality cache** — when state DOES change, run the
+ *      selector once, then compare the new result with the cached
+ *      one via `isEqual`. If equal, keep the old reference so
+ *      downstream `useMemo` / `===` comparisons stay stable.
+ *
+ * Pass `shallowEqual` (exported below) when the selector returns
+ * objects or arrays whose CONTENTS are stable across state changes
+ * but whose outer reference is freshly built each call.
+ *
+ * In dev builds we also detect unstable selectors at the source: if
+ * two calls against the SAME state ref disagree on `isEqual`, the
+ * selector is non-deterministic and we log a clear warning pointing
+ * at the call site. (We don't throw — that would cascade through
+ * React's render pipeline and obscure the real culprit.)
  */
 export function useGameState<T>(
   selector: (state: GameState) => T,
@@ -26,12 +45,45 @@ export function useGameState<T>(
   if (!engine) {
     throw new Error("useGameState must be used inside <EngineProvider>");
   }
+  const stateRef = useRef<GameState | null>(null);
   const cacheRef = useRef<T | typeof UNINITIALIZED>(UNINITIALIZED);
+
   return useSyncExternalStore(engine.subscribe, () => {
-    const next = selector(engine.getState());
-    if (cacheRef.current !== UNINITIALIZED && isEqual(cacheRef.current as T, next)) {
+    const state = engine.getState();
+
+    if (
+      stateRef.current === state &&
+      cacheRef.current !== UNINITIALIZED
+    ) {
+      // Same state object as last call — the engine hasn't mutated
+      // since we last ran. Return the cached projection regardless of
+      // whether the selector itself is referentially stable.
+      if (import.meta.env.DEV) {
+        const recomputed = selector(state);
+        if (!isEqual(cacheRef.current as T, recomputed)) {
+          // eslint-disable-next-line no-console
+          console.error(
+            "[useGameState] Selector returned a non-equal value for the SAME GameState reference. " +
+              "This indicates the selector is non-deterministic — usually `s => s.foo.map(...)` " +
+              "or `s => ({...})` paired with the default Object.is equality. " +
+              "Either return a stable reference (e.g. `s.foo`) or pass `shallowEqual`. " +
+              "The state-reference cache is masking the bug at runtime; please fix the selector.",
+            { cached: cacheRef.current, recomputed },
+          );
+        }
+      }
       return cacheRef.current as T;
     }
+
+    const next = selector(state);
+    if (
+      cacheRef.current !== UNINITIALIZED &&
+      isEqual(cacheRef.current as T, next)
+    ) {
+      stateRef.current = state;
+      return cacheRef.current as T;
+    }
+    stateRef.current = state;
     cacheRef.current = next;
     return next;
   });

@@ -7,10 +7,11 @@
 // hides for the rest of the session.
 // =============================================================================
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { rankSeats } from "../../engine";
-import type { RankReason } from "../../engine";
-import { shallowEqual, useGameState } from "../hooks/useGameState";
+import type { GameState, RankReason } from "../../engine";
+import { useEngine } from "../hooks/useEngine";
+import { useGameState } from "../hooks/useGameState";
 
 const TIE_BREAK_LABEL: Readonly<Record<RankReason, string>> = {
   VP: "VP",
@@ -20,17 +21,23 @@ const TIE_BREAK_LABEL: Readonly<Record<RankReason, string>> = {
 };
 
 export function EndGameOverlay() {
-  const view = useGameState((s) => {
-    if (s.phase !== "GAME_OVER") return null;
-    return { ranked: rankSeats(s) };
-  }, shallowEqual);
+  // Subscribe only to phase + the player array — both are stable refs
+  // until something actually changes — and compute the ranked
+  // scoreboard outside the selector so we don't return a fresh array
+  // every getSnapshot call.
+  const phase = useGameState((s) => s.phase);
+  const engine = useEngine();
+  const ranked = useMemo(() => {
+    if (phase !== "GAME_OVER") return null;
+    return rankSeats(engine.getState() as GameState);
+  }, [phase, engine]);
 
   const [closed, setClosed] = useState(false);
 
-  if (!view || closed) return null;
+  if (ranked === null || closed) return null;
 
-  const top = view.ranked[0];
-  const second = view.ranked[1];
+  const top = ranked[0];
+  const second = ranked[1];
   const headline =
     top !== undefined &&
     second !== undefined &&
@@ -57,7 +64,7 @@ export function EndGameOverlay() {
             </tr>
           </thead>
           <tbody>
-            {view.ranked.map((row) => (
+            {ranked.map((row) => (
               <tr key={row.playerId}>
                 <td>{row.rank}</td>
                 <td>

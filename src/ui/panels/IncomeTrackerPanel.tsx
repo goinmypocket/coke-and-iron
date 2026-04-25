@@ -15,7 +15,7 @@ import {
   stepToLevel,
 } from "../../engine";
 import type { PawnColor, PlayerId } from "../../engine";
-import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 
 interface SeatMarker {
@@ -24,25 +24,21 @@ interface SeatMarker {
 }
 
 export function IncomeTrackerPanel() {
-  const seats = useGameState(
-    (s) =>
-      s.players.map((p) => ({
-        seatId: p.id,
-        incomeStep: p.incomeStep,
-        pawnColor: p.pawnColor,
-      })),
-    shallowEqual,
-  );
+  // Read the players array directly — its outer reference is stable
+  // unless one of the players actually mutates. Building a fresh array
+  // of fresh objects in the selector would create a NEW value every
+  // call and defeat shallowEqual's element-by-element comparison.
+  const players = useGameState((s) => s.players);
 
   const markersByStep = useMemo(() => {
     const m = new Map<number, SeatMarker[]>();
-    for (const seat of seats) {
-      const list = m.get(seat.incomeStep) ?? [];
-      list.push({ seatId: seat.seatId, pawnColor: seat.pawnColor });
-      m.set(seat.incomeStep, list);
+    for (const p of players) {
+      const list = m.get(p.incomeStep) ?? [];
+      list.push({ seatId: p.id, pawnColor: p.pawnColor });
+      m.set(p.incomeStep, list);
     }
     return m;
-  }, [seats]);
+  }, [players]);
 
   // Render top to bottom from highest step (level 30) down.
   const rows: number[] = [];
