@@ -94,6 +94,10 @@ export function BoardPanel() {
   const wizard = useWizard();
   const view = useGameState((s) => ({
     era: s.era,
+    round: s.round,
+    playerCount: s.playerCount,
+    turnOrder: s.turnOrder,
+    currentPlayerIndex: s.currentPlayerIndex,
     districtCities: s.districtCities,
     merchantCities: s.merchantCities,
     lines: s.lines,
@@ -276,6 +280,17 @@ export function BoardPanel() {
           coalGlow={coalGlow}
           ironGlow={ironGlow}
         />
+        <CityBanners
+          districtCities={view.districtCities}
+          merchantCities={view.merchantCities}
+        />
+        <TurnOrderWidget
+          round={view.round}
+          playerCount={view.playerCount}
+          turnOrder={view.turnOrder}
+          currentPlayerIndex={view.currentPlayerIndex}
+          players={view.players}
+        />
       </svg>
     </Panel>
   );
@@ -319,25 +334,9 @@ function DistrictCityShape({
       transform={`translate(${x - cityW / 2}, ${y - cityH / 2})`}
       style={cityWrongForCard ? { opacity: 0.35 } : undefined}
     >
-      <rect
-        x={0}
-        y={0}
-        width={cityW}
-        height={cityH}
-        rx={4}
-        fill={fill}
-        fillOpacity={0.18}
-        stroke={fill}
-        strokeWidth={1.2}
-      />
-      <text
-        x={cityW / 2}
-        y={-3}
-        className="board-city__label"
-        textAnchor="middle"
-      >
-        {city.name}
-      </text>
+      {/* No tinted background and no outer city outline — the district
+       * colour lives in each slot's border + the city-name banner
+       * (rendered as a separate front layer in CityBanners). */}
       {city.slots.map((slot, i) => {
         const [cellX, cellY] = slotCellPos(i, city.slots.length);
         const isOccupied = occupied.has(`${city.name}#${i}`);
@@ -505,36 +504,25 @@ function MerchantCityShape({
 }) {
   const [x, y] = city.position;
   // Layout (top → bottom):
-  //   - link-points indicator (one LinkPointsIcon per link point — 2
-  //     for every merchant per §2.4)
-  //   - city name
   //   - row of D-slots (TILE × TILE each)
   //   - beer indicator below each slot
-  //   - bonus badge below the slots / beer
-  // Inactive cities show empty D frames + no beer indicator.
+  //   - bonus badge (the rewards offered for selling here)
+  //   - city name
+  //   - link-points badge (one LinkPointsIcon per link point — 2 for
+  //     every merchant per §2.4, rendered as connected hexes)
+  // Inactive cities show empty D frames + empty beer placeholders.
   const slotCount = Math.max(city.slotCount, 1);
   const clusterW = slotCount * TILE;
   const totalH = TILE + BEER_BOX + 2;
   // Vertical offsets relative to the slot row's top-left (0, 0):
-  const NAME_Y = -10;
-  const LINK_BADGE_Y = NAME_Y - 16;
   const BONUS_BADGE_Y = TILE + BEER_BOX + 14;
+  const NAME_Y = BONUS_BADGE_Y + 18;
+  const LINK_BADGE_Y = NAME_Y + 16;
   return (
     <g
       className={"board-merchant" + (active ? "" : " board-merchant--inactive")}
       transform={`translate(${x - clusterW / 2}, ${y - totalH / 2})`}
     >
-      <g transform={`translate(${clusterW / 2}, ${LINK_BADGE_Y})`}>
-        <LinkPointsBadge count={city.linkPoints} />
-      </g>
-      <text
-        x={clusterW / 2}
-        y={NAME_Y}
-        className="board-merchant__label"
-        textAnchor="middle"
-      >
-        {city.name}
-      </text>
       {Array.from({ length: slotCount }).map((_, i) => {
         const slot = slotMap.get(i);
         // Beer indicator always renders so inactive merchants
@@ -549,6 +537,12 @@ function MerchantCityShape({
       })}
       <g transform={`translate(${clusterW / 2}, ${BONUS_BADGE_Y})`}>
         <BonusBadge bonus={city.bonus} value={city.bonusValue} />
+      </g>
+      {/* City name is rendered as a banner in the front-layer
+       * CityBanners pass; merchant link points sit just below where
+       * the name lives, so we still reserve the NAME_Y row. */}
+      <g transform={`translate(${clusterW / 2}, ${LINK_BADGE_Y})`}>
+        <LinkPointsBadge count={city.linkPoints} />
       </g>
     </g>
   );
@@ -1306,6 +1300,238 @@ function SvgMoneyCoin({
       >
         {amount}
       </text>
+    </g>
+  );
+}
+
+// =============================================================================
+// City name banners — front layer (rendered last so banners sit on top
+// of every other element, including lines that pass through cities).
+// District cities use the district's fill colour; merchant cities
+// share a sandy badge colour. All banners draw a black-on-coloured
+// label.
+// =============================================================================
+
+const CITY_BANNER_HEIGHT = 14;
+const CITY_BANNER_CHAR_W = 5.5;
+const CITY_BANNER_PAD_X = 5;
+const MERCHANT_BANNER_FILL = "#e5d9b4";
+
+function CityBanners({
+  districtCities,
+  merchantCities,
+}: {
+  districtCities: readonly DistrictCity[];
+  merchantCities: readonly MerchantCity[];
+}) {
+  return (
+    <g className="board-city-banners">
+      {districtCities.map((c) => {
+        const fill = DISTRICT_FILL[c.districtTag] ?? "#aaaaaa";
+        const [cityW, cityH] = cityBodyDims(c.slots.length);
+        const cx = c.position[0];
+        // Banner top sits 4u below the bottom edge of the city body.
+        const topY = c.position[1] + cityH / 2 + 4;
+        return (
+          <CityBanner
+            key={c.name}
+            cx={cx}
+            topY={topY}
+            innerW={cityW}
+            fill={fill}
+            text={c.name}
+          />
+        );
+      })}
+      {merchantCities.map((m) => {
+        const slotCount = Math.max(m.slotCount, 1);
+        const clusterW = slotCount * TILE;
+        const totalH = TILE + BEER_BOX + 2;
+        // Mirror the merchant layout in MerchantCityShape: bonus badge
+        // sits at TILE+BEER_BOX+14 below local origin; the name banner
+        // takes the slot 18u below that.
+        const localBonusY = TILE + BEER_BOX + 14;
+        const localNameY = localBonusY + 18;
+        const cx = m.position[0];
+        const topY = m.position[1] - totalH / 2 + localNameY - CITY_BANNER_HEIGHT / 2;
+        return (
+          <CityBanner
+            key={m.name}
+            cx={cx}
+            topY={topY}
+            innerW={clusterW}
+            fill={MERCHANT_BANNER_FILL}
+            text={m.name}
+          />
+        );
+      })}
+    </g>
+  );
+}
+
+function CityBanner({
+  cx,
+  topY,
+  innerW,
+  fill,
+  text,
+}: {
+  cx: number;
+  topY: number;
+  innerW: number;
+  fill: string;
+  text: string;
+}) {
+  const minTextW = text.length * CITY_BANNER_CHAR_W + CITY_BANNER_PAD_X * 2;
+  const bannerW = Math.max(innerW, minTextW);
+  const x = cx - bannerW / 2;
+  return (
+    <g transform={`translate(${x}, ${topY})`}>
+      <rect
+        x={0}
+        y={0}
+        width={bannerW}
+        height={CITY_BANNER_HEIGHT}
+        fill={fill}
+        stroke="#1a1a1a"
+        strokeWidth={0.6}
+        rx={2}
+      />
+      <text
+        x={bannerW / 2}
+        y={CITY_BANNER_HEIGHT - 4}
+        textAnchor="middle"
+        className="board-city__label"
+        style={{ fill: "#000" }}
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
+
+// =============================================================================
+// Turn order + round indicator — top-right widget on the board canvas.
+// One row per seat in the current round's seating order, showing the
+// pawn-coloured swatch, name in black, and money spent this turn (via
+// MoneyCoin). The active seat row gets a soft highlight strip.
+// =============================================================================
+
+interface TurnOrderPlayer {
+  readonly id: number;
+  readonly displayName: string;
+  readonly pawnColor: string;
+  readonly spentThisRound: number;
+}
+
+/** §4.4 — last round of the current era for each player count. Mirrors
+ *  LAST_ROUND in engine/actions/end-turn.ts. */
+const LAST_ROUND_BY_PLAYER_COUNT: Readonly<Record<number, number>> = {
+  2: 10,
+  3: 9,
+  4: 8,
+};
+
+function TurnOrderWidget({
+  round,
+  playerCount,
+  turnOrder,
+  currentPlayerIndex,
+  players,
+}: {
+  round: number;
+  playerCount: number;
+  turnOrder: readonly number[];
+  currentPlayerIndex: number;
+  players: readonly TurnOrderPlayer[];
+}) {
+  const W = 150;
+  const ROW_H = 20;
+  const HEADER_H = 24;
+  const H = HEADER_H + turnOrder.length * ROW_H + 4;
+  const X = CANVAS - W - 14;
+  const Y = 14;
+  const totalRounds = LAST_ROUND_BY_PLAYER_COUNT[playerCount] ?? round;
+  const playerById = new Map(players.map((p) => [p.id, p]));
+  return (
+    <g
+      className="board-turn-order"
+      transform={`translate(${X}, ${Y})`}
+    >
+      <rect
+        x={0}
+        y={0}
+        width={W}
+        height={H}
+        fill="#fafaf7"
+        stroke="#1a1a1a"
+        strokeWidth={1}
+        rx={4}
+        opacity={0.95}
+      />
+      <text
+        x={W / 2}
+        y={16}
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={700}
+        fill="#1a1a1a"
+      >
+        Round {round}/{totalRounds}
+      </text>
+      <line
+        x1={6}
+        y1={HEADER_H - 2}
+        x2={W - 6}
+        y2={HEADER_H - 2}
+        stroke="#1a1a1a"
+        strokeWidth={0.5}
+      />
+      {turnOrder.map((seatId, i) => {
+        const p = playerById.get(seatId);
+        if (!p) return null;
+        const rowTop = HEADER_H + i * ROW_H;
+        const isActive = i === currentPlayerIndex;
+        const SWATCH = 10;
+        const COIN = 11;
+        return (
+          <g key={seatId} transform={`translate(0, ${rowTop})`}>
+            {isActive ? (
+              <rect
+                x={2}
+                y={0}
+                width={W - 4}
+                height={ROW_H}
+                fill="#f3edd8"
+              />
+            ) : null}
+            <rect
+              x={6}
+              y={(ROW_H - SWATCH) / 2}
+              width={SWATCH}
+              height={SWATCH}
+              fill={p.pawnColor}
+              stroke="#1a1a1a"
+              strokeWidth={0.5}
+            />
+            <text
+              x={20}
+              y={ROW_H / 2 + 3.5}
+              fontSize={10}
+              fontWeight={600}
+              fill="#1a1a1a"
+            >
+              {p.displayName}
+            </text>
+            <MoneyCoin
+              amount={p.spentThisRound}
+              size={COIN}
+              x={W - COIN - 6}
+              y={(ROW_H - COIN) / 2}
+            />
+          </g>
+        );
+      })}
     </g>
   );
 }

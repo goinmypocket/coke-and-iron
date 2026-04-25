@@ -185,7 +185,7 @@ body {
   container-type: normal;
 }
 [data-panel-id="income"] .panel__content {
-  padding: 0.25rem 0.2rem;
+  padding: 0.2rem 0.15rem;
 }
 
 /* Board panel: square content area so the 900x900 board SVG fills it
@@ -245,16 +245,17 @@ body {
 }
 
 .hand-grid {
-  /* Compact 2 × 4 grid of small cards. Card width is em-based so
-   * the cards scale with the panel's container-relative font-size. */
+  /* Compact 2 × 4 grid of cards. Card width is em-based so the cards
+   * scale with the panel's container-relative font-size — sized to
+   * fill most of the Hand panel's content area. */
   display: grid;
-  grid-template-columns: repeat(4, 3.4em);
-  gap: 0.25em;
+  grid-template-columns: repeat(4, 4.5em);
+  gap: 0.3em;
   justify-content: start;
 }
 .card-face {
   aspect-ratio: 5 / 7;
-  width: 3.4em;
+  width: 4.5em;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
   padding: 0.15em;

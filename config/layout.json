@@ -1,6 +1,6 @@
 {
 	"_comment": "Three-column flex layout. `columns` is a track string — fixed widths (8rem) for income and the RHS info column, 1fr for the centre so the board fills the viewport. Panels stack within their column in declaration order; the legacy `row` field is ignored.",
-	"columns": "8rem 1fr 13rem",
+	"columns": "auto 1fr 13rem",
 	"rows": "auto",
 	"panels": [
 		{ "id": "income", "column": "1 / 2", "row": "1 / 2" },

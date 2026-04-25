@@ -34,12 +34,22 @@ export const TILE = 40;
 const TILE_SCALE = TILE / BASE_TILE;
 /** Link-tile height as a fraction of TILE — keeps the link-to-tile
  *  visual ratio constant regardless of TILE. */
-export const LINK_TILE_RATIO = 0.45;
+export const LINK_TILE_RATIO = 0.32;
 export const LINK_TILE_HEIGHT = TILE * LINK_TILE_RATIO;
 export const LINK_TILE_WIDTH = LINK_TILE_HEIGHT * 2;
 /** Display size of a mat tile in CSS pixels — also derived from TILE
  *  so player mats grow / shrink in lock-step with the main board. */
 export const MAT_TILE_PX = TILE * 1.4;
+/** Single source of truth for the corner level (Roman numeral) fill.
+ *  Shared by the unflipped and flipped faces so the two never drift
+ *  apart. */
+const CORNER_LEVEL_FILL = "#1a1a1a";
+/** Size (in BASE_TILE units) of every hexagonal badge — VP, link
+ *  points, income gained, plus the cascade above the flipped face and
+ *  the bonus stack on the mat side column. Defined in one place so
+ *  the hex glyphs read at a uniform size across a tile face and the
+ *  mat region around it. */
+export const HEX_ICON_SIZE = 8;
 
 const ROMAN: readonly string[] = [
   "",
@@ -114,30 +124,30 @@ function FlippedFace({
         stroke="#1a1a1a"
         strokeWidth={0.7}
       />
-      <CornerLevel level={spec.level} fill="#fffdf6" />
+      <CornerLevel level={spec.level} />
       <LinkCascade
         count={spec.linkPoints}
         x={BASE_TILE - 2}
-        y={4}
+        y={1}
         alignRight
       />
       {spec.vp > 0 ? (
         <VictoryPointsIcon
           x={1}
-          y={BASE_TILE - 9}
-          size={8}
+          y={BASE_TILE - HEX_ICON_SIZE - 1}
+          size={HEX_ICON_SIZE}
           amount={spec.vp}
         />
       ) : null}
       {spec.incomeBonus > 0 ? (
         <IncomeGainedIcon
-          x={BASE_TILE - 9}
-          y={BASE_TILE - 9}
-          size={8}
+          x={BASE_TILE - HEX_ICON_SIZE - 1}
+          y={BASE_TILE - HEX_ICON_SIZE - 1}
+          size={HEX_ICON_SIZE}
           amount={spec.incomeBonus}
         />
       ) : null}
-      <CenterIcon industry={spec.industry} y={BASE_TILE * 0.62} />
+      <CenterIcon industry={spec.industry} y={BASE_TILE * 0.5} />
     </g>
   );
 }
@@ -165,7 +175,7 @@ function UnflippedFace({
         stroke="#1a1a1a"
         strokeWidth={0.7}
       />
-      <CornerLevel level={spec.level} fill="#1a1a1a" />
+      <CornerLevel level={spec.level} />
       <CornerBeerCost count={spec.beerToSell} />
       {spec.lightBulb ? (
         <DevelopIcon
@@ -244,14 +254,14 @@ function ResourceTokens({
   return <g>{tokens}</g>;
 }
 
-function CornerLevel({ level, fill }: { level: number; fill: string }) {
+function CornerLevel({ level }: { level: number }) {
   return (
     <text
       x={2}
       y={6.5}
       fontSize={5.5}
       fontWeight={700}
-      fill={fill}
+      fill={CORNER_LEVEL_FILL}
       style={{ pointerEvents: "none" }}
     >
       {ROMAN[level] ?? String(level)}
@@ -274,8 +284,10 @@ function LinkCascade({
   alignRight?: boolean;
 }) {
   if (count <= 0) return null;
-  const size = 5.5;
-  const step = size - 1.5;
+  // Same hex size as VP / income on the same tile face — the cascade
+  // overlap absorbs the extra width.
+  const size = HEX_ICON_SIZE;
+  const step = size - 2;
   const tokens: JSX.Element[] = [];
   for (let i = 0; i < count; i++) {
     const ix = alignRight ? x - size - i * step : x + i * step;

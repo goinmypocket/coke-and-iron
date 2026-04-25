@@ -6,21 +6,20 @@ import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
 import type { PlayerId } from "../../engine";
 
-const ORDINALS = ["1st", "2nd", "3rd", "4th"] as const;
-
 /**
  * §11.5 Player state — one row per seat in CURRENT turn order
  * (first-to-act at the top; active seat tinted warm gold).
  *
  * Columns are tight so the table fits the RHS column (~13rem):
  * Player (with pawn-coloured left border), money, VP, raw income step,
- * income-level icon, money spent this round, turn-order ordinal.
+ * income-level icon, turn-order ordinal. Money spent this round lives
+ * in the on-board turn-order widget, not here.
  *
  * The outer component subscribes to the seat list + active-index only,
  * so a re-seat or active-change is the only thing that re-renders the
  * table layout. Each row is its own component that subscribes
- * independently to that seat's primitives — money / VP / income / spent
- * — so a per-action mutation re-renders just that row.
+ * independently to that seat's primitives so a per-action mutation
+ * re-renders just that row.
  */
 export function PlayerStatePanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
@@ -31,15 +30,14 @@ export function PlayerStatePanel() {
       <table className="player-table">
         <thead>
           <tr>
-            <th>Player</th>
+            <th></th>
             <th>£</th>
             <th>VP</th>
             <th>Step</th>
             <th title="Income level">
               <CurrentIncomeIcon size={12} iconOnly />
             </th>
-            <th>Spent</th>
-            <th>Order</th>
+            <th title="Turn order">#</th>
           </tr>
         </thead>
         <tbody>
@@ -47,7 +45,7 @@ export function PlayerStatePanel() {
             <PlayerRow
               key={seatId}
               seatId={seatId}
-              ordinal={ORDINALS[idx] ?? `${idx + 1}th`}
+              ordinal={String(idx + 1)}
               isActive={idx === currentPlayerIndex}
             />
           ))}
@@ -75,7 +73,6 @@ function PlayerRow({
       money: p.money,
       vp: p.vp,
       incomeStep: p.incomeStep,
-      spentThisRound: p.spentThisRound,
     };
   }, shallowEqual);
 
@@ -96,7 +93,6 @@ function PlayerRow({
       </td>
       <td>{row.incomeStep}</td>
       <td>{stepToLevel(row.incomeStep)}</td>
-      <td>{row.spentThisRound}</td>
       <td>{ordinal}</td>
     </tr>
   );

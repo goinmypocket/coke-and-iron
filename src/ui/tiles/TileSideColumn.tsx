@@ -10,7 +10,7 @@ import type { IndustryTileSpec } from "../../engine";
 import { IncomeGainedIcon } from "../icons/IncomeGainedIcon";
 import { LinkPointsIcon } from "../icons/LinkPointsIcon";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
-import { MAT_TILE_PX, TILE } from "./TileFace";
+import { HEX_ICON_SIZE, MAT_TILE_PX, TILE } from "./TileFace";
 
 /** Side-column width as a fraction of TILE — keeps the visual ratio
  *  between the bonus stack and the tile constant on every board / mat,
@@ -37,7 +37,9 @@ export function TileSideColumn({
   // doesn't look top-heavy.
   const rowH = 9;
   const cx = BASE_SIDE_COL_W / 2;
-  const iconSize = 8;
+  // VP / income / link hexagons all share the same size so the bonus
+  // stack reads consistently with the matching glyphs on the tile face.
+  const iconSize = HEX_ICON_SIZE;
   const half = iconSize / 2;
   const items: JSX.Element[] = [];
   if (spec.vp > 0) {
@@ -63,8 +65,10 @@ export function TileSideColumn({
     );
   }
   if (spec.linkPoints > 0) {
-    // Render N link icons in a cascade, centred on the slot.
-    const linkSize = 6;
+    // Render N link icons in a cascade, centred on the slot. Hex
+    // size matches VP / income on the same tile so all the bonus
+    // glyphs read at the same scale.
+    const linkSize = HEX_ICON_SIZE;
     const step = linkSize - 2;
     const totalW = linkSize + step * (spec.linkPoints - 1);
     const startX = cx - totalW / 2;
