@@ -12,7 +12,7 @@ import { LinkPointsIcon } from "../icons/LinkPointsIcon";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { TILE } from "./TileFace";
 
-export const SIDE_COL_W = 18;
+export const SIDE_COL_W = 12;
 
 export function TileSideColumn({
   spec,

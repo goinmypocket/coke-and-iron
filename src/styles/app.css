@@ -361,13 +361,11 @@ body {
 .mat-side-col {
   display: block;
   flex-shrink: 0;
-}
-.mat-side-col {
-  width: 26px;
+  width: 17px;
   height: 40px;
 }
 .mat-side-col--placeholder {
-  width: 26px;
+  width: 17px;
   height: 40px;
 }
 

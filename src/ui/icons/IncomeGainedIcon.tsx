@@ -30,7 +30,7 @@ export function IncomeGainedIcon({
       aria-label={`+${amount} income`}
     >
       <path
-        d="M 8 1 L 14 9 L 10.5 9 L 10.5 14 L 5.5 14 L 5.5 9 L 2 9 Z"
+        d="M 8 1 L 14 8 L 11.5 8 L 11.5 14 L 4.5 14 L 4.5 8 L 2 8 Z"
         fill="#d4a017"
         stroke="#1a1a1a"
         strokeWidth={0.7}
@@ -38,7 +38,7 @@ export function IncomeGainedIcon({
       />
       <text
         x={8}
-        y={12.6}
+        y={12.4}
         textAnchor="middle"
         fontSize={6}
         fontWeight={700}
