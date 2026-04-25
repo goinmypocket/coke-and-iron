@@ -1376,8 +1376,8 @@ markers.
   its beer, empty outline when consumed). For an **inactive
   city** at this player count (Nottingham at 2 players,
   Warrington at 2 / 3 players), the D-slots render empty (no
-  accept icon) at slightly reduced opacity, and there is no
-  beer indicator. Above the cluster sits the city name and a
+  accept icon, same opacity as active D-slots), and there is
+  no beer indicator. Above the cluster sits the city name and a
   **bonus badge** that uses the bonus's own icon — VP hex for
   `bonus = "VP"`, money coin for `"MONEY"`, income arrow for
   `"INCOME"`, light-bulb for `"DEVELOP"` — with its

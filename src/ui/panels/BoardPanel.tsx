@@ -446,7 +446,6 @@ function MerchantCityShape({
     <g
       className={"board-merchant" + (active ? "" : " board-merchant--inactive")}
       transform={`translate(${x - clusterW / 2}, ${y - totalH / 2})`}
-      style={active ? undefined : { opacity: 0.7 }}
     >
       <text
         x={clusterW / 2}
@@ -496,7 +495,6 @@ function DSlot({ accept }: { accept: MerchantTileAccept | null }) {
         fill="#e5d9b4"
         stroke="#7d6a3a"
         strokeWidth={0.9}
-        opacity={empty ? 0.6 : 1}
       />
       {empty ? null : <SlotAcceptDisplay accept={accept} />}
     </g>
