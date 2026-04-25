@@ -1,40 +1,33 @@
 # Brass Birmingham — digital-game specification
 
-> **Authoritative spec.** This file is the sole source of truth for the
-> game's **rules, entities, config schemas, screen inventory, and
-> interaction flow** — expressed in platform-agnostic terms. Changes to
-> any of those things are edits to this file.
+> **Authoritative rules spec.** This file is the sole source of truth
+> for the game's **rules, entities, and config schemas** — expressed
+> in platform-agnostic terms. Changes to those are edits to this
+> file.
+>
+> **All UI material lives in [`game-ui-spec.md`](./game-ui-spec.md)**
+> — panel inventory, tile-face rendering, icon library, wizard flow,
+> overlays, and every visual contract. This rules spec stays clean
+> of UI concerns; rule references that touch the UI use a `(see UI
+> spec §N)` pointer rather than describing chrome here.
 >
 > **Platform-specific conventions** (tech stack, rendering API,
 > networking transport, file layout for the chosen platform, coding
-> style) are externalised — they live wherever the chosen platform's
-> tooling, scaffold skill, or project documentation puts them, not
-> in this file. A build of the game is always this spec PLUS the
-> platform's externalised conventions. If any statement in this
-> document implies a specific platform, treat it as a bug in the
-> spec.
-
-A single, **self-contained** reference that takes a project from zero
-to playable on any target platform. Every rule, every entity, every
-config schema, every screen, and every interaction is defined inside
-this document — no external rulebook is referenced. A developer should
-be able to rebuild the game from this document plus a chosen platform
-profile alone.
+> style) are externalised — they live in the platform profile, not
+> here.
 
 **Scope.** Everything a 2–4 player hot-seat (plus optional networked)
 implementation needs: the full rules, a glossary of every in-game
-entity, the configuration-file schemas, the interaction flow, and an
-inventory of every on-screen panel by contents and functionality —
-all described in terms independent of any rendering or networking
-technology.
+entity, the configuration-file schemas, the action flow, and the
+scoring model. UI inventory and visual contracts → see UI spec.
 
 **Out of scope.** AI opponents, matchmaking, public servers, art
 style, input-device specifics.
 
 Throughout, "**the engine**" means the pure rules core; "**the UI**"
-means whatever layer presents state and collects input (its realisation
-varies by platform); "**the player**" means the human at the active
-seat.
+means whatever layer presents state and collects input (its
+realisation varies by platform); "**the player**" means the human
+at the active seat.
 
 ---
 
@@ -77,9 +70,9 @@ Randomness inside the engine routes through a single seeded RNG
 initialised at `setup()`. No intent reads wall-clock time, system
 entropy, or any other non-deterministic source.
 
-This property makes Undo (§10.7), save/load, replay, and automated
-testing trivial. Platform profiles must not break it — e.g. by
-introducing platform-RNG calls inside the engine.
+This property makes Undo (UI spec §5.2), save/load, replay, and
+automated testing trivial. Platform profiles must not break it —
+e.g. by introducing platform-RNG calls inside the engine.
 
 ### 1.4 Rules correctness > visual polish
 
@@ -292,166 +285,11 @@ There are six industries. Each has a dedicated visual icon:
 
 Icon ids are referenced by the rendering layer; the platform profile
 specifies the asset format (SVG, PNG, font glyph, etc.) and load path.
-All other on-screen glyphs — the resource tokens and every UI badge —
-are authored procedurally (§2.9.2.1) rather than as static assets.
+All other on-screen glyphs (resource tokens, badges) come from the
+shared icon library — see [UI spec §1.2](./game-ui-spec.md#12-shared-icon-components-srcuiicons).
 
-##### 2.9.2.1 Procedural glyphs
-
-Each glyph below is a small drawing routine that takes a target
-**centre** and **target size** (the edge length of the bounding
-square the glyph must fit inside) and paints the glyph to fit. The
-routine expresses every internal dimension as a fraction of the
-target size, so the same routine renders crisply at any zoom. The
-platform profile declares the exact drawing API used (e.g. SVG
-paths, Canvas2D commands, CustomPainter calls) but the *contract*
-is the same: input centre + size, output a glyph inside that
-bounding square.
-
-The glyphs:
-
-- **Coal cube** — a small solid black square. Used as the resource
-  token on Coal Mine tiles and as the filled slots in the Coal
-  Market column.
-- **Iron cube** — a small solid orange square. Same role as coal
-  for Iron Works tiles and the Iron Market column.
-- **Beer barrel** — a standing brown barrel silhouette with a
-  couple of horizontal hoop bands. Used on Brewery tiles and in
-  merchant-beer slots.
-- **Money coin** — a filled beige disc with an ink outline and a
-  numeric value centred inside. Used on cost badges, on the
-  income tracker's level badges, and wherever a £ amount needs
-  to read as "money".
-- **Income arrow** — a beige square with a small upward-pointing
-  chevron painted over it. Optional numeric value sits centred
-  below the chevron. Used on flipped-tile income bonuses, on the
-  stats bar of each Player Board, and as the marker dropped onto
-  the income track.
-- **VP hex** — a regular hexagon filled in a mauve tint, ink
-  outline, numeric VP total centred inside. Used on flipped
-  tiles and on the stats bar.
-- **Link-point icon** — a regular hexagon filled in **purple**
-  with an ink outline. A single **line segment** runs across the
-  middle of the hexagon, with a small filled **circle** at each
-  of its two endpoints. This is the glyph used everywhere a
-  link-point contribution is shown: next to a merchant city
-  (§11.2), on the flipped face of an industry tile, and in the
-  bonus column of the player mat.
-- **Boat** — a small open-cup silhouette painted in the owner's
-  pawn colour. Used as the canal-link token on developed lines
-  and as the link-supply icon on the Player Board's stats bar
-  during the Canal era.
-- **Train** — a small locomotive silhouette painted in the
-  owner's pawn colour. Used as the rail-link token on developed
-  lines and as the link-supply icon on the Player Board's stats
-  bar during the Rail era.
-- **Light bulb** — a bulb silhouette over a short base. Painted
-  as a badge on the two Pottery tiles that cannot be
-  Develop-ed.
-
-Every glyph is centred on the `centre` argument and fits entirely
-inside the bounding square of side `size`. None overflow their
-bounding rect; the caller is free to request any size and trust
-the glyph will fit.
-
-#### Hard scalability rule
-
-Every glyph — icon assets plus the procedural glyphs above — must
-look crisp at every zoom the game can reach. Practically:
-
-- **Never hard-code absolute dimensions.** All internal
-  measurements are fractions of the target size. Whatever unit
-  system the platform uses — device pixels, logical points, SVG
-  units, CSS pixels — the rule is the same: dimensions are
-  relative, not absolute.
-- **Never cache a fixed-resolution rasterisation.** Draw on
-  demand from vector sources whenever possible. If the platform
-  forces a cache (e.g. sprite atlases), the cache must be
-  regenerated at the resolution the glyph is currently rendered
-  at, not at a single fixed resolution.
-- **Never compose glyphs via bitmap overlays.** Every glyph
-  renders in vector / code so it stays sharp at 4K and still
-  legible at 720p.
-- **Stroke widths scale.** Any stroke is `max(1, size * k)` for
-  some small `k` (typically 0.06) — scaling linearly with the
-  glyph, with a 1-unit floor so very small icons still show a
-  visible outline. The "1" here is one unit in whatever coordinate
-  system the platform renders in.
-- **Text sizes scale.** Any text inside a glyph uses a size
-  proportional to the glyph's `size`, never a constant absolute
-  value.
-- **Hit-rects match painted rects exactly.** A glyph drawn at a
-  given `size` exposes a hit-rect equal to that bounding square.
-  Clicking the visible rendering always targets the same logical
-  object — no invisible padding, no inflated hit zone.
-
-#### 2.9.3 Layout of an industry tile face
-
-Each tile face is a single rectangle with an ink border, painted
-in the owner's pawn colour. Every sub-element the tile draws sits
-inside a named sub-rectangle of that outer rectangle.
-**Sub-rectangles never overlap, and no element ever extends beyond
-the tile border.** When the tile shrinks at a lower zoom, every
-sub-rectangle scales proportionally — overflow is never a fallback.
-
-A tile has two distinct faces: **unflipped** (the player-facing side
-of every fresh build, used both on the mat and on the board until
-flip) and **flipped** (the scored / drained side, used only after
-the tile has flipped on the board).
-
-##### 2.9.3.a Unflipped face
-
-Tiles sit on the mat with the unflipped face showing, and stay on
-the unflipped face when first built onto the board. The four
-corners and the centre carry:
-
-- **Top-left (TL)** — the **level** Roman numeral in ink on a
-  pawn-colour-tinted background.
-- **Top-right (TR)** — the **beer-cost** glyph: a beer-barrel
-  icon struck through with a red diagonal line, with the
-  required count overlaid when greater than 1. Rendered only
-  when `beerToSell > 0` (Cotton / Manufacturer / Pottery).
-- **Bottom-left (BL)** — empty.
-- **Bottom-right (BR)** — the **no-Develop** glyph: a struck-through
-  bulb. Rendered only when `lightBulb === true` (Pottery
-  levels 1 and 3 in the published config).
-- **Centre** — the **industry icon** (§2.9.2).
-
-The build cost (money / coal / iron), the production cubes /
-barrels (for Coal / Iron / Brewery), the link-point count, the
-income-bonus arrow, and the VP hex are all rendered **outside**
-the tile face — in the mat row's left and right side columns
-(§11.3). The tile face itself is reserved for the level, the
-industry icon, the beer-cost flag, and the no-Develop flag.
-
-##### 2.9.3.b Flipped face
-
-Used only when a tile has flipped on the board — either by Sell
-(Cotton / Manufacturer / Pottery) or by its last resource draining
-(Coal Mine / Iron Works / Brewery). The face's top half renders the
-owner's pawn colour at full saturation, the bottom half a paler
-tint of the same colour, so the badges read against contrasting
-fields:
-
-- **TL** — level Roman numeral in light fill.
-- **TR** — link-point cluster, one dot per link point.
-- **BL** — VP hex with the scored VP.
-- **BR** — income-bonus arrow with the step count inside.
-- **Centre** — the industry icon.
-
-A flipped tile carries no live resources, so BL is the VP hex (the
-slot that carries the production count on the unflipped face).
-
-#### 2.9.4 Bounding rule — restatement
-
-**No element rendered on an industry tile — level badge,
-industry icon, resource token, VP hex, income arrow, link-point
-icon, beer-cost glyph, or no-Develop glyph — ever extends beyond
-the tile's outer rectangle. Sub-rectangles never overlap.**
-When the tile shrinks at a lower zoom, every sub-rectangle and
-every element inside it shrinks proportionally; when the tile
-would shrink below the point where every badge is legible, the
-viewport's zoom control (or a maximizable host panel) is the
-escape hatch — overflow is never used as a relief valve.
+Tile-face rendering — corner contents, two-face skeleton (unflipped
+vs flipped), and the bounding rule — is in [UI spec §2](./game-ui-spec.md#2-industry-tile-face).
 
 ### 2.10 Flipped vs unflipped
 
@@ -524,42 +362,8 @@ merchant city, iron does not** — is the single market rule that
 players most often forget. The engine enforces it on every Build
 and on every coal-consuming source-list validation.
 
-#### 2.11.3 Market Place widget — what the player sees
-
-Both markets are rendered as one **Market Place** widget that lives
-on the Main Board panel (§11.2). The widget surfaces, at a glance,
-which individual slots at each tier are filled vs. empty — the
-current buy price, sell price, and total cubes are all derivable
-from the slot pattern, so the widget shows just the slots and lets
-the player read them directly.
-
-The widget's layout:
-
-- Two side-by-side columns, one per market. The column header is
-  the **industry icon** (coal-mine icon for the coal market,
-  iron-works icon for the iron market) — no text label.
-- Each market column is a stack of rows, highest tier at the top.
-  The top row is the **overflow tier** (£8 for coal, £6 for iron),
-  rendered with two always-present cubes outlined dashed to
-  signal unlimited supply at that price. Below it, **one row per
-  priced tier**, descending. Each row shows:
-  - A small **money-coin glyph** on the left containing the tier
-    price (`N` inside the coin, no `£` prefix — the coin shape
-    itself is the money sign).
-  - Two **square cube slots** on the right. A filled slot
-    renders the resource cube glyph (a small square — black for
-    coal, orange for iron — matching the cube tokens drawn
-    elsewhere on the board); an empty slot renders a faint
-    square outline of the same size.
-- During a coal-source sub-state (a Build or Network asking the
-  player to pick coal) the widget glows warm-gold to mark it as
-  a legal click target, and clicking any of its coal cubes is
-  interpreted as "buy from the market". Clicking an overflow
-  cube buys one at the overflow price.
-
-The widget is the single source of truth for market state on
-screen — no panel duplicates the numbers. A player who wants to
-double-check price or supply looks here.
+Market widget rendering (column layout, coin glyphs, overflow row,
+glow during coal pickers) is in [UI spec §4.4](./game-ui-spec.md#44-markets-widget).
 
 ### 2.12 Mat
 
@@ -708,7 +512,7 @@ When `turn_order[current_player_index] == pid` and
    every other hand renders face-down.
 2. The Actions panel enables each action whose preconditions are
    met; others grey out with a tooltip explaining why.
-3. The player picks a card and an action in either order (§10.6).
+3. The player picks a card and an action in either order (UI spec §5).
 4. The wizard gathers remaining inputs in any order.
 5. On dispatch the engine either succeeds (state mutates and
    `actions_remaining` decrements) or fails (state unchanged,
@@ -1143,7 +947,7 @@ The constraints:
   rather than raising an exception, so the UI can present the
   result directly.
 - State is rooted at a single `GameState` object so save/load and
-  deterministic replay (Undo, §10.7) are trivial.
+  deterministic replay (Undo, UI spec §5.2) are trivial.
 - Every entity in §2 maps one-to-one to a concept in the model.
 - The config schemas in §9 are the authority on what the model
   needs to represent.
@@ -1159,8 +963,7 @@ files use a `"_comment"` string key for free-form notes.
 - **`config/ui.json`** — font sizes, paddings, palette, default
   panel heading alignment, maximize-button glyph.
 - **`config/layout.json`** — panel grid: columns / rows and their
-  weights, per-panel placement and orientation. Written live by
-  the in-game layout editor (§10.8).
+  weights, per-panel placement and orientation.
 - **`config/industry_tiles.json`** — one entry per tile in a
   `tiles` array, ordered industry-then-level-ascending. Each entry
   carries: industry, level, qty (mat-stack count), money cost,
@@ -1171,8 +974,8 @@ files use a `"_comment"` string key for free-form notes.
 - **`config/cities.json`** — district and merchant city
   definitions: name, district tag, position, slot list,
   farm-brewery flag, activePlayerCounts (merchants only),
-  merchantBag (per player count). Also persists live board
-  positions edited in the board editor (§10.8).
+  merchantBag (per player count). Edited via the dev tool (UI
+  spec §7).
 - **`config/cards.json`** — deck composition per player count
   (location counts, industry counts, dual cotton/manufacturer
   count, wilds, starting hand size).
@@ -1185,420 +988,24 @@ files use a `"_comment"` string key for free-form notes.
 
 ---
 
-## 10. UI framework
-
-The UI is organised as a collection of **panels** (§11). A panel is
-a bounded, rectangular region of the screen that owns one coherent
-chunk of content (e.g. the board, the hand, the action buttons).
-Every panel:
-
-- Declares a **minimum size** but never a fixed outer size — panels
-  reflow with the viewport.
-- **Clips its content** to its own bounds; nothing inside a panel
-  overflows.
-- Has a **title strip**, optional **maximize chevron**, and uses the
-  game's shared visual style (font, palette, spacing) from
-  `config/ui.json`.
-- Is placed via `config/layout.json` — a grid-like layout whose
-  cells hold named panel ids.
-- Resolves click / pointer events against **hit-rects that match
-  painted rects exactly** (§2.9.2.1 restates this for glyphs; the
-  same discipline applies to panels and their interactive
-  children).
-
-The shared panel framework is described in full in the platform
-profile's panel-system reference. This document names the panels
-and specifies their contents and functionality (§11); the platform
-profile specifies *how* panels are realised (which widget base
-class, how the layout grid is implemented, how chrome is drawn,
-etc.). Only the game-specific pins below belong in this spec:
-
-- The panel ids listed in §11 are authoritative. Each id in
-  `config/layout.json` must match one of them.
-- The **Actions** panel is always emphasised (accent-gold outline)
-  while the game is in IDLE. Nothing else on screen tells the
-  player where to start their turn, so the emphasis is load-bearing.
-- The **Players** panel is a single top-level panel that hosts
-  one **sub-panel per seat**. Each per-seat sub-panel paints its
-  border in the seat's pawn colour instead of the neutral ink —
-  this is the one game-specific chrome override.
-
-### 10.1 UI flow — the order things happen
-
-The ground state is **IDLE**: no action in progress; the Actions
-panel is emphasised; nothing on the board is highlighted.
-
-From IDLE:
-
-- Clicking a **card** stashes it; the player then picks an action.
-- Clicking an **action button** starts its wizard; the player then
-  picks a card from the Hand panel.
-
-Inside a wizard:
-
-- Inputs are picked in **any order** — including the card.
-  Wizards never force a card-first ordering; the player may click
-  a slot, an industry, a tile, a line, or a card first, and the
-  wizard accepts it.
-- **Unique-cardinality inputs** (one card per Build / Develop /
-  Sell / Network / Loan / Pass; one slot per Build; one line per
-  Network) **replace** on a second click.
-- **Variable-cardinality inputs** (Develop's 1–2 industries,
-  Sell's tile orders, Scout's 3 cards) accumulate on each click up
-  to the action's cap; the player clears via Reset Selection.
-  Same-target re-click behaviour depends on whether duplicates are
-  semantically meaningful:
-  - **Repeatable targets** (Develop industries — 2 of the same
-    industry pops 2 tiles from one stack, §5.3). A second click
-    ADDS another instance.
-  - **Distinct-id targets** (Sell tile orders, Scout cards — each
-    target is a unique id and "selling the same tile twice" or
-    "discarding the same card twice" is meaningless). A second
-    click TOGGLES the prior pick off, so the player can deselect
-    without clearing the whole wizard.
-- Auto-submit fires once every required input is set AND every
-  variable-arity input is at its cap. End Action submits when
-  required inputs are set even if a variable input hasn't hit its
-  cap (e.g. Develop with 1 industry, Sell with 1+ orders).
-- Structurally-invalid clicks (occupied slot during Build,
-  merchant city during a non-Sell action) are rejected with a
-  reason toast.
-- Structurally-valid clicks are always accepted; the engine
-  toasts the final-combination reason when the dispatch fails.
-
-Once card + primary inputs are set, the wizard transitions to its
-resource-picker sub-state(s) (coal / iron / beer). When no source
-is required, the wizard dispatches immediately.
-
-**Second-rail offer.** After a Rail-era Network succeeds with one
-link, the wizard offers the second.
-
-**Gloucester follow-up.** If Sell consumed one or more Gloucester
-beers, the UI prompts a develop-like removal per beer, or Skip.
-
-### 10.2 Undo, Reset, End Action, End Turn
-
-- **Undo** rolls back the most recent successful dispatch by
-  replaying history from the original seed minus the last entry.
-- **Reset Selection** clears all picks from the current wizard
-  (card included) but stays in the same action.
-- **End Action** is the wizard explicit-submit, used by actions
-  whose input count is not fixed (Develop 1 tile; Sell any number
-  of orders).
-- **End Turn** commits: validates actions_remaining == 0 and no
-  pending merchant bonuses; advances to the next seat. On success,
-  the undo history clears — nothing from the committed turn can be
-  rolled back later.
-
-### 10.3 In-game editing
-
-Two editors the game should provide (the platform profile picks
-the entry gesture and input idioms):
-
-- **Board editor** — reposition district / merchant / marketplace
-  and edit slot definitions; writes through to
-  `config/cities.json`.
-- **Layout editor** — rearrange / resize / reorient panels; writes
-  to `config/layout.json`.
-
----
-
-## 11. Panels — Brass Birmingham inventory
-
-The game ships the panels below. For each, **Contents** describes
-what the panel paints; **Functionality** describes what the player
-can do with it. Everything about chrome, maximize / collapse /
-focus, hit-rects, and motion is inherited from the shared panel
-framework (see the platform profile's panel-system reference);
-these entries describe only the Brass-Birmingham-specific content.
-
-Registered panel ids (must match entries in `config/layout.json`):
-`income`, `board`, `players` (one top-level panel containing one
-sub-panel per seat — `player_1`, `player_2`, `player_3`,
-`player_4`), `game_state`, `player_state`, `remaining_cards`,
-`hand`, `actions`, `recent_actions`.
-
-### 11.1 Income Tracker — id "income"
-
-**Contents.** A vertical ladder of rows. Each row is one income
-step, or a short run of steps comprising one income level (see
-§6.3). Every row shows a level badge (round beige disc with
-the level number, drawn only on the first row of a level that
-spans several) and one or more step cells (dark rectangles with
-the raw step number in beige). Each seat's pawn-coloured income
-marker sits in the cell for its current step; two or more markers
-in the same cell tile in a 2x2 grid so they never overlap. Level
-30 at the top, level −10 at the bottom.
-
-**Functionality.** Purely informational. Re-renders on every state
-change so loans, flips, and merchant bonuses visibly move the
-markers.
-
-### 11.2 Main Board — id "board"
-
-**Contents.**
-
-- **District cities**, each as a rectangle at its configured
-  position with the city name in district colour. The city body
-  is **sized to its slot count** rather than padded to a fixed
-  square — a 1-slot city (the two Farm Breweries) is a single
-  TILE × TILE square, a 2-slot city is a 2×1 rectangle
-  (2*TILE × TILE), and 3- or 4-slot cities are 2×2 squares
-  (2*TILE × 2*TILE). 3-slot cities use the top row for slots 0
-  and 1 and centre slot 2 in the bottom row. Empty slots show
-  their accept-list icons; placed tiles render per §2.9.3.
-- **Merchant cities** on the board edges. **All five merchant
-  cities** (Shrewsbury, Nottingham, Gloucester, Oxford,
-  Warrington) render regardless of player count — only the slot
-  *fill* depends on whether the city is active for that count.
-  Each city renders as a cluster of **D-shaped slots** — one D
-  per `slotCount` (1 for Shrewsbury, 2 for the other four),
-  sized like a district-city slot (TILE wide). The D is a square
-  top with a rounded bottom edge. For an **active slot** (the
-  city is in `activePlayerCounts` and a merchant tile was
-  drawn into the slot), the D shows the **accept-list icon** —
-  industry icon when the slot accepts a specific industry, an
-  "ANY" glyph when wildcard, and an empty D when the bag drew
-  a `BLANK` tile. Below each active D a small square holds the
-  **beer indicator** (beer-barrel icon when the slot still has
-  its beer, empty outline when consumed). For an **inactive
-  city** at this player count (Nottingham at 2 players,
-  Warrington at 2 / 3 players), the D-slots render empty (no
-  accept icon, same opacity as active D-slots), and there is
-  no beer indicator. Above the cluster sits the city name and a
-  **bonus badge** that uses the bonus's own icon — VP hex for
-  `bonus = "VP"`, money coin for `"MONEY"`, income arrow for
-  `"INCOME"`, light-bulb for `"DEVELOP"` — with its
-  `bonusValue` overlaid. The fixed 2-link-point contribution
-  (§6.1) is implied by the merchant city's presence and is
-  not rendered separately on the slot.
-- **Canal and rail lines** — canal muted-blue during Canal era,
-  hidden in Rail era; rail dim during Canal era, full-opacity in
-  Rail era. Triple links show a centroid junction dot. Developed
-  links display an owner-coloured boat or train token at the
-  line midpoint. During a Network wizard, every undeveloped
-  current-era line displays its base cost label above it.
-- **Coal + Iron Market Place widget** — see §2.11.3 for
-  the full spec. Header strip shows the live Buy price / Sell
-  price / cube count per market; two columns of price tiers
-  below with filled / empty slots **rendered as small squares**
-  (cube glyphs) — black for coal, orange for iron — matching
-  the resource tokens drawn elsewhere on the board.
-
-**Functionality.**
-
-- City slots, merchant-city Ds, canal / rail lines, and resource
-  tokens (coal cube, iron cube, beer barrel, merchant beer) are
-  all click targets routed to the current wizard sub-state.
-- Maximize chevron expands to full-viewport.
-- The board editor repositions cities / merchants / marketplace
-  on drag and edits slot accept-lists on a secondary gesture
-  (right-click, long-press, or whatever the platform profile
-  designates).
-
-### 11.3 Players — id "players" (one panel, one sub-panel per seat)
-
-A single top-level panel that hosts a horizontal (or grid) split
-with one sub-panel per seat. Each sub-panel is itself a full panel
-with its own title, chrome, and maximise chevron. The outer
-`players` panel's title strip reads "Players"; its own chrome is
-neutral. All game-specific detail below describes **each per-seat
-sub-panel**.
-
-**Per-seat sub-panel ids.** `player_1`, `player_2`, `player_3`,
-`player_4` (only the sub-panels for seated players render; empties
-collapse).
-
-**Contents (per seat).**
-
-- Title strip = seat name + " turn-marker" when active. The
-  sub-panel's outer border is painted in the seat pawn colour
-  (the one chrome exception this game takes — applied at the
-  sub-panel level, not the outer `players` panel).
-- **Stats bar** below the title, left-to-right: money coin with
-  £N, income arrow with level, VP hex with total, link-supply
-  icon (boat in Canal era, train in Rail era, in pawn colour)
-  with "x N" remaining link tiles.
-- **Mat grid** — six industry groups (Coal, Iron, Brewery, Cotton
-  Mill, Manufacturer, Pottery) laid out as columns. Manufacturer
-  spans two columns (levels 1–5 in the left, 6–8 in the right);
-  every other industry is a single column. Each industry column
-  has one row per level (top row = lowest level = next to build).
-- **Per-level row** — three sub-cells, packed tight with one
-  column of space on each side of the tile and no extra padding
-  anywhere else:
-  - **Left column — cost icons.** A money coin with `£N` overlaid,
-    then a coal-cube badge with the coal cost (only when
-    `coalCost > 0`), then an iron-cube badge with the iron cost
-    (only when `ironCost > 0`). Each icon is the same square
-    size; cells with zero cost drop out entirely.
-  - **Tile face** in the centre — the unflipped face per
-    §2.9.3.a, painted in the seat's pawn colour. Tile size is
-    the global TILE constant, identical to board-side tiles.
-  - **Right column — bonus / production icons.** Contents differ
-    by industry:
-    - **Coal Mine / Iron Works / Brewery** — the resource cubes
-      this tile will produce (or, on the board, the live count
-      remaining). Cubes pack **column-major from the bottom-right
-      corner**, growing **upward to a maximum of 2 rows** before
-      starting a new column to the left. A coal mine showing 5
-      cubes therefore renders as three columns: rightmost full
-      (2 cubes), middle full (2 cubes), leftmost partial (1 cube).
-      Coal renders as a black square cube; iron as an orange
-      square cube; brewery as a beer-barrel ellipse.
-    - **Cotton Mill / Manufacturer / Pottery** — bonus icons
-      stacked vertically:
-      - **Top** — the VP hex with the level's VP value inside.
-      - **Middle** — the income-bonus arrow with its step count.
-      - **Bottom** — a cascading link-point cluster (one icon
-        per link point, 0 / 1 / 2 in the published config).
-      Cells whose value is 0 drop out of the stack entirely.
-  - **Count** — `×N` showing how many copies of this level
-    remain in the seat's stack, rendered as a small text inside
-    or alongside the right column. When the wizard has reserved
-    one or more picks at this level the badge reads `×P/N`.
-- The lowest level still in the stack — the engine's `stack[0]`,
-  the next tile a Build or Develop will consume — is the click
-  target for the active pick. It is the only row with a
-  thicker outer border. Other rows are display-only. Spent
-  levels (`count === 0`) render muted at 35 % opacity.
-
-**Functionality (per seat).** Clicking a mat tile during Build
-selects that industry. Clicking a mat tile during Develop toggles
-selection; the wizard auto-submits at 2 picks. The sub-panel's
-maximize chevron expands it to the full viewport for close reading
-(not just within the `players` panel). Stats bar purely
-informational.
-
-### 11.4 Game state — id "game_state"
-
-**Contents.** A short list of read-only rows — Era (bold), Round N,
-Phase label, "Turn: NAME" with name in pawn colour, Actions left,
-cards still in draw deck.
-
-**Functionality.** Purely informational.
-
-### 11.5 Player state — id "player_state"
-
-**Contents.** Header row + one data row per seat in current turn
-order (first-to-act at the top; active seat tinted warm gold).
-Columns: pawn-colour swatch, name, money, VP, income step, income
-level, spent_this_round (the integer that sorts next round turn
-order, §2.15), turn ordinal ("1st" / "2nd" / "3rd" / "4th"
-with an arrow glyph after the active seat).
-
-**Functionality.** Purely informational.
-
-### 11.6 Remaining cards — id "remaining_cards"
-
-**Contents.** Title strip with a right-edge summary "N/total" ratio.
-Two columns of deck entries in the smallest body font. Entries
-grouped: location cards by district (purple, brown, red, blue, teal
-— alphabetical within each), then industry cards (Coal, Iron,
-Cotton, Manuf, Cotton/Manuf dual, Pottery, Brewery), then wild
-cards when any are in circulation. Entries with 0 remaining render
-muted but stay listed.
-
-**Functionality.** Purely informational. Maximize chevron expands
-for close reading.
-
-### 11.7 Hand — id "hand"
-
-**Contents.** Title strip "Hand — NAME". A 2x4 grid of card slots.
-Each card face: Location card → city name in district colour
-(shrunk or wrapped to fit); Industry card → industry icon
-(dual card stacks two); Wild → beige disc with "WL" or "WI".
-Picked cards render with a warm-gold border. Non-active seats
-render a single face-down back with "x N" count.
-
-**Functionality.** Clicking a card selects it for the current
-wizard (or stashes it in IDLE). Clicking a different card swaps
-the selection; clicking an already-picked card is a no-op.
-
-### 11.8 Actions — id "actions"
-
-**Contents.** Title strip "Actions" (panel outlined warm-gold when
-IDLE). Action-verb buttons: Build, Network, Develop, Sell, Loan,
-Scout, Pass — greyed with a tooltip when unavailable (e.g. "Out of
-link tiles", "No cards in hand"). Wizard-control row: Reset
-Selection, End Action, Undo, End Turn. The verb active in the
-current wizard renders with a warm-gold tint.
-
-**Functionality.** Verb buttons open their wizard (carrying over
-any stashed card). Reset Selection clears picks and stays in the
-same mode. End Action dispatches the current wizard. Undo replays
-history minus the last entry. End Turn commits and advances the
-seat.
-
-### 11.9 Recent actions — id "recent_actions"
-
-**Contents.** Title strip "Recent actions". A scrollable list of
-formatted log lines, newest at top, colour-coded — round banners
-in warm gold, era banners in the era accent, player names in pawn
-colour, city / industry / card references in their scheme colours.
-Up to 100 entries retained.
-
-**Functionality.** Scrollbar when the list overflows. Read-only.
-
-### 11.10 Affordances (no panel chrome)
-
-- **Prompt** — single line of text above the main board describing
-  the active wizard expected next click.
-- **Context bar** — transient strip of buttons populated by the
-  current sub-state (resource pickers, second-rail offer,
-  Gloucester follow-up, pick-list summary).
-- **Toast** — ephemeral centred label shown for ~2 seconds on
-  success or failure.
-
-### 11.11 Overlays
-
-- **Era banner** on era flip, ~1.5 s.
-- **Round banner** on round transition, ~1.5 s.
-- **End-game screen** on phase = GAME_OVER. Lists each seat with
-  final VP, income level, money, tie-break reason; announces the
-  winner (or draw); Close button.
-- **Maximized panel** — any panel with a chevron expands and
-  floats above everything until toggled back.
-
-### 11.12 City slot editor (board-editor overlay)
-
-When the player invokes the board editor slot-edit gesture on a
-non-merchant city, a pop-up appears next to that city.
-
-**Contents.** Title "Edit spaces: CITYNAME". One row per slot with a
-"#N" index label, industry toggles (Coa / Iro / Bre / Cot / Man /
-Pot), an "Any" toggle (wildcard), and a "x" delete button. "+ Add
-space (wildcard)" button at the bottom; "Close" next to it.
-
-**Functionality.** Toggles mutate the slot accept list live; "+ Add"
-appends a wildcard slot; "x" removes the slot. Every change saves
-to `config/cities.json`. Close dismisses; edits stay.
+All UI material — UI framework, panel inventory, wizard flow, overlays, dev editor — lives in [`game-ui-spec.md`](./game-ui-spec.md).
 
 ---
 
 ## 12. Build order
 
 A suggested order to bring the game up end-to-end. The platform
-profile may slot its own platform-specific steps around these
-(e.g. "set up project skeleton" first), but the rules-and-UI
-sequence below is the same everywhere.
+profile may slot its own platform-specific steps around these.
 
-1. **Visual asset set** — icons from §2.9.2 and the procedural
-   glyphs from §2.9.2.1, in whatever format the platform profile
-   prescribes.
-2. **Pure rules engine** — every entity in §2, every action in
+1. **Pure rules engine** — every entity in §2, every action in
    §5, every resource rule in §5.6, every scoring rule in §6.
    Fully unit-tested headless before any UI work begins.
-3. **Board renderer** — draws cities + lines + merchants +
-   resource tokens with hit-rects matching paint.
-4. **Panel framework** wiring — load `config/ui.json` and
-   `config/layout.json` at startup; lay out the named panels.
-5. **Each panel** (§11).
-6. **Wizards** — one per verb. Order-free picks;
-   resource-picker sub-states; engine-result-driven toasts.
-7. **End Turn and Undo.**
-8. **Board editor + layout editor** (§10.3).
-9. **Networking** — host/client + intent transport. Optional;
+2. **Visual asset set + shared icon library** — see UI spec §1.
+3. **Board renderer + panel framework** — see UI spec §4 / §6.
+4. **Wizards** — one per verb. Order-free picks; resource-picker
+   sub-states; engine-result-driven toasts. See UI spec §5.
+5. **End Turn and Undo.**
+6. **Networking** — host/client + intent transport. Optional;
    single-player / hot-seat ships without it.
 
 ---
@@ -1635,28 +1042,5 @@ sequence below is the same everywhere.
 
 ### UI
 
-- [ ] No hard-coded viewport anywhere. Resize the window —
-      panels reflow.
-- [ ] No panel sets its outer size; every panel declares only
-      a minimum size.
-- [ ] Every panel clips its content; no sub-element overflows
-      its bounding rect.
-- [ ] Regions inside a panel do not overlap. Only documented
-      overlaps exist.
-- [ ] Every industry tile draws within its outer rectangle; no
-      badge, icon, or resource token overhangs.
-- [ ] Every maximize button appears only on maximizable panels.
-- [ ] Heading alignment default is `left`; per-panel overrides
-      are honoured.
-- [ ] All text draws pass a max-width.
-- [ ] Card text auto-shrinks or wraps to fit.
-- [ ] Hit-rects match painted rects exactly.
-- [ ] Card-first and action-first flows both work.
-- [ ] Reset Selection clears every pick (including the card).
-- [ ] End Action submits Develop (1 tile) and Sell (any number
-      of orders).
-- [ ] Undo cannot cross a completed End Turn.
-- [ ] Board editor persists positions + slot edits back to
-      `config/cities.json`.
-- [ ] Layout editor persists panel placement, size, and
-      orientation back to `config/layout.json`.
+UI verification checklist lives in
+[`game-ui-spec.md`](./game-ui-spec.md#8-verification).

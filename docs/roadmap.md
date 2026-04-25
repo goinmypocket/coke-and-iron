@@ -7,7 +7,8 @@ starting fresh work; finished items get moved out (or deleted).
 Status keys:
 - **[engine]** — touches the headless engine.
 - **[ui]** — touches the React UI.
-- **[spec]** — needs a spec edit (in `docs/game-spec.md`) before code.
+- **[spec]** — needs a spec edit (in `docs/game-spec.md` for rules
+  or `docs/game-ui-spec.md` for UI) before code.
 - **[host]** — only meaningful once a real host / multiplayer transport
   exists; today everything's loopback.
 

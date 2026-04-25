@@ -5,8 +5,11 @@ a platform-agnostic spec.
 
 ## Project layout
 
-- `docs/game-spec.md` — platform-agnostic authoritative spec. Source of
-  truth for rules, entities, configs, UI, and panels.
+- `docs/game-spec.md` — platform-agnostic rules spec: entities,
+  actions, scoring, config schemas. Engine behaviour authority.
+- `docs/game-ui-spec.md` — UI spec: panel inventory, tile-face
+  rendering, shared icon library, wizard flow, overlays, dev
+  tooling. Visual / interaction authority.
 - `docs/rulebook.pdf` — original published rulebook. Reference only;
   the spec is authoritative. If the two conflict, trust the spec.
 - `docs/roadmap.md` — running list of explicitly-deferred items.
