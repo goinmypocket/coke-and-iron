@@ -8,6 +8,7 @@ import { PanelGrid } from "./ui/layout/PanelGrid";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { GameStatePanel } from "./ui/panels/GameStatePanel";
 import { HandPanel } from "./ui/panels/HandPanel";
+import { PlayersPanel } from "./ui/panels/PlayersPanel";
 import { PlayerStatePanel } from "./ui/panels/PlayerStatePanel";
 import { WizardProvider } from "./ui/wizards/WizardProvider";
 
@@ -30,6 +31,7 @@ export function App() {
           {{
             game_state: <GameStatePanel />,
             player_state: <PlayerStatePanel />,
+            players: <PlayersPanel />,
             hand: <HandPanel />,
             actions: <ActionsPanel />,
           }}

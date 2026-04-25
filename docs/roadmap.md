@@ -61,9 +61,11 @@ Status keys:
 
 - **[ui] Board panel (§11.2).** District cities, merchant cities,
   canal/rail lines, market widget. Largest single UI piece.
-- **[ui] Players panel + per-seat sub-panels (§11.3).** The mat
-  grid (six industry stacks, top-of-stack highlight during Build /
-  Develop) lives here. Required before Develop wizard ships.
+- **[ui] Players panel polish (§11.3).** Sub-panel + minimal mat
+  grid (six stacks, top-tile click-target) shipped. Still TODO:
+  Manufacturer spanning two columns (1–5 / 6–8), Pottery as 5
+  fixed-level rows, full cost / bonus margins, link-supply icon
+  in the stats bar.
 - **[ui] Income tracker (§11.1).** Vertical ladder with pawn-coloured
   markers; re-renders on every state change.
 - **[ui] Remaining cards (§11.6).** Two-column deck inventory.
@@ -83,8 +85,10 @@ Status keys:
 
 ## UI — wizards still to build
 
-- **[ui] Develop wizard.** 1-or-2 industry pick from the mat,
-  iron-source sub-state, dispatch. Needs the mat grid first.
+- **[ui] Develop wizard — iron-source sub-state.** Auto-resolution
+  of free network iron > market is wired. Manual iron source
+  picker (when ambiguous, e.g. multiple unflipped Iron Works) is
+  still TODO; today the wizard just walks builtTiles in order.
 - **[ui] Build wizard.** Card + city + slot + industry, then
   coal/iron sub-states. Needs board panel first.
 - **[ui] Network wizard.** Line pick (canal or rail), coal sub-state

@@ -4,18 +4,22 @@
 // Tracks half-completed action inputs that don't exist as far as the engine
 // is concerned. The engine only ever sees the final assembled Intent.
 //
-// Phases at this milestone:
-//   IDLE                       — no action in progress.
-//   AWAITING_CARD              — player picked Pass or Loan; needs one
-//                                card. Picking a card dispatches and the
-//                                wizard returns to IDLE on success.
-//   AWAITING_CARDS_SCOUT       — player picked Scout; toggles up to 3
-//                                distinct card indices, then explicitly
-//                                submits via endAction().
+// Phases:
+//   IDLE                          — no action in progress.
+//   AWAITING_CARD                 — Pass / Loan; one card click dispatches.
+//   AWAITING_CARDS_SCOUT          — Scout; toggle up to 3 distinct card
+//                                   indices, submit via endAction().
+//   AWAITING_CARD_DEVELOP         — Develop, step 1: waiting for a card click
+//                                   from hand to authorise the action.
+//   AWAITING_DEVELOP_INDUSTRIES   — Develop, step 2: card chosen; user picks
+//                                   1 or 2 mat industries from their own
+//                                   sub-panel. Auto-submit at 2; endAction()
+//                                   submits with 1.
 //
-// Build / Network / Develop / Sell are not yet wired through the wizard —
-// they will get their own phases once their UI lands.
+// Build / Network / Sell aren't yet wired through the wizard.
 // =============================================================================
+
+import type { IndustryName, PlayerId } from "../../engine";
 
 export type WizardState =
   | { readonly phase: "IDLE" }
@@ -23,13 +27,30 @@ export type WizardState =
   | {
       readonly phase: "AWAITING_CARDS_SCOUT";
       readonly cardIndices: readonly number[];
+    }
+  | { readonly phase: "AWAITING_CARD_DEVELOP" }
+  | {
+      readonly phase: "AWAITING_DEVELOP_INDUSTRIES";
+      readonly cardIndex: number;
+      readonly developSeatId: PlayerId;
+      readonly industries: readonly IndustryName[];
     };
 
 export type WizardAction =
   | { type: "START_PASS" }
   | { type: "START_LOAN" }
   | { type: "START_SCOUT" }
+  | { type: "START_DEVELOP" }
   | { type: "TOGGLE_CARD"; cardIndex: number }
+  | {
+      type: "PICK_DEVELOP_CARD";
+      cardIndex: number;
+      developSeatId: PlayerId;
+    }
+  | {
+      type: "TOGGLE_DEVELOP_INDUSTRY";
+      industry: IndustryName;
+    }
   | { type: "RESET" };
 
 export const INITIAL_WIZARD: WizardState = { phase: "IDLE" };
@@ -45,6 +66,8 @@ export function wizardReducer(
       return { phase: "AWAITING_CARD", action: "LOAN" };
     case "START_SCOUT":
       return { phase: "AWAITING_CARDS_SCOUT", cardIndices: [] };
+    case "START_DEVELOP":
+      return { phase: "AWAITING_CARD_DEVELOP" };
     case "TOGGLE_CARD": {
       if (state.phase !== "AWAITING_CARDS_SCOUT") return state;
       const i = state.cardIndices.indexOf(action.cardIndex);
@@ -57,7 +80,34 @@ export function wizardReducer(
         };
       }
       if (state.cardIndices.length >= 3) return state;
-      return { ...state, cardIndices: [...state.cardIndices, action.cardIndex] };
+      return {
+        ...state,
+        cardIndices: [...state.cardIndices, action.cardIndex],
+      };
+    }
+    case "PICK_DEVELOP_CARD": {
+      if (state.phase !== "AWAITING_CARD_DEVELOP") return state;
+      return {
+        phase: "AWAITING_DEVELOP_INDUSTRIES",
+        cardIndex: action.cardIndex,
+        developSeatId: action.developSeatId,
+        industries: [],
+      };
+    }
+    case "TOGGLE_DEVELOP_INDUSTRY": {
+      if (state.phase !== "AWAITING_DEVELOP_INDUSTRIES") return state;
+      const i = state.industries.indexOf(action.industry);
+      if (i >= 0) {
+        return {
+          ...state,
+          industries: state.industries.filter((x) => x !== action.industry),
+        };
+      }
+      if (state.industries.length >= 2) return state;
+      return {
+        ...state,
+        industries: [...state.industries, action.industry],
+      };
     }
     case "RESET":
       return { phase: "IDLE" };
@@ -69,6 +119,9 @@ export function wizardReducer(
 export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
   if (state.phase === "AWAITING_CARDS_SCOUT") {
     return new Set(state.cardIndices);
+  }
+  if (state.phase === "AWAITING_DEVELOP_INDUSTRIES") {
+    return new Set([state.cardIndex]);
   }
   return new Set();
 }

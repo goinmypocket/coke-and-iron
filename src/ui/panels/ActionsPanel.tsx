@@ -31,6 +31,12 @@ export function ActionsPanel() {
   const isPass = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "PASS";
   const isLoan = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "LOAN";
   const isScout = wizard.state.phase === "AWAITING_CARDS_SCOUT";
+  const isDevelop =
+    wizard.state.phase === "AWAITING_CARD_DEVELOP" ||
+    wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES";
+  const canEndDevelop =
+    wizard.state.phase === "AWAITING_DEVELOP_INDUSTRIES" &&
+    wizard.state.industries.length === 1;
 
   const onEndTurn = () => {
     if (flags.activePlayerId === null) return;
@@ -59,9 +65,9 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="Develop"
-            disabled
-            tooltip={NOT_IMPLEMENTED}
-            onClick={() => {}}
+            active={isDevelop}
+            disabled={!flags.canAct}
+            onClick={wizard.startDevelop}
           />
           <ActionButton
             label="Sell"
@@ -97,7 +103,7 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="End Action"
-            disabled={!isScout}
+            disabled={!isScout && !canEndDevelop}
             onClick={wizard.endAction}
           />
           <ActionButton
