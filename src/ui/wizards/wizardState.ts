@@ -39,7 +39,12 @@
 // Network / Sell aren't yet wired through the wizard.
 // =============================================================================
 
-import type { IndustryName, PlayerId, SellOrder } from "../../engine";
+import type {
+  IndustryName,
+  IronSource,
+  PlayerId,
+  SellOrder,
+} from "../../engine";
 
 export interface BuildSlotPick {
   readonly cityName: string;
@@ -102,6 +107,18 @@ export type WizardState =
       readonly orders: readonly SellOrder[];
       readonly need: number;
       readonly industries: readonly IndustryName[];
+    }
+  // §5.6.2 Develop iron-source picker — entered when 2+ unflipped Iron
+  // Works tiles are available. The wizard freezes the Develop inputs
+  // (card + industries) and asks the user to click each tile (or
+  // "Use Market") until all cubes are sourced. Auto-submits at the
+  // last pick.
+  | {
+      readonly phase: "AWAITING_DEVELOP_IRON_PICK";
+      readonly cardIndex: number;
+      readonly developSeatId: PlayerId;
+      readonly industries: readonly IndustryName[];
+      readonly picks: readonly IronSource[];
     };
 
 export type WizardAction =
@@ -129,6 +146,14 @@ export type WizardAction =
       need: number;
     }
   | { type: "ADD_SELL_GLOUCESTER_INDUSTRY"; industry: IndustryName }
+  | {
+      type: "ENTER_DEVELOP_IRON_PICK";
+      cardIndex: number;
+      developSeatId: PlayerId;
+      industries: readonly IndustryName[];
+    }
+  | { type: "DEVELOP_IRON_ADD_PICK"; source: IronSource }
+  | { type: "DEVELOP_IRON_RESET_PICKS" }
   | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
@@ -287,6 +312,23 @@ export function wizardReducer(
         industries: [...state.industries, action.industry],
       };
     }
+    case "ENTER_DEVELOP_IRON_PICK":
+      return {
+        phase: "AWAITING_DEVELOP_IRON_PICK",
+        cardIndex: action.cardIndex,
+        developSeatId: action.developSeatId,
+        industries: action.industries,
+        picks: [],
+      };
+    case "DEVELOP_IRON_ADD_PICK": {
+      if (state.phase !== "AWAITING_DEVELOP_IRON_PICK") return state;
+      if (state.picks.length >= state.industries.length) return state;
+      return { ...state, picks: [...state.picks, action.source] };
+    }
+    case "DEVELOP_IRON_RESET_PICKS": {
+      if (state.phase !== "AWAITING_DEVELOP_IRON_PICK") return state;
+      return { ...state, picks: [] };
+    }
     case "IDLE_STASH_CARD": {
       // Card-first flow only applies in IDLE. While a wizard is open
       // the wizard's own SET_CARD reducers handle card clicks.
@@ -326,6 +368,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_SELL_GLOUCESTER") {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_DEVELOP_IRON_PICK") {
     return new Set([state.cardIndex]);
   }
   return new Set();

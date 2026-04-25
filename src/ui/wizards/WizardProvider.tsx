@@ -88,6 +88,10 @@ interface WizardApi {
   pickLine(lineIndex: number): void;
   /** Click on a built tile from BoardPanel. Sell wizard only. */
   pickTile(tileId: string): void;
+  /** Click an iron source in the resource picker. */
+  pickIronSource(source: IronSource): void;
+  /** Clear iron picks (stays in the picker phase). */
+  resetIronPicks(): void;
   /** Submit the current wizard (Scout: 3 cards; Develop: 1 industry;
    *  Build: all three fields once set). */
   endAction(): void;
@@ -179,6 +183,29 @@ export function WizardProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
 
+  const dispatchDevelopIntent = useCallback(
+    (
+      cardIndex: number,
+      developSeatId: PlayerId,
+      industries: readonly IndustryName[],
+      ironSources: readonly IronSource[],
+    ) => {
+      const result = engine.dispatch({
+        type: "DEVELOP",
+        playerId: developSeatId,
+        cardIndex,
+        industries: [...industries],
+        ironSources: ironSources.map((s) => [s]),
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
   const submitDevelop = useCallback(
     (live: WizardState) => {
       if (live.phase !== "AWAITING_DEVELOP_INPUTS") return;
@@ -190,25 +217,67 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         toast.error("Pick at least one industry to develop.");
         return;
       }
+      // Ambiguity test: if 2+ unflipped Iron Works tiles exist, ask the
+      // user which tiles to drain. Otherwise auto-resolve (single tile
+      // / no tiles + market fallback).
+      const ironTiles = listUnflippedIronWorks(engine.getState());
+      if (ironTiles.length > 1) {
+        dispatch({
+          type: "ENTER_DEVELOP_IRON_PICK",
+          cardIndex: live.cardIndex,
+          developSeatId: live.developSeatId,
+          industries: live.industries,
+        });
+        return;
+      }
       const sources = autoResolveIronSources(
         engine.getState(),
         live.industries.length,
       );
-      const result = engine.dispatch({
-        type: "DEVELOP",
-        playerId: live.developSeatId,
-        cardIndex: live.cardIndex,
-        industries: [...live.industries],
-        ironSources: sources.map((s) => [s]),
-      });
-      if (result.ok) {
-        dispatch({ type: "RESET" });
-      } else {
-        toast.error(reasonToText(result.reason));
+      dispatchDevelopIntent(
+        live.cardIndex,
+        live.developSeatId,
+        live.industries,
+        sources,
+      );
+    },
+    [engine, dispatchDevelopIntent],
+  );
+
+  const submitDevelopIron = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_DEVELOP_IRON_PICK") return;
+      if (live.picks.length !== live.industries.length) return;
+      dispatchDevelopIntent(
+        live.cardIndex,
+        live.developSeatId,
+        live.industries,
+        live.picks,
+      );
+    },
+    [dispatchDevelopIntent],
+  );
+
+  const pickIronSource = useCallback(
+    (source: IronSource) => {
+      const live = state;
+      if (live.phase !== "AWAITING_DEVELOP_IRON_PICK") return;
+      if (live.picks.length >= live.industries.length) return;
+      dispatch({ type: "DEVELOP_IRON_ADD_PICK", source });
+      const projected: WizardState = {
+        ...live,
+        picks: [...live.picks, source],
+      };
+      if (projected.picks.length === live.industries.length) {
+        submitDevelopIron(projected);
       }
     },
-    [engine],
+    [state, submitDevelopIron],
   );
+
+  const resetIronPicks = useCallback(() => {
+    dispatch({ type: "DEVELOP_IRON_RESET_PICKS" });
+  }, []);
 
   const submitBuild = useCallback(
     (live: WizardState) => {
@@ -581,6 +650,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitSellGloucester(live);
       return;
     }
+    if (live.phase === "AWAITING_DEVELOP_IRON_PICK") {
+      submitDevelopIron(live);
+      return;
+    }
   }, [
     engine,
     state,
@@ -589,6 +662,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     submitNetwork,
     submitSell,
     submitSellGloucester,
+    submitDevelopIron,
   ]);
 
   const api = useMemo<WizardApi>(
@@ -607,6 +681,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickSlot,
       pickLine,
       pickTile,
+      pickIronSource,
+      resetIronPicks,
       endAction,
       reset,
     }),
@@ -624,6 +700,8 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       pickSlot,
       pickLine,
       pickTile,
+      pickIronSource,
+      resetIronPicks,
       endAction,
       reset,
     ],
@@ -829,6 +907,37 @@ function autoResolveSellOrders(
     });
   }
   return orders;
+}
+
+/**
+ * Iron-works tile listing for the picker — every unflipped Iron Works
+ * tile that still has cubes. Iron has no connectivity requirement
+ * (§5.6.2) so any such tile is a valid free source.
+ */
+export interface AvailableIronTile {
+  readonly tileId: string;
+  readonly remaining: number;
+  readonly ownerId: PlayerId;
+  readonly cityName: string;
+}
+
+export function listUnflippedIronWorks(
+  state: GameState,
+): readonly AvailableIronTile[] {
+  const out: AvailableIronTile[] = [];
+  for (const t of state.builtTiles) {
+    const spec = state.tileCatalogue[t.catalogueIndex];
+    if (spec?.industry !== "IRON_WORKS") continue;
+    if (t.flipped) continue;
+    if (t.resources <= 0) continue;
+    out.push({
+      tileId: t.id,
+      remaining: t.resources,
+      ownerId: t.owner,
+      cityName: t.cityName,
+    });
+  }
+  return out;
 }
 
 /**

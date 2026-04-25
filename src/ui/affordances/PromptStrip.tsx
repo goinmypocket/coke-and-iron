@@ -87,5 +87,11 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
       }
       return "Gloucester follow-up — submitting…";
     }
+    case "AWAITING_DEVELOP_IRON_PICK": {
+      const left = state.industries.length - state.picks.length;
+      return `Develop iron — pick ${left} more iron source${
+        left === 1 ? "" : "s"
+      } in the picker.`;
+    }
   }
 }
