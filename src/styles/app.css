@@ -264,13 +264,11 @@ body {
 }
 .mat-grid {
   /* Each industry column takes only as much width as its rows
-   * need (cost icons + tile + side column + count). Flex layout
-   * lets the row determine its own width; the parent simply lays
-   * the columns out left-to-right. */
+   * need. A vertical separator sits between adjacent columns. */
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  gap: 0.2rem;
+  align-items: stretch;
+  gap: 0;
   padding-top: 0.25rem;
 }
 .mat-stack {
@@ -279,6 +277,10 @@ body {
   align-items: stretch;
   gap: 0.1rem;
   font-size: 0.85em;
+  padding: 0 0.3rem;
+}
+.mat-stack + .mat-stack {
+  border-left: 1px solid var(--ink);
 }
 .mat-stack__label {
   font-size: 0.7em;
@@ -290,18 +292,12 @@ body {
   align-items: center;
   gap: 0.05rem;
   line-height: 1;
+  margin-top: 0.2rem;
 }
 .mat-stack__icon {
   width: 0.95rem;
   height: 0.95rem;
   display: block;
-}
-.mat-stack__remaining {
-  font-size: 0.7em;
-  text-align: center;
-  color: var(--muted);
-  margin-top: 0.1rem;
-  line-height: 1;
 }
 .mat-grid--single {
   display: flex;

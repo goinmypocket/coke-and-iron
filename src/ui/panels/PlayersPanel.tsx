@@ -236,15 +236,57 @@ function IndustryColumn({
     .filter(Boolean)
     .join(" ");
 
-  // Manufacturer-style 2-col grid with grid-auto-flow: column. We render
-  // every level row in document order; CSS lays out left column first
-  // (5 rows) then right column (3 rows + 2 ghost cells to keep the
-  // grid square).
-  const levels = spec.levels;
+  // Document-order list for the level grid. Levels render top-to-
+  // bottom in display, but we want LEVEL 1 AT THE BOTTOM so the
+  // levels in the array are emitted highest-first. Manufacturer
+  // splits across two columns (L1-5 / L6-8); the right column gets
+  // ghost cells at the top so its bottom row aligns with L1's row
+  // in the left column.
   const isDouble = spec.doubleColSplitAfter !== undefined;
+  const renderCells: ({ kind: "level"; level: number } | { kind: "ghost" })[] =
+    [];
+  if (isDouble) {
+    const split = spec.doubleColSplitAfter!;
+    const leftLevels = spec.levels.slice(0, split).reverse();
+    const rightLevels = spec.levels.slice(split).reverse();
+    for (const lv of leftLevels) renderCells.push({ kind: "level", level: lv });
+    const rightRows = leftLevels.length;
+    const ghostsNeeded = rightRows - rightLevels.length;
+    for (let i = 0; i < ghostsNeeded; i++) renderCells.push({ kind: "ghost" });
+    for (const lv of rightLevels) renderCells.push({ kind: "level", level: lv });
+  } else {
+    for (const lv of [...spec.levels].reverse()) {
+      renderCells.push({ kind: "level", level: lv });
+    }
+  }
 
   return (
     <div className={classes}>
+      <div className={isDouble ? "mat-grid--double" : "mat-grid--single"}>
+        {renderCells.map((cell, i) =>
+          cell.kind === "ghost" ? (
+            <div
+              key={`ghost-${i}`}
+              className="mat-level-row mat-level-row--ghost"
+            />
+          ) : (
+            <MatLevelRow
+              key={cell.level}
+              level={cell.level}
+              count={counts.get(cell.level) ?? 0}
+              spec={specForLevel(spec.industry, cell.level, tileCatalogue)}
+              pawnColor={pawnColor}
+              era={era}
+              isNext={cell.level === nextLevel}
+              pickCount={cell.level === nextLevel ? pickCount : 0}
+              clickable={clickable && cell.level === nextLevel}
+              onClick={
+                clickable && cell.level === nextLevel ? onPick : undefined
+              }
+            />
+          ),
+        )}
+      </div>
       <div className="mat-stack__label">
         <img
           src={INDUSTRY_ICON[spec.industry]}
@@ -253,32 +295,6 @@ function IndustryColumn({
         />
         <span>{spec.label}</span>
       </div>
-      <div
-        className={isDouble ? "mat-grid--double" : "mat-grid--single"}
-      >
-        {levels.map((level) => (
-          <MatLevelRow
-            key={level}
-            level={level}
-            count={counts.get(level) ?? 0}
-            spec={specForLevel(spec.industry, level, tileCatalogue)}
-            pawnColor={pawnColor}
-            era={era}
-            isNext={level === nextLevel}
-            pickCount={level === nextLevel ? pickCount : 0}
-            clickable={clickable && level === nextLevel}
-            onClick={clickable && level === nextLevel ? onPick : undefined}
-          />
-        ))}
-        {isDouble
-          ? // 2 ghost cells so the right column ends with two blanks
-            // beneath L8 and the grid stays a 2 × 5 rectangle.
-            [0, 1].map((i) => (
-              <div key={`ghost-${i}`} className="mat-level-row mat-level-row--ghost" />
-            ))
-          : null}
-      </div>
-      <div className="mat-stack__remaining">×{stack.length}</div>
     </div>
   );
 }
