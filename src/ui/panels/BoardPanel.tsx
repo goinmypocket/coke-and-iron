@@ -33,6 +33,7 @@ import type {
   Line,
   Market,
   MerchantCity,
+  MerchantTileAccept,
   PlacedIndustryTile,
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
@@ -42,25 +43,28 @@ import { TILE, TileFace } from "../tiles/TileFace";
 import { useWizard } from "../wizards/WizardProvider";
 
 const CANVAS = 900;
-// Every district city body is a fixed square. Slots are square cells
-// of TILE × TILE laid out per slot count (§ user-spec):
-//   1 → centred single cell
-//   2 → 1 row × 2 cols
-//   3 → 1 row × 2 cols + 1 centred cell below
-//   4 → 2 rows × 2 cols
-const CITY_SIZE = TILE * 2;
-const MERCHANT_R = 30;
+// City bounding box scales to the slot count rather than padding to a
+// fixed square (§ user-spec / §11.2):
+//   1 slot  → 1×1 (TILE × TILE)            — Farm Brewery
+//   2 slots → 2×1 (2*TILE × TILE)          — most district cities
+//   3 slots → 2×2 (2*TILE × 2*TILE)        — top row × 2 + centred bottom
+//   4 slots → 2×2 (2*TILE × 2*TILE)
+function cityBodyDims(slotCount: number): readonly [number, number] {
+  if (slotCount <= 1) return [TILE, TILE];
+  if (slotCount === 2) return [TILE * 2, TILE];
+  return [TILE * 2, TILE * 2];
+}
 
-/** Top-left of slot cell within a CITY_SIZE × CITY_SIZE city body. */
+/** Top-left of slot cell within the city body returned by cityBodyDims. */
 function slotCellPos(
   slotIndex: number,
   slotCount: number,
 ): readonly [number, number] {
   if (slotCount <= 1) {
-    return [TILE / 2, TILE / 2];
+    return [0, 0];
   }
   if (slotCount === 2) {
-    return slotIndex === 0 ? [0, TILE / 2] : [TILE, TILE / 2];
+    return slotIndex === 0 ? [0, 0] : [TILE, 0];
   }
   if (slotCount === 3) {
     if (slotIndex === 0) return [0, 0];
@@ -270,19 +274,20 @@ function DistrictCityShape({
 }) {
   const [x, y] = city.position;
   const fill = DISTRICT_FILL[city.districtTag] ?? "#aaaaaa";
+  const [cityW, cityH] = cityBodyDims(city.slots.length);
   const cityWrongForCard =
     cityFilter !== null && cityFilter !== city.name;
   return (
     <g
       className="board-city"
-      transform={`translate(${x - CITY_SIZE / 2}, ${y - CITY_SIZE / 2})`}
+      transform={`translate(${x - cityW / 2}, ${y - cityH / 2})`}
       style={cityWrongForCard ? { opacity: 0.35 } : undefined}
     >
       <rect
         x={0}
         y={0}
-        width={CITY_SIZE}
-        height={CITY_SIZE}
+        width={cityW}
+        height={cityH}
         rx={4}
         fill={fill}
         fillOpacity={0.18}
@@ -290,7 +295,7 @@ function DistrictCityShape({
         strokeWidth={1.2}
       />
       <text
-        x={CITY_SIZE / 2}
+        x={cityW / 2}
         y={-3}
         className="board-city__label"
         textAnchor="middle"
@@ -397,59 +402,247 @@ function SlotAcceptGlyph({
   );
 }
 
+const BEER_BOX = 10;
+
 function MerchantCityShape({
   city,
   slots,
 }: {
   city: MerchantCity;
-  slots: readonly { hasBeer: boolean }[];
+  slots: readonly { hasBeer: boolean; accept: MerchantTileAccept }[];
 }) {
   const [x, y] = city.position;
+  // Layout: name on top, bonus badge below name, then a row of D-slots
+  // (TILE × TILE each), each with a beer indicator below it.
+  const slotCount = Math.max(slots.length, 1);
+  const clusterW = slotCount * TILE;
+  const totalH = TILE + BEER_BOX + 2; // slot + beer indicator + 2px gap
   return (
-    <g className="board-merchant" transform={`translate(${x}, ${y})`}>
-      <circle r={MERCHANT_R} fill="#e5d9b4" stroke="#7d6a3a" strokeWidth={1.4} />
+    <g
+      className="board-merchant"
+      transform={`translate(${x - clusterW / 2}, ${y - totalH / 2})`}
+    >
       <text
-        y={-MERCHANT_R - 4}
+        x={clusterW / 2}
+        y={-12}
         className="board-merchant__label"
         textAnchor="middle"
       >
         {city.name}
       </text>
-      <text y={-2} className="board-merchant__bonus" textAnchor="middle">
-        {city.bonus} {city.bonusValue}
-      </text>
-      <g transform={`translate(0, ${MERCHANT_R - 14})`}>
-        {slots.map((slot, i) => {
-          // Spread the beer markers along the bottom of the disc.
-          const offset = (i - (slots.length - 1) / 2) * 9;
-          return slot.hasBeer ? (
-            <circle
-              key={i}
-              cx={offset}
-              cy={0}
-              r={3.5}
-              fill="#c79b3f"
-              stroke="#5b4516"
-              strokeWidth={0.8}
-            >
-              <title>Merchant beer barrel available</title>
-            </circle>
-          ) : (
-            <circle
-              key={i}
-              cx={offset}
-              cy={0}
-              r={3.5}
-              fill="#fffdf6"
-              stroke="#7d6a3a"
-              strokeWidth={0.8}
-              opacity={0.4}
-            />
-          );
-        })}
+      <g transform={`translate(${clusterW / 2}, -3)`}>
+        <BonusBadge bonus={city.bonus} value={city.bonusValue} />
       </g>
+      {slots.map((slot, i) => (
+        <g key={i} transform={`translate(${i * TILE}, 0)`}>
+          <DSlot accept={slot.accept} />
+          <BeerIndicator hasBeer={slot.hasBeer} />
+        </g>
+      ))}
     </g>
   );
+}
+
+function DSlot({ accept }: { accept: MerchantTileAccept }) {
+  // D shape: square top with rounded bottom corners.
+  const w = TILE;
+  const h = TILE;
+  const r = TILE / 3;
+  const path = [
+    `M 0 0`,
+    `L ${w} 0`,
+    `L ${w} ${h - r}`,
+    `Q ${w} ${h} ${w - r} ${h}`,
+    `L ${r} ${h}`,
+    `Q 0 ${h} 0 ${h - r}`,
+    `Z`,
+  ].join(" ");
+  return (
+    <g>
+      <path
+        d={path}
+        fill="#e5d9b4"
+        stroke="#7d6a3a"
+        strokeWidth={0.9}
+      />
+      <SlotAcceptDisplay accept={accept} />
+    </g>
+  );
+}
+
+function SlotAcceptDisplay({ accept }: { accept: MerchantTileAccept }) {
+  if (accept === "BLANK") {
+    return (
+      <text
+        x={TILE / 2}
+        y={TILE / 2 + 3}
+        textAnchor="middle"
+        className="board-merchant__blank"
+        fill="#7d6a3a"
+      >
+        ·
+      </text>
+    );
+  }
+  if (accept === "ANY") {
+    return (
+      <text
+        x={TILE / 2}
+        y={TILE / 2 + 3}
+        textAnchor="middle"
+        fontSize={7}
+        fontWeight={700}
+        fill="#1a1a1a"
+      >
+        ANY
+      </text>
+    );
+  }
+  // accept is one of COTTON_MILL / MANUFACTURER / POTTERY
+  const ind = accept as IndustryName;
+  const size = TILE * 0.55;
+  return (
+    <image
+      href={INDUSTRY_ICON[ind]}
+      x={TILE / 2 - size / 2}
+      y={TILE / 2 - size / 2 - 1}
+      width={size}
+      height={size}
+      preserveAspectRatio="xMidYMid meet"
+    />
+  );
+}
+
+function BeerIndicator({ hasBeer }: { hasBeer: boolean }) {
+  // Small square below the slot. Beer icon when present, empty
+  // outline when consumed.
+  const x = (TILE - BEER_BOX) / 2;
+  const y = TILE + 2;
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={BEER_BOX}
+        height={BEER_BOX}
+        fill={hasBeer ? "#fffdf6" : "transparent"}
+        stroke="#7d6a3a"
+        strokeWidth={0.7}
+        opacity={hasBeer ? 1 : 0.55}
+      />
+      {hasBeer ? (
+        <ellipse
+          cx={x + BEER_BOX / 2}
+          cy={y + BEER_BOX / 2}
+          rx={BEER_BOX / 2 - 2}
+          ry={BEER_BOX / 2 - 1.5}
+          fill="#c79b3f"
+          stroke="#5b4516"
+          strokeWidth={0.5}
+        >
+          <title>Merchant beer barrel available</title>
+        </ellipse>
+      ) : null}
+    </g>
+  );
+}
+
+function BonusBadge({
+  bonus,
+  value,
+}: {
+  bonus: string;
+  value: number;
+}) {
+  // Renders the bonus icon centred at (0, 0) with the value overlaid.
+  if (bonus === "VP") {
+    const r = 6;
+    return (
+      <g>
+        <polygon
+          points={hexPoints(0, 0, r)}
+          fill="#fffdf6"
+          stroke="#1a1a1a"
+          strokeWidth={0.6}
+        />
+        <text
+          x={0}
+          y={2.2}
+          textAnchor="middle"
+          fontSize={6}
+          fontWeight={700}
+          fill="#1a1a1a"
+        >
+          {value}
+        </text>
+      </g>
+    );
+  }
+  if (bonus === "MONEY") {
+    return (
+      <g>
+        <circle r={6} fill="#d4a017" stroke="#1a1a1a" strokeWidth={0.6} />
+        <text
+          x={0}
+          y={2.2}
+          textAnchor="middle"
+          fontSize={6}
+          fontWeight={700}
+          fill="#1a1a1a"
+        >
+          £{value}
+        </text>
+      </g>
+    );
+  }
+  if (bonus === "INCOME") {
+    return (
+      <g>
+        <polygon
+          points="0,-6 -5,4 5,4"
+          fill="#fffdf6"
+          stroke="#1a1a1a"
+          strokeWidth={0.6}
+        />
+        <text
+          x={0}
+          y={2.5}
+          textAnchor="middle"
+          fontSize={5.5}
+          fontWeight={700}
+          fill="#1a1a1a"
+        >
+          {value}
+        </text>
+      </g>
+    );
+  }
+  // DEVELOP — light bulb (not crossed out: bonus, not constraint)
+  return (
+    <g>
+      <circle cx={0} cy={-1.5} r={3.6} fill="#f0d050" stroke="#1a1a1a" strokeWidth={0.6} />
+      <rect x={-1.6} y={2} width={3.2} height={1.4} fill="#888" stroke="#1a1a1a" strokeWidth={0.4} />
+      <rect x={-1.2} y={3.4} width={2.4} height={0.9} fill="#888" stroke="#1a1a1a" strokeWidth={0.4} />
+      <text
+        x={6}
+        y={3}
+        fontSize={5.5}
+        fontWeight={700}
+        fill="#1a1a1a"
+      >
+        {value}
+      </text>
+    </g>
+  );
+}
+
+function hexPoints(cx: number, cy: number, r: number): string {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 2;
+    pts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+  return pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
 }
 
 function LinkToken({
@@ -655,8 +848,9 @@ function BuiltTiles({
         const spec = tileCatalogue[t.catalogueIndex];
         if (!spec) return null;
         const [cellX, cellY] = slotCellPos(t.slotIndex, city.slots.length);
-        const ox = city.position[0] - CITY_SIZE / 2 + cellX;
-        const oy = city.position[1] - CITY_SIZE / 2 + cellY;
+        const [cityW, cityH] = cityBodyDims(city.slots.length);
+        const ox = city.position[0] - cityW / 2 + cellX;
+        const oy = city.position[1] - cityH / 2 + cellY;
         const clickable =
           sellMode &&
           t.owner === activeSeatId &&
@@ -678,7 +872,6 @@ function BuiltTiles({
               spec={spec}
               ownerColor={ownerColor}
               face={t.flipped ? "flipped" : "unflipped"}
-              resources={t.resources}
             />
             {isPicked ? (
               <rect
@@ -845,18 +1038,23 @@ function MarketColumn({
               £{row.price}
               {row.isOverflow ? "+" : ""}
             </text>
-            {[0, 1].map((slot) => (
-              <circle
-                key={slot}
-                cx={26 + slot * 14}
-                cy={6}
-                r={4.5}
-                fill={slot < row.cubes ? cubeColor : "#fffdf6"}
-                stroke="#1a1a1a"
-                strokeWidth={0.7}
-                strokeDasharray={row.isOverflow ? "1.5 1.5" : undefined}
-              />
-            ))}
+            {[0, 1].map((slot) => {
+              const cubeSize = 9;
+              const cx = 26 + slot * 14;
+              return (
+                <rect
+                  key={slot}
+                  x={cx - cubeSize / 2}
+                  y={6 - cubeSize / 2}
+                  width={cubeSize}
+                  height={cubeSize}
+                  fill={slot < row.cubes ? cubeColor : "#fffdf6"}
+                  stroke="#1a1a1a"
+                  strokeWidth={0.7}
+                  strokeDasharray={row.isOverflow ? "1.5 1.5" : undefined}
+                />
+              );
+            })}
           </g>
         ))}
       </g>

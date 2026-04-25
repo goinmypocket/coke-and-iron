@@ -344,12 +344,19 @@ body {
   background: rgba(0, 0, 0, 0.05);
   border: 1px dashed var(--muted);
 }
+.mat-side-col {
+  display: block;
+  flex-shrink: 0;
+}
+.mat-side-col--placeholder {
+  width: 22px;
+  height: 28px;
+}
 .mat-level-row__count {
   color: var(--muted);
-  padding: 0 3px 0 2px;
+  padding: 0 2px;
   white-space: nowrap;
-  font-size: 0.95em;
-  margin-left: auto;
+  font-size: 0.85em;
 }
 .mat-level-row--gone {
   opacity: 0.35;

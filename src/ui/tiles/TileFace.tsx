@@ -35,27 +35,13 @@ interface TileFaceProps {
   spec: IndustryTileSpec;
   ownerColor: string;
   face: "unflipped" | "flipped";
-  // Live resource count for the BL production badge on board-unflipped
-  // tiles. Mat / flipped ignore this and read 0 if omitted.
-  resources?: number;
 }
 
-export function TileFace({
-  spec,
-  ownerColor,
-  face,
-  resources,
-}: TileFaceProps) {
+export function TileFace({ spec, ownerColor, face }: TileFaceProps) {
   if (face === "flipped") {
     return <FlippedFace spec={spec} ownerColor={ownerColor} />;
   }
-  return (
-    <UnflippedFace
-      spec={spec}
-      ownerColor={ownerColor}
-      resources={resources ?? 0}
-    />
-  );
+  return <UnflippedFace spec={spec} ownerColor={ownerColor} />;
 }
 
 function FlippedFace({
@@ -91,14 +77,11 @@ function FlippedFace({
 function UnflippedFace({
   spec,
   ownerColor,
-  resources,
 }: {
   spec: IndustryTileSpec;
   ownerColor: string;
-  resources: number;
 }) {
   const tint = mix(ownerColor, "#fffdf6", 0.7);
-  const showProduction = carriesResources(spec.industry);
   return (
     <g>
       <rect width={TILE} height={TILE} rx={2} fill={tint} />
@@ -113,9 +96,6 @@ function UnflippedFace({
       <CornerLevel level={spec.level} fill="#1a1a1a" />
       {spec.beerToSell > 0 ? (
         <CornerBeerCrossed count={spec.beerToSell} />
-      ) : null}
-      {showProduction ? (
-        <CornerProduction industry={spec.industry} count={resources} />
       ) : null}
       {spec.lightBulb ? <CornerNoDev /> : null}
       <CenterIcon industry={spec.industry} y={TILE * 0.5} />
@@ -204,69 +184,6 @@ function CornerBeerCrossed({ count }: { count: number }) {
           {count}
         </text>
       ) : null}
-    </g>
-  );
-}
-
-function CornerProduction({
-  industry,
-  count,
-}: {
-  industry: IndustryName;
-  count: number;
-}) {
-  // BL: industry-appropriate token + count.
-  const cy = TILE - 4.5;
-  const left = 2;
-  const tokenSize = 4;
-  if (industry === "BREWERY") {
-    return (
-      <g style={{ pointerEvents: "none" }}>
-        <title>Beer barrels remaining</title>
-        <ellipse
-          cx={left + tokenSize / 2}
-          cy={cy}
-          rx={tokenSize / 2}
-          ry={tokenSize / 2 + 0.4}
-          fill="#c79b3f"
-          stroke="#5b4516"
-          strokeWidth={0.3}
-        />
-        <text
-          x={left + tokenSize + 1}
-          y={cy + 1.6}
-          fontSize={4.6}
-          fontWeight={700}
-          fill="#1a1a1a"
-        >
-          {count}
-        </text>
-      </g>
-    );
-  }
-  const cubeFill = industry === "COAL_MINE" ? "#1a1a1a" : "#a8825a";
-  const cubeStroke = industry === "COAL_MINE" ? "#fffdf6" : "#1a1a1a";
-  return (
-    <g style={{ pointerEvents: "none" }}>
-      <title>{industry === "COAL_MINE" ? "Coal cubes" : "Iron cubes"} remaining</title>
-      <rect
-        x={left}
-        y={cy - tokenSize / 2}
-        width={tokenSize}
-        height={tokenSize}
-        fill={cubeFill}
-        stroke={cubeStroke}
-        strokeWidth={0.3}
-      />
-      <text
-        x={left + tokenSize + 1}
-        y={cy + 1.6}
-        fontSize={4.6}
-        fontWeight={700}
-        fill="#1a1a1a"
-      >
-        {count}
-      </text>
     </g>
   );
 }
@@ -385,7 +302,7 @@ function CenterIcon({
   );
 }
 
-function carriesResources(industry: IndustryName): boolean {
+export function carriesResources(industry: IndustryName): boolean {
   return (
     industry === "COAL_MINE" ||
     industry === "IRON_WORKS" ||

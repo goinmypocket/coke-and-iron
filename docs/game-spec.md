@@ -410,30 +410,18 @@ corners and the centre carry:
   icon struck through with a red diagonal line, with the
   required count overlaid when greater than 1. Rendered only
   when `beerToSell > 0` (Cotton / Manufacturer / Pottery).
-- **Bottom-left (BL)** — the **production count**: an
-  industry-appropriate resource token (coal cube / iron cube /
-  beer barrel) followed by the current resource count. On the
-  mat the count equals the level's max capacity for the current
-  era (`resourceCapacityRail ?? resourceCapacity`); on the
-  board the count tracks live `resources` so it drains as the
-  tile sells / is consumed. Rendered only for Coal Mine / Iron
-  Works / Brewery; other industries leave BL empty.
+- **Bottom-left (BL)** — empty.
 - **Bottom-right (BR)** — the **no-Develop** glyph: a struck-through
   bulb. Rendered only when `lightBulb === true` (Pottery
   levels 1 and 3 in the published config).
 - **Centre** — the **industry icon** (§2.9.2).
 
-The build cost (money / coal / iron) is **not** carried on the
-tile face. It is rendered separately as a **cost-icon row** in the
-mat margin immediately left of the tile (§11.3). Once a tile has
-been built, its cost is no longer relevant and so does not appear
-on the board copy of the same tile.
-
-The link-point count and income bonus are not on the unflipped
-face either — they are on the flipped face (§2.9.3.b), so a
-player checking "what will this tile pay me when it flips?"
-inspects the flipped face on the mat-equivalent reference (or
-post-flip on the board).
+The build cost (money / coal / iron), the production cubes /
+barrels (for Coal / Iron / Brewery), the link-point count, the
+income-bonus arrow, and the VP hex are all rendered **outside**
+the tile face — in the mat row's left and right side columns
+(§11.3). The tile face itself is reserved for the level, the
+industry icon, the beer-cost flag, and the no-Develop flag.
 
 ##### 2.9.3.b Flipped face
 
@@ -559,9 +547,11 @@ The widget's layout:
   unlimited supply at that price. Below it, **one row per priced
   tier**, descending. Each row shows:
   - The price label "£N" on the left.
-  - Two cube slots on the right. A filled slot renders the
-    resource cube (black for coal, orange for iron); an empty
-    slot renders a faint outline of the same size.
+  - Two **square cube slots** on the right. A filled slot
+    renders the resource cube glyph (a small square — black for
+    coal, orange for iron — matching the cube tokens drawn
+    elsewhere on the board); an empty slot renders a faint
+    square outline of the same size.
 - Above the two columns, a compact header strip that always
   displays the live **summary**:
   - **Coal** — `Buy £X · Sell £Y · N/14 cubes` (where X is the
@@ -1361,18 +1351,29 @@ markers.
 **Contents.**
 
 - **District cities**, each as a rectangle at its configured
-  position with the city name in district colour. 1–4 industry
-  slots inside; empty slots show their accept-list icons, combo
-  slots split the cell, wildcard slots show an "ANY" glyph.
-  Placed industry tiles render per §2.9.3.
-- **Merchant cities** on the board edges as D-shapes. Each
-  shows the name, a bonus badge (e.g. "Oxford INCOME 2"), one
-  merchant-tile slot per active merchant at this player count
-  with its accept-list icon, a beer-barrel slot adjacent to
-  every non-blank merchant tile, and a single "2" link-point
-  badge sized approximately 1.4× the tile-face link-point icon,
-  placed on the D straight edge so the fixed 2-VP contribution
-  reads at board zoom (§6.1).
+  position with the city name in district colour. The city body
+  is **sized to its slot count** rather than padded to a fixed
+  square — a 1-slot city (the two Farm Breweries) is a single
+  TILE × TILE square, a 2-slot city is a 2×1 rectangle
+  (2*TILE × TILE), and 3- or 4-slot cities are 2×2 squares
+  (2*TILE × 2*TILE). 3-slot cities use the top row for slots 0
+  and 1 and centre slot 2 in the bottom row. Empty slots show
+  their accept-list icons; placed tiles render per §2.9.3.
+- **Merchant cities** on the board edges. Each renders as a
+  cluster of **D-shaped slots** — one D per active merchant tile
+  at this player count, sized like a district-city slot (TILE
+  wide). The D is a square top with a rounded bottom edge. The
+  slot face shows the **accept-list icon** (industry icon when
+  the slot accepts a specific industry, "ANY" glyph when ANY).
+  Below each D, a small square holds the **beer indicator**
+  (beer-barrel icon) when the slot still has its beer, and is
+  an empty outline when consumed. Above the cluster sits the
+  city name and a **bonus badge** that uses the bonus's own
+  icon — VP hex for `bonus = "VP"`, money coin for `"MONEY"`,
+  income arrow for `"INCOME"`, light-bulb for `"DEVELOP"` —
+  with its `bonusValue` overlaid. The fixed 2-link-point
+  contribution (§6.1) is implied by the merchant city's
+  presence and is not rendered separately on the slot.
 - **Canal and rail lines** — canal muted-blue during Canal era,
   hidden in Rail era; rail dim during Canal era, full-opacity in
   Rail era. Triple links show a centroid junction dot. Developed
@@ -1382,7 +1383,9 @@ markers.
 - **Coal + Iron Market Place widget** — see §2.11.3 for
   the full spec. Header strip shows the live Buy price / Sell
   price / cube count per market; two columns of price tiers
-  below with filled / empty slots.
+  below with filled / empty slots **rendered as small squares**
+  (cube glyphs) — black for coal, orange for iron — matching
+  the resource tokens drawn elsewhere on the board.
 
 **Functionality.**
 
@@ -1423,21 +1426,39 @@ collapse).
   spans two columns (levels 1–5 in the left, 6–8 in the right);
   every other industry is a single column. Each industry column
   has one row per level (top row = lowest level = next to build).
-- **Per-level row** — three slots, packed tightly with no
-  inter-element padding:
-  - **Cost-icon row** at the immediate left of the tile: a money
-    coin with `£N` overlaid, then a coal-cube badge with the
-    coal cost overlaid (only when `coalCost > 0`), then an
-    iron-cube badge with the iron cost (only when `ironCost > 0`).
-    Each icon is the same square size; cells with zero cost
-    drop out of the row entirely.
+- **Per-level row** — three sub-cells, packed tight with one
+  column of space on each side of the tile and no extra padding
+  anywhere else:
+  - **Left column — cost icons.** A money coin with `£N` overlaid,
+    then a coal-cube badge with the coal cost (only when
+    `coalCost > 0`), then an iron-cube badge with the iron cost
+    (only when `ironCost > 0`). Each icon is the same square
+    size; cells with zero cost drop out entirely.
   - **Tile face** in the centre — the unflipped face per
     §2.9.3.a, painted in the seat's pawn colour. Tile size is
     the global TILE constant, identical to board-side tiles.
-  - **Count** at the right: `×N` showing how many copies of
-    this level remain in the seat's stack. When the wizard has
-    reserved one or more picks at this level (Build / Develop /
-    Sell-Gloucester), the badge reads `×P/N` instead.
+  - **Right column — bonus / production icons.** Contents differ
+    by industry:
+    - **Coal Mine / Iron Works / Brewery** — the resource cubes
+      this tile will produce (or, on the board, the live count
+      remaining). Cubes pack **column-major from the bottom-right
+      corner**, growing **upward to a maximum of 2 rows** before
+      starting a new column to the left. A coal mine showing 5
+      cubes therefore renders as three columns: rightmost full
+      (2 cubes), middle full (2 cubes), leftmost partial (1 cube).
+      Coal renders as a black square cube; iron as an orange
+      square cube; brewery as a beer-barrel ellipse.
+    - **Cotton Mill / Manufacturer / Pottery** — bonus icons
+      stacked vertically:
+      - **Top** — the VP hex with the level's VP value inside.
+      - **Middle** — the income-bonus arrow with its step count.
+      - **Bottom** — a cascading link-point cluster (one icon
+        per link point, 0 / 1 / 2 in the published config).
+      Cells whose value is 0 drop out of the stack entirely.
+  - **Count** — `×N` showing how many copies of this level
+    remain in the seat's stack, rendered as a small text inside
+    or alongside the right column. When the wizard has reserved
+    one or more picks at this level the badge reads `×P/N`.
 - The lowest level still in the stack — the engine's `stack[0]`,
   the next tile a Build or Develop will consume — is the click
   target for the active pick. It is the only row with a

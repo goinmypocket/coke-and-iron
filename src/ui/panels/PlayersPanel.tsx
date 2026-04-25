@@ -26,6 +26,7 @@ import {
 } from "../industryIcons";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
+import { TileSideColumn } from "../tiles/TileSideColumn";
 import { useWizard } from "../wizards/WizardProvider";
 
 interface IndustryColumnSpec {
@@ -283,17 +284,17 @@ function MatLevelRow({
           viewBox={`0 0 ${TILE} ${TILE}`}
           aria-hidden
         >
-          <TileFace
-            spec={spec}
-            ownerColor={pawnColor}
-            face="unflipped"
-            resources={matResources}
-          />
+          <TileFace spec={spec} ownerColor={pawnColor} face="unflipped" />
         </svg>
       ) : (
         <div className="mat-level-row__tile mat-level-row__tile--placeholder" />
       )}
-      <div className="mat-level-row__count">
+      {spec ? (
+        <TileSideColumn spec={spec} resources={matResources} />
+      ) : (
+        <div className="mat-side-col mat-side-col--placeholder" />
+      )}
+      <div className="mat-level-row__count" title="Tiles remaining at this level">
         {pickCount > 0 ? `×${pickCount}/${count}` : `×${count}`}
       </div>
     </div>
