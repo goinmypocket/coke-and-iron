@@ -75,10 +75,9 @@ Status keys:
   sub-state for resource pickers, second-rail offer, Gloucester
   follow-up, pick-list summary) still TODO once those sub-states
   land.
-- **[ui] Overlays polish (§11.11).** End-game summary +
-  shortfall sub-flow shipped. Still TODO: era flip / round
-  transition banners (~1.5s transient), Gloucester follow-up
-  sub-state.
+- **[ui] Overlays polish (§11.11).** End-game summary, shortfall
+  sub-flow, and era / round transient banners shipped. Gloucester
+  follow-up sub-state still TODO.
 - **[ui] City slot editor (§11.12).** Board-editor overlay that
   writes through to `config/cities.json`.
 - **[ui] Layout editor (§10.3).** In-game panel layout editor that

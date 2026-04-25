@@ -7,6 +7,7 @@ import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { PanelGrid } from "./ui/layout/PanelGrid";
 import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
+import { EraRoundBanner } from "./ui/overlays/EraRoundBanner";
 import { ShortfallOverlay } from "./ui/overlays/ShortfallOverlay";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { BoardPanel } from "./ui/panels/BoardPanel";
@@ -52,6 +53,7 @@ export function App() {
         </div>
         <ShortfallOverlay />
         <EndGameOverlay />
+        <EraRoundBanner />
         <Toaster position="bottom-center" duration={2000} />
       </WizardProvider>
     </EngineProvider>

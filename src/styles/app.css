@@ -417,6 +417,35 @@ body {
   padding-top: 0.5rem;
 }
 
+/* ---------- Era / round banner (§11.11) ---------- */
+
+.banner-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 150;
+}
+.banner-overlay__text {
+  background: rgba(26, 26, 26, 0.85);
+  color: var(--warm-gold);
+  padding: 1rem 2.5rem;
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 2px solid var(--warm-gold);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  animation: banner-fade 1.5s ease-out forwards;
+}
+@keyframes banner-fade {
+  0% { opacity: 0; transform: scale(0.9); }
+  15% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.05); }
+}
+
 /* ---------- End-game overlay (§11.11) ---------- */
 
 .endgame-overlay {
