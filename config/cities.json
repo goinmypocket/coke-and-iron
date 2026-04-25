@@ -144,7 +144,7 @@
 			"district": "red",
 			"name": "Cannock",
 			"position": [
-				385,
+				415,
 				390
 			],
 			"slots": [
@@ -159,8 +159,8 @@
 			"district": "red",
 			"name": "Stafford",
 			"position": [
-				350,
-				310
+				305,
+				300
 			],
 			"slots": [
 				[
@@ -219,8 +219,8 @@
 			"district": "blue",
 			"name": "Stone",
 			"position": [
-				320,
-				220
+				295,
+				180
 			],
 			"slots": [
 				[
@@ -237,8 +237,8 @@
 			"district": "blue",
 			"name": "Stoke-on-Trent",
 			"position": [
-				350,
-				120
+				340,
+				50
 			],
 			"slots": [
 				[
@@ -257,7 +257,7 @@
 			"name": "Uttoxeter",
 			"position": [
 				490,
-				215
+				185
 			],
 			"slots": [
 				[
@@ -275,7 +275,7 @@
 			"name": "Leek",
 			"position": [
 				500,
-				115
+				50
 			],
 			"slots": [
 				[
@@ -292,8 +292,8 @@
 			"district": "teal",
 			"name": "Derby",
 			"position": [
-				640,
-				240
+				655,
+				215
 			],
 			"slots": [
 				[
@@ -311,8 +311,8 @@
 			"district": "teal",
 			"name": "Belper",
 			"position": [
-				640,
-				100
+				680,
+				60
 			],
 			"slots": [
 				[
@@ -328,7 +328,7 @@
 			"farmBrewery": true,
 			"name": "Farm Brewery 1",
 			"position": [
-				270,
+				275,
 				385
 			],
 			"slots": [
@@ -358,8 +358,8 @@
 	],
 	"marketPlace": {
 		"position": [
-			780,
-			315
+			800,
+			340
 		]
 	},
 	"merchantBag": {
@@ -413,8 +413,8 @@
 			"linkPoints": 2,
 			"name": "Nottingham",
 			"position": [
-				770,
-				215
+				810,
+				195
 			],
 			"slots": 2
 		},
@@ -459,8 +459,8 @@
 			"linkPoints": 2,
 			"name": "Warrington",
 			"position": [
-				220,
-				90
+				175,
+				85
 			],
 			"slots": 2
 		}
