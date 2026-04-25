@@ -23,6 +23,11 @@
 //                                   tiles in any order. Tile picks toggle
 //                                   on duplicate click. End Action
 //                                   submits; merchant + beer auto-resolve.
+//   AWAITING_SELL_GLOUCESTER      — Sell sub-state entered after End
+//                                   Action when one or more orders
+//                                   consumed Gloucester merchant beer.
+//                                   Captures one mat-industry pick per
+//                                   beer; auto-submits at full count.
 //
 // All non-trivial wizards follow the §10.1 convention:
 //   - Unique-cardinality inputs (card, slot, industry, line) are REPLACED
@@ -34,7 +39,7 @@
 // Network / Sell aren't yet wired through the wizard.
 // =============================================================================
 
-import type { IndustryName, PlayerId } from "../../engine";
+import type { IndustryName, PlayerId, SellOrder } from "../../engine";
 
 export interface BuildSlotPick {
   readonly cityName: string;
@@ -79,13 +84,24 @@ export type WizardState =
     }
   // §5.4 Sell — card + variable-arity own-tile picks, in any order.
   // Tile picks TOGGLE on duplicate click (distinct-id collection).
-  // endAction submits with card + 1+ tiles. Merchant + beer sources are
-  // auto-resolved at submit time; explicit pickers + Gloucester
-  // follow-up are deferred to roadmap.
+  // endAction submits with card + 1+ tiles. Merchant + beer sources
+  // auto-resolve at submit; explicit pickers are roadmap.
   | {
       readonly phase: "AWAITING_SELL_INPUTS";
       readonly cardIndex: number | null;
       readonly tileIds: readonly string[];
+    }
+  // §5.4 step 3 Gloucester follow-up — entered after End Action on Sell
+  // when one or more orders consumed Gloucester merchant beer. The
+  // wizard freezes the Sell inputs and asks the player for one industry
+  // per Gloucester beer consumed. Same Develop semantics: industries
+  // accumulate (duplicates allowed); auto-submit on the Nth pick.
+  | {
+      readonly phase: "AWAITING_SELL_GLOUCESTER";
+      readonly cardIndex: number;
+      readonly orders: readonly SellOrder[];
+      readonly need: number;
+      readonly industries: readonly IndustryName[];
     };
 
 export type WizardAction =
@@ -106,6 +122,13 @@ export type WizardAction =
   | { type: "START_SELL" }
   | { type: "SELL_SET_CARD"; cardIndex: number }
   | { type: "SELL_TOGGLE_TILE"; tileId: string }
+  | {
+      type: "ENTER_SELL_GLOUCESTER";
+      cardIndex: number;
+      orders: readonly SellOrder[];
+      need: number;
+    }
+  | { type: "ADD_SELL_GLOUCESTER_INDUSTRY"; industry: IndustryName }
   | { type: "IDLE_STASH_CARD"; cardIndex: number | null }
   | { type: "RESET" };
 
@@ -246,6 +269,24 @@ export function wizardReducer(
           : [...state.tileIds, action.tileId],
       };
     }
+    case "ENTER_SELL_GLOUCESTER":
+      return {
+        phase: "AWAITING_SELL_GLOUCESTER",
+        cardIndex: action.cardIndex,
+        orders: action.orders,
+        need: action.need,
+        industries: [],
+      };
+    case "ADD_SELL_GLOUCESTER_INDUSTRY": {
+      // Repeatable target — duplicates allowed (same Develop semantics
+      // per §5.3); cap at `need`.
+      if (state.phase !== "AWAITING_SELL_GLOUCESTER") return state;
+      if (state.industries.length >= state.need) return state;
+      return {
+        ...state,
+        industries: [...state.industries, action.industry],
+      };
+    }
     case "IDLE_STASH_CARD": {
       // Card-first flow only applies in IDLE. While a wizard is open
       // the wizard's own SET_CARD reducers handle card clicks.
@@ -282,6 +323,9 @@ export function pickedCardIndices(state: WizardState): ReadonlySet<number> {
     return new Set([state.cardIndex]);
   }
   if (state.phase === "AWAITING_SELL_INPUTS" && state.cardIndex !== null) {
+    return new Set([state.cardIndex]);
+  }
+  if (state.phase === "AWAITING_SELL_GLOUCESTER") {
     return new Set([state.cardIndex]);
   }
   return new Set();

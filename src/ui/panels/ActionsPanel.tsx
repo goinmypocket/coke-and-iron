@@ -47,11 +47,15 @@ export function ActionsPanel() {
     wizard.state.phase === "AWAITING_NETWORK_INPUTS" &&
     wizard.state.cardIndex !== null &&
     wizard.state.lineIndex !== null;
-  const isSell = wizard.state.phase === "AWAITING_SELL_INPUTS";
+  const isSell =
+    wizard.state.phase === "AWAITING_SELL_INPUTS" ||
+    wizard.state.phase === "AWAITING_SELL_GLOUCESTER";
   const canEndSell =
-    wizard.state.phase === "AWAITING_SELL_INPUTS" &&
-    wizard.state.cardIndex !== null &&
-    wizard.state.tileIds.length >= 1;
+    (wizard.state.phase === "AWAITING_SELL_INPUTS" &&
+      wizard.state.cardIndex !== null &&
+      wizard.state.tileIds.length >= 1) ||
+    (wizard.state.phase === "AWAITING_SELL_GLOUCESTER" &&
+      wizard.state.industries.length === wizard.state.need);
 
   const onEndTurn = () => {
     if (flags.activePlayerId === null) return;

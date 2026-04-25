@@ -76,8 +76,8 @@ Status keys:
   follow-up, pick-list summary) still TODO once those sub-states
   land.
 - **[ui] Overlays polish (§11.11).** End-game summary, shortfall
-  sub-flow, and era / round transient banners shipped. Gloucester
-  follow-up sub-state still TODO.
+  sub-flow, era / round transient banners, and Gloucester
+  follow-up sub-state all shipped.
 - **[ui] City slot editor (§11.12).** Board-editor overlay that
   writes through to `config/cities.json`.
 - **[ui] Layout editor (§10.3).** In-game panel layout editor that
@@ -99,12 +99,11 @@ Status keys:
   connectivity-aware free coal is TODO. Beer for the second rail
   picks the first unflipped brewery (engine validates
   connectivity); explicit picker is TODO.
-- **[ui] Sell wizard polish.** Card + tile picks happy path
-  shipped. Still TODO: explicit merchant picker when multiple
-  merchants accept, explicit beer-source picker, Gloucester
-  follow-up sub-state (§5.4 step 3). Today's auto-resolver picks
-  the first matching merchant and prefers own brewery > buying
-  merchant beer > opponent brewery.
+- **[ui] Sell wizard polish.** Card + tile picks + Gloucester
+  follow-up sub-state shipped. Still TODO: explicit merchant
+  picker when multiple merchants accept, explicit beer-source
+  picker. Auto-resolver picks the first matching merchant and
+  prefers own brewery > buying merchant beer > opponent brewery.
 - **[ui] IDLE card-first polish.** Stash + auto-prefill shipped.
   Future polish: highlight only action buttons that the stashed
   card could legally authorise (e.g. a Brewery industry card

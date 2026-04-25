@@ -76,21 +76,25 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
   if (!view) return null;
 
   // The mat accepts industry picks during Develop (any number of times,
-  // up to 2) and during Build (just once — the engine pops the lowest
-  // tile of the chosen industry). Both flows scope to the active seat.
+  // up to 2), Build (just once — engine pops the lowest tile of the
+  // chosen industry), and the Sell-Gloucester sub-state (one pick per
+  // Gloucester beer consumed). All three flows scope to the active seat.
   const wantingIndustry =
     (wizard.state.phase === "AWAITING_DEVELOP_INPUTS" &&
       wizard.state.developSeatId === seatId) ||
-    (wizard.state.phase === "AWAITING_BUILD_INPUTS" && view.isActive);
+    (wizard.state.phase === "AWAITING_BUILD_INPUTS" && view.isActive) ||
+    (wizard.state.phase === "AWAITING_SELL_GLOUCESTER" && view.isActive);
   // industries can repeat (Develop allows 2-of-same per §5.3) — so render a
   // count rather than a binary picked / not-picked state.
   const pickCounts = countBy(
     wizard.state.phase === "AWAITING_DEVELOP_INPUTS"
       ? wizard.state.industries
-      : wizard.state.phase === "AWAITING_BUILD_INPUTS" &&
-          wizard.state.industry !== null
-        ? [wizard.state.industry]
-        : [],
+      : wizard.state.phase === "AWAITING_SELL_GLOUCESTER"
+        ? wizard.state.industries
+        : wizard.state.phase === "AWAITING_BUILD_INPUTS" &&
+            wizard.state.industry !== null
+          ? [wizard.state.industry]
+          : [],
   );
 
   return (

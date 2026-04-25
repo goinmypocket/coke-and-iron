@@ -256,6 +256,30 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     [engine],
   );
 
+  const dispatchSellIntent = useCallback(
+    (
+      cardIndex: number,
+      orders: readonly SellOrder[],
+      gloucesterDevelops: readonly IndustryName[],
+    ) => {
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
+      const result = engine.dispatch({
+        type: "SELL",
+        playerId,
+        cardIndex,
+        orders,
+        gloucesterDevelops,
+      });
+      if (result.ok) {
+        dispatch({ type: "RESET" });
+      } else {
+        toast.error(reasonToText(result.reason));
+      }
+    },
+    [engine],
+  );
+
   const submitSell = useCallback(
     (live: WizardState) => {
       if (live.phase !== "AWAITING_SELL_INPUTS") return;
@@ -271,20 +295,31 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       const playerId = liveState.turnOrder[liveState.currentPlayerIndex]!;
       const orders = autoResolveSellOrders(liveState, playerId, live.tileIds);
       if (orders === null) return;
-      const result = engine.dispatch({
-        type: "SELL",
-        playerId,
+      const gloucesterBeers = countGloucesterBeers(orders);
+      if (gloucesterBeers === 0) {
+        dispatchSellIntent(live.cardIndex, orders, []);
+        return;
+      }
+      // Hand off to the Gloucester sub-state — the player picks one
+      // mat industry per Gloucester beer consumed; the wizard then
+      // dispatches the full Sell intent with gloucesterDevelops set.
+      dispatch({
+        type: "ENTER_SELL_GLOUCESTER",
         cardIndex: live.cardIndex,
         orders,
-        gloucesterDevelops: [],
+        need: gloucesterBeers,
       });
-      if (result.ok) {
-        dispatch({ type: "RESET" });
-      } else {
-        toast.error(reasonToText(result.reason));
-      }
     },
-    [engine],
+    [engine, dispatchSellIntent],
+  );
+
+  const submitSellGloucester = useCallback(
+    (live: WizardState) => {
+      if (live.phase !== "AWAITING_SELL_GLOUCESTER") return;
+      if (live.industries.length !== live.need) return;
+      dispatchSellIntent(live.cardIndex, live.orders, [...live.industries]);
+    },
+    [dispatchSellIntent],
   );
 
   const submitNetwork = useCallback(
@@ -444,9 +479,24 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         ) {
           submitBuild(projected);
         }
+        return;
+      }
+      if (live.phase === "AWAITING_SELL_GLOUCESTER") {
+        const liveState = engine.getState();
+        const activeId = liveState.turnOrder[liveState.currentPlayerIndex];
+        if (seatId !== activeId) return;
+        if (live.industries.length >= live.need) return;
+        const projected: WizardState = {
+          ...live,
+          industries: [...live.industries, industry],
+        };
+        dispatch({ type: "ADD_SELL_GLOUCESTER_INDUSTRY", industry });
+        if (projected.industries.length === live.need) {
+          submitSellGloucester(projected);
+        }
       }
     },
-    [engine, state, submitBuild, submitDevelop],
+    [engine, state, submitBuild, submitDevelop, submitSellGloucester],
   );
 
   const pickSlot = useCallback(
@@ -527,6 +577,10 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       submitSell(live);
       return;
     }
+    if (live.phase === "AWAITING_SELL_GLOUCESTER") {
+      submitSellGloucester(live);
+      return;
+    }
   }, [
     engine,
     state,
@@ -534,6 +588,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     submitBuild,
     submitNetwork,
     submitSell,
+    submitSellGloucester,
   ]);
 
   const api = useMemo<WizardApi>(
@@ -644,6 +699,24 @@ function pickAnyUnflippedBreweryId(state: GameState): string | null {
     return t.id;
   }
   return null;
+}
+
+/**
+ * Count how many Gloucester merchant beers are consumed across the
+ * given orders. Each order's beerSources may include MERCHANT entries
+ * — those always come from the order's own buying merchant slot per
+ * §5.6.3 priority 3, so a MERCHANT entry on a Gloucester order is the
+ * Gloucester barrel.
+ */
+function countGloucesterBeers(orders: readonly SellOrder[]): number {
+  let n = 0;
+  for (const o of orders) {
+    if (o.merchantCityName !== "Gloucester") continue;
+    for (const src of o.beerSources) {
+      if (src.kind === "MERCHANT") n++;
+    }
+  }
+  return n;
 }
 
 /**

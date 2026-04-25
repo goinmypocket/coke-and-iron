@@ -78,5 +78,14 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
         state.tileIds.length === 1 ? "" : "s"
       } picked. Click End Action to dispatch (or pick more).`;
     }
+    case "AWAITING_SELL_GLOUCESTER": {
+      const left = state.need - state.industries.length;
+      if (left > 0) {
+        return `Gloucester follow-up — pick ${left} more industr${
+          left === 1 ? "y" : "ies"
+        } from your mat (no iron cost).`;
+      }
+      return "Gloucester follow-up — submitting…";
+    }
   }
 }
