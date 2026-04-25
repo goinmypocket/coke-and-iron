@@ -229,15 +229,16 @@ export interface LocationCard {
   readonly cityName: string;
 }
 
+/**
+ * §2.13 — an industry card names one or more industries it authorises.
+ * The standard cards (Iron Works, Coal Mine, Pottery, Brewery) carry
+ * exactly one entry; the dual Cotton/Manufacturer card (3+ players)
+ * carries two. The reducer treats both uniformly: card authorises a
+ * Build of `intent.industry` iff `industries.includes(intent.industry)`.
+ */
 export interface IndustryCard {
   readonly kind: "INDUSTRY";
-  readonly industry: IndustryName;
-}
-
-/** 3+ player only (§2.13). One physical card; either Cotton Mill or
- * Manufacturer can be authorised by it. */
-export interface DualCottonManufacturerCard {
-  readonly kind: "DUAL_COTTON_MANUFACTURER";
+  readonly industries: readonly IndustryName[];
 }
 
 /** Wild cards return to the wild reserve (NOT the discard pile) on use. */
@@ -252,7 +253,6 @@ export interface WildIndustryCard {
 export type Card =
   | LocationCard
   | IndustryCard
-  | DualCottonManufacturerCard
   | WildLocationCard
   | WildIndustryCard;
 

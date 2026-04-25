@@ -125,3 +125,17 @@ body {
   background: var(--soft-tint);
   font-weight: 600;
 }
+.card-face--industry {
+  gap: 0.15rem;
+}
+.card-face__industry {
+  display: block;
+  font-size: 0.85em;
+}
+.card-face__industry + .card-face__industry::before {
+  content: "•";
+  display: block;
+  color: var(--muted);
+  font-size: 0.7em;
+  line-height: 0.5;
+}

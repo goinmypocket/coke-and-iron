@@ -37,6 +37,11 @@ export const DEFAULT_CARDS_CONFIG: CardsConfig =
 /**
  * Build the unshuffled draw deck for a given player count. Wild cards live
  * in the wild reserve (§2.13), not the deck, and are not included here.
+ *
+ * Both single-industry cards and the dual Cotton/Manufacturer card
+ * collapse to the same shape — IndustryCard with an `industries` list.
+ * The reducer's authorisation check is uniform: industry must appear in
+ * the list.
  */
 export function buildDeck(
   config: CardsConfig,
@@ -60,12 +65,15 @@ export function buildDeck(
   for (const industry of industries) {
     const counts = config.industry[industry as "IRON_WORKS" | "COAL_MINE" | "POTTERY" | "BREWERY"];
     for (let i = 0; i < counts[key]; i++) {
-      deck.push({ kind: "INDUSTRY", industry });
+      deck.push({ kind: "INDUSTRY", industries: [industry] });
     }
   }
 
   for (let i = 0; i < config.dualCottonManufacturer[key]; i++) {
-    deck.push({ kind: "DUAL_COTTON_MANUFACTURER" });
+    deck.push({
+      kind: "INDUSTRY",
+      industries: ["COTTON_MILL", "MANUFACTURER"],
+    });
   }
 
   return deck;

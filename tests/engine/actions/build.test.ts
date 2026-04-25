@@ -256,7 +256,7 @@ describe("§5.1 Build — happy paths", () => {
     const id = activeSeatId(base);
     const state = withCardAt(base, id, 0, {
       kind: "INDUSTRY",
-      industry: "COAL_MINE",
+      industries: ["COAL_MINE"],
     });
     const engine = engineFromState(state);
 
@@ -304,7 +304,7 @@ describe("§5.1 Build — card authorisation rejects", () => {
     const id = activeSeatId(base);
     const state = withCardAt(base, id, 0, {
       kind: "INDUSTRY",
-      industry: "IRON_WORKS",
+      industries: ["IRON_WORKS"],
     });
     const engine = engineFromState(state);
     const r = engine.dispatch({
@@ -321,10 +321,13 @@ describe("§5.1 Build — card authorisation rejects", () => {
     if (!r.ok) expect(r.reason).toBe("card_does_not_authorise");
   });
 
-  it("rejects a DUAL_COTTON_MANUFACTURER card for a non-cotton, non-manufacturer industry", () => {
+  it("rejects a dual Cotton/Manufacturer card for a non-cotton, non-manufacturer industry", () => {
     const base = initialState({ seed: 1, playerCount: 3 });
     const id = activeSeatId(base);
-    const state = withCardAt(base, id, 0, { kind: "DUAL_COTTON_MANUFACTURER" });
+    const state = withCardAt(base, id, 0, {
+      kind: "INDUSTRY",
+      industries: ["COTTON_MILL", "MANUFACTURER"],
+    });
     const engine = engineFromState(state);
     const r = engine.dispatch({
       type: "BUILD",
@@ -355,7 +358,7 @@ describe("§5.1 Build — card authorisation rejects", () => {
     });
     state = withCardAt(state, id, 0, {
       kind: "INDUSTRY",
-      industry: "COAL_MINE",
+      industries: ["COAL_MINE"],
     });
     const engine = engineFromState(state);
     const r = engine.dispatch({
@@ -558,7 +561,7 @@ describe("§5.1.2 Farm-brewery card restriction", () => {
     const farmCity = base.districtCities.find((c) => c.farmBrewery)!;
     const state = withCardAt(base, id, 0, {
       kind: "INDUSTRY",
-      industry: "BREWERY",
+      industries: ["BREWERY"],
     });
     const engine = engineFromState(state);
     const r = engine.dispatch({

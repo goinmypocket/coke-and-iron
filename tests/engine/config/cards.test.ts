@@ -22,8 +22,16 @@ describe("cards config", () => {
 
   it("buildDeck for 2 players includes no dual Cotton/Manufacturer cards", () => {
     const deck = buildDeck(DEFAULT_CARDS_CONFIG, 2);
+    // The dual card collapses into the INDUSTRY variant with industries =
+    // [COTTON_MILL, MANUFACTURER]; at 2P the config sets its count to 0.
     expect(
-      deck.some((c) => c.kind === "DUAL_COTTON_MANUFACTURER"),
+      deck.some(
+        (c) =>
+          c.kind === "INDUSTRY" &&
+          c.industries.length === 2 &&
+          c.industries.includes("COTTON_MILL") &&
+          c.industries.includes("MANUFACTURER"),
+      ),
     ).toBe(false);
   });
 

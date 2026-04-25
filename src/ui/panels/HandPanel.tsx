@@ -33,9 +33,15 @@ function CardFace({ card }: { card: Card }) {
     case "LOCATION":
       return <div className="card-face">{card.cityName}</div>;
     case "INDUSTRY":
-      return <div className="card-face">{prettyIndustry(card.industry)}</div>;
-    case "DUAL_COTTON_MANUFACTURER":
-      return <div className="card-face">Cotton / Manuf</div>;
+      return (
+        <div className="card-face card-face--industry">
+          {card.industries.map((ind) => (
+            <span key={ind} className="card-face__industry">
+              {prettyIndustry(ind)}
+            </span>
+          ))}
+        </div>
+      );
     case "WILD_LOCATION":
       return <div className="card-face card-face--wild">Wild Location</div>;
     case "WILD_INDUSTRY":

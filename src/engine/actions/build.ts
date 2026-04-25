@@ -265,17 +265,16 @@ function validateCardAuthorises(
     case "WILD_LOCATION":
       return null;
     case "INDUSTRY": {
-      if (card.industry !== industry) return "card_does_not_authorise";
-      return checkNetwork(state, playerId, city.name);
-    }
-    case "WILD_INDUSTRY":
-      return checkNetwork(state, playerId, city.name);
-    case "DUAL_COTTON_MANUFACTURER": {
-      if (industry !== "COTTON_MILL" && industry !== "MANUFACTURER") {
+      // Single-industry cards have one entry; the dual Cotton/Manufacturer
+      // card has two. Either way, the chosen industry must appear in the
+      // list (§2.13).
+      if (!card.industries.includes(industry)) {
         return "card_does_not_authorise";
       }
       return checkNetwork(state, playerId, city.name);
     }
+    case "WILD_INDUSTRY":
+      return checkNetwork(state, playerId, city.name);
   }
 }
 
