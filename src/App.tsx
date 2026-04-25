@@ -6,6 +6,7 @@ import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { PanelGrid } from "./ui/layout/PanelGrid";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
+import { BoardPanel } from "./ui/panels/BoardPanel";
 import { GameStatePanel } from "./ui/panels/GameStatePanel";
 import { HandPanel } from "./ui/panels/HandPanel";
 import { PlayersPanel } from "./ui/panels/PlayersPanel";
@@ -34,6 +35,7 @@ export function App() {
             game_state: <GameStatePanel />,
             player_state: <PlayerStatePanel />,
             players: <PlayersPanel />,
+            board: <BoardPanel />,
             hand: <HandPanel />,
             actions: <ActionsPanel />,
             recent_actions: <RecentActionsPanel />,

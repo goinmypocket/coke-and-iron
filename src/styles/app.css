@@ -246,6 +246,56 @@ body {
   outline-offset: -2px;
 }
 
+/* ---------- Board (§11.2) ---------- */
+
+.board-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.board-city__label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.board-slot__label {
+  font-size: 8px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.board-merchant__label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.board-merchant__bonus {
+  font-size: 9px;
+  fill: var(--ink);
+}
+.board-merchant__slots {
+  font-size: 8px;
+  fill: var(--muted);
+}
+.board-tile__label {
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+.board-markets__title {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+.board-markets__row-label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.board-markets__row-data {
+  font-size: 9px;
+  fill: var(--muted);
+}
+
 /* ---------- Recent actions (§11.9) ---------- */
 
 .recent-actions {

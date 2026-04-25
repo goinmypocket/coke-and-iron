@@ -59,8 +59,12 @@ Status keys:
 
 ## UI — panels still to build
 
-- **[ui] Board panel (§11.2).** District cities, merchant cities,
-  canal/rail lines, market widget. Largest single UI piece.
+- **[ui] Board panel polish (§11.2).** Read-only render shipped
+  (cities, lines, built tiles, markets). Still TODO: industry icon
+  glyphs in slots (currently letter codes), resource cubes / iron
+  cubes / beer barrels on tiles + merchants, owner-coloured
+  link tokens, era-flip animation, market-tile widget per §2.11.3,
+  click handlers wired to Build / Network / Sell wizards.
 - **[ui] Players panel polish (§11.3).** Sub-panel + minimal mat
   grid (six stacks, top-tile click-target) shipped. Still TODO:
   Manufacturer spanning two columns (1–5 / 6–8), Pottery as 5
