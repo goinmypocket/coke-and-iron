@@ -9,7 +9,7 @@
 
 import { toast } from "sonner";
 import { reasonToText } from "../affordances/toast";
-import { useEngine } from "../hooks/useEngine";
+import { useCanUndo, useEngine } from "../hooks/useEngine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { Panel } from "../layout/Panel";
 import { useWizard } from "../wizards/WizardProvider";
@@ -19,6 +19,7 @@ const NOT_IMPLEMENTED = "Wizard not yet implemented in this milestone.";
 export function ActionsPanel() {
   const engine = useEngine();
   const wizard = useWizard();
+  const canUndo = useCanUndo();
   const flags = useGameState((s) => ({
     actionsRemaining: s.actionsRemaining,
     canAct: s.actionsRemaining > 0 && s.pendingShortfalls.length === 0 && s.phase === "PLAYER_TURNS",
@@ -92,11 +93,22 @@ export function ActionsPanel() {
             label="Reset Selection"
             disabled={!wizardActive}
             onClick={wizard.reset}
+            tooltip="Clear the current wizard's picks (does not undo dispatched actions)."
           />
           <ActionButton
             label="End Action"
             disabled={!isScout}
             onClick={wizard.endAction}
+          />
+          <ActionButton
+            label="Undo"
+            disabled={!canUndo || wizardActive}
+            onClick={() => engine.undo()}
+            tooltip={
+              wizardActive
+                ? "Reset the wizard first."
+                : "Roll back your last action (within this turn only)."
+            }
           />
           <ActionButton
             label="End Turn"

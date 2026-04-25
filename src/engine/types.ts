@@ -334,6 +334,13 @@ export interface EngineConfig {
    * single-dispatches. The UI should set this explicitly.
    */
   readonly autoEndTurn?: boolean;
+  /**
+   * Spec §10.2 — when true, Engine.undo() rolls back the most recent
+   * dispatch within the current turn (history clears at the seat
+   * boundary). Hosts can set this false to disable undo entirely.
+   * Default true.
+   */
+  readonly allowUndo?: boolean;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useSyncExternalStore } from "react";
 import type { Engine } from "../../engine/Engine";
 import { EngineContext } from "./EngineProvider";
 
@@ -13,4 +13,14 @@ export function useEngine(): Engine {
     throw new Error("useEngine must be used inside <EngineProvider>");
   }
   return engine;
+}
+
+/**
+ * Subscribe to the engine and re-render whenever Engine.canUndo()
+ * changes. Used by the Undo button to update its disabled state after
+ * each successful dispatch and after every undo.
+ */
+export function useCanUndo(): boolean {
+  const engine = useEngine();
+  return useSyncExternalStore(engine.subscribe, () => engine.canUndo());
 }

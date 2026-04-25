@@ -83,3 +83,121 @@ describe("Engine — dispatch + subscribers + intent log", () => {
     expect(calls).toBe(2);
   });
 });
+
+describe("Engine — undo (§10.2)", () => {
+  function activeSeat(engine: Engine) {
+    const s = engine.getState();
+    return s.turnOrder[s.currentPlayerIndex]!;
+  }
+
+  it("canUndo() is false at game start", () => {
+    const engine = new Engine({ seed: 1, playerCount: 2 });
+    expect(engine.canUndo()).toBe(false);
+    expect(engine.undo()).toBe(false);
+  });
+
+  it("canUndo() flips true after a successful action and undo() reverts", () => {
+    const engine = new Engine({ seed: 1, playerCount: 2 });
+    const before = engine.getState();
+    const id = activeSeat(engine);
+    engine.dispatch({ type: "PASS", playerId: id, cardIndex: 0 });
+
+    expect(engine.canUndo()).toBe(true);
+    expect(engine.undo()).toBe(true);
+
+    const after = engine.getState();
+    // State and intent log fully restored.
+    expect(after.actionsRemaining).toBe(before.actionsRemaining);
+    expect(after.players[id]!.hand).toHaveLength(
+      before.players[id]!.hand.length,
+    );
+    expect(engine.getIntentLog()).toHaveLength(0);
+    expect(engine.canUndo()).toBe(false);
+  });
+
+  it("multiple undos within a turn roll back each successful action", () => {
+    const engine = new Engine({ seed: 1, playerCount: 2 });
+    const id = activeSeat(engine);
+    engine.dispatch({ type: "noop" });
+    engine.dispatch({ type: "noop" });
+    expect(engine.getIntentLog()).toHaveLength(2);
+    expect(engine.canUndo()).toBe(true);
+
+    engine.undo();
+    expect(engine.getIntentLog()).toHaveLength(1);
+    engine.undo();
+    expect(engine.getIntentLog()).toHaveLength(0);
+    expect(engine.canUndo()).toBe(false);
+    void id;
+  });
+
+  it("END_TURN commits the prior turn's history — canUndo() goes false", () => {
+    const engine = new Engine({ seed: 1, playerCount: 2 });
+    const id = activeSeat(engine);
+    engine.dispatch({ type: "PASS", playerId: id, cardIndex: 0 });
+    expect(engine.canUndo()).toBe(true);
+    // First canal round: 1 action → actionsRemaining now 0 → END_TURN OK.
+    engine.dispatch({ type: "END_TURN", playerId: id });
+    // Seat advanced; the prior turn is committed and uncommittable.
+    expect(engine.canUndo()).toBe(false);
+    expect(engine.undo()).toBe(false);
+  });
+
+  it("autoEndTurn-driven seat advance also clears canUndo()", () => {
+    const engine = new Engine({
+      seed: 1,
+      playerCount: 2,
+      autoEndTurn: true,
+    });
+    const id = activeSeat(engine);
+    engine.dispatch({ type: "PASS", playerId: id, cardIndex: 0 });
+    // Auto-advance bumped the seat → undo would cross a turn boundary.
+    expect(engine.canUndo()).toBe(false);
+  });
+
+  it("respects allowUndo: false from EngineConfig", () => {
+    const engine = new Engine({
+      seed: 1,
+      playerCount: 2,
+      allowUndo: false,
+    });
+    const id = activeSeat(engine);
+    engine.dispatch({ type: "PASS", playerId: id, cardIndex: 0 });
+    expect(engine.canUndo()).toBe(false);
+    expect(engine.undo()).toBe(false);
+    expect(engine.getIntentLog()).toHaveLength(1);
+  });
+
+  it("replay determinism: undo produces a state byte-identical to never-dispatched", () => {
+    const a = new Engine({ seed: 1, playerCount: 2 });
+    const b = new Engine({ seed: 1, playerCount: 2 });
+    const id = activeSeat(a);
+    a.dispatch({ type: "PASS", playerId: id, cardIndex: 0 });
+    a.undo();
+    // a's state should now match b's pristine state (which never
+    // dispatched anything).
+    expect(JSON.stringify(stripRng(a.getState()))).toBe(
+      JSON.stringify(stripRng(b.getState())),
+    );
+  });
+
+  it("notifies subscribers on undo", () => {
+    const engine = new Engine({ seed: 1, playerCount: 2 });
+    const id = activeSeat(engine);
+    engine.dispatch({ type: "PASS", playerId: id, cardIndex: 0 });
+    let calls = 0;
+    engine.subscribe(() => {
+      calls++;
+    });
+    engine.undo();
+    expect(calls).toBe(1);
+  });
+});
+
+// rng has live methods + internal state — strip for deep-equality JSON
+// snapshots between two independently constructed engines.
+function stripRng(state: unknown): unknown {
+  if (typeof state !== "object" || state === null) return state;
+  const { rng: _rng, ...rest } = state as Record<string, unknown>;
+  return rest;
+}
