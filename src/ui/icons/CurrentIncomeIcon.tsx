@@ -1,10 +1,12 @@
-// Current-income glyph: open palm holding a coin, with the level
-// number written **to the right** of the icon. Used in the seat
-// stats bar and the end-game scoreboard.
+// Current-income glyph: open palm holding a coin, optionally with the
+// level number written **to the right** of the icon. Used in the seat
+// stats bar, the end-game scoreboard, and as a column-header glyph in
+// the Player Info table (where `iconOnly` collapses the wider variant
+// to a 12×16 square palm-only icon).
 //
-// The icon's intrinsic viewBox is 24 × 16 — wider than tall so the
-// number sits beside the palm. `size` here is the icon HEIGHT;
-// width scales with the aspect ratio.
+// The default viewBox is 24 × 16 — wider than tall so the number sits
+// beside the palm. With `iconOnly`, the viewBox shrinks to 12 × 16.
+// `size` is the icon HEIGHT; width scales with the chosen viewBox.
 
 import type { CSSProperties } from "react";
 
@@ -14,23 +16,31 @@ export function CurrentIncomeIcon({
   x,
   y,
   style,
+  iconOnly = false,
 }: {
-  amount: number;
+  amount?: number;
   size?: number;
   x?: number;
   y?: number;
   style?: CSSProperties;
+  /** Render just the palm + coin glyph (no number), 12×16 viewBox. */
+  iconOnly?: boolean;
 }) {
-  const width = size * (24 / 16);
+  const vbWidth = iconOnly ? 12 : 24;
+  const width = size * (vbWidth / 16);
   return (
     <svg
       width={width}
       height={size}
       x={x}
       y={y}
-      viewBox="0 0 24 16"
+      viewBox={`0 0 ${vbWidth} 16`}
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
-      aria-label={`Current income ${amount}`}
+      aria-label={
+        iconOnly
+          ? "Current income"
+          : `Current income ${amount ?? 0}`
+      }
     >
       {/* Coin floating above the palm. */}
       <circle
@@ -49,16 +59,17 @@ export function CurrentIncomeIcon({
         strokeWidth={1.4}
         strokeLinecap="round"
       />
-      {/* Amount to the right. */}
-      <text
-        x={14}
-        y={11}
-        fontSize={9}
-        fontWeight={700}
-        fill="#1a1a1a"
-      >
-        {amount}
-      </text>
+      {!iconOnly ? (
+        <text
+          x={14}
+          y={11}
+          fontSize={9}
+          fontWeight={700}
+          fill="#1a1a1a"
+        >
+          {amount ?? 0}
+        </text>
+      ) : null}
     </svg>
   );
 }

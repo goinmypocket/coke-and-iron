@@ -11,7 +11,9 @@ html,
 body,
 #root {
   margin: 0;
-  height: 100%;
+  /* Document grows with content — page-level vertical scroll handles
+   * tall panel stacks; horizontal scroll stays disabled. */
+  min-height: 100%;
   overflow-x: hidden;
 }
 
@@ -30,7 +32,7 @@ body {
   flex-direction: column;
   width: 100vw;
   max-width: 100vw;
-  height: 100vh;
+  min-height: 100vh;
   overflow-x: hidden;
 }
 
@@ -109,19 +111,20 @@ body {
   border: 1px solid var(--ink);
   background: var(--panel-bg);
   min-height: 4rem;
-  overflow: hidden;
+  /* No overflow: hidden — panels grow to fit their content and the page
+   * scrolls vertically. The maximized variant re-enables clipping so
+   * its inner content owns the scrollbar. */
   /* Make every panel a size container so its descendants can scale
-   * with the panel's measured width via cqi units. */
+   * with the panel's measured width via cqi units (used by mats and
+   * hand cards). */
   container-type: inline-size;
 }
 /* Panels that opt into width-relative scaling: font-size derives
- * from the container width, capped to a usable range so dense
- * panels don't go below readable, or stretch comically wide. */
+ * from the container width, capped to a usable range. Only the panels
+ * whose visual elements (cards, mat tiles) genuinely need to shrink
+ * with the panel; the dense info panels match the body font size so
+ * they read consistently with Remaining Cards. */
 [data-panel-id="hand"] .panel__content,
-[data-panel-id="actions"] .panel__content,
-[data-panel-id="recent_actions"] .panel__content,
-[data-panel-id="game_state"] .panel__content,
-[data-panel-id="player_info"] .panel__content,
 [data-panel-id="player_mats"] .panel__content {
   font-size: clamp(0.6rem, 4cqi, 1rem);
 }
@@ -140,6 +143,13 @@ body {
   max-width: none;
   max-height: none;
   z-index: 100;
+  overflow: hidden;
+}
+.panel--maximized .panel__content {
+  /* Maximized panels are bound to the viewport, so re-enable internal
+   * scroll for tall content. Default panels (non-maximized) overflow
+   * the page, not themselves. */
+  overflow: auto;
 }
 .panel__title {
   padding: 0.2rem 0.45rem;
@@ -162,21 +172,27 @@ body {
   color: var(--ink);
 }
 .panel__content {
-  flex: 1;
-  min-height: 0;
+  /* No flex:1 — content sizes itself, panel grows to wrap the title +
+   * content stack. Page handles overflow (see .app-shell). */
   padding: 0.5rem;
-  overflow: auto;
 }
 
 /* Income panel is very dense — turn off inline-size containment so its
- * intrinsic width is honoured (otherwise the auto-sized track sees a
- * 0px content width and collapses), and let it shrink hug the ladder. */
+ * intrinsic width is honoured, and squeeze the padding so the ladder
+ * hugs the column. */
 [data-panel-id="income"] {
   min-width: 0;
   container-type: normal;
 }
 [data-panel-id="income"] .panel__content {
   padding: 0.25rem 0.2rem;
+}
+
+/* Board panel: square content area so the 900x900 board SVG fills it
+ * exactly. Title bar adds a small strip above. */
+[data-panel-id="board"] .panel__content {
+  aspect-ratio: 1 / 1;
+  padding: 0.25rem;
 }
 
 /* ---------- Panel-specific rules (just enough to render legibly) ---------- */
@@ -196,14 +212,25 @@ body {
    * rather than stretching to fill the panel. */
   width: auto;
   border-collapse: collapse;
-  font-size: 0.95em;
+  /* Slightly compressed so all seven columns fit in the RHS (~13rem). */
+  font-size: 0.85em;
 }
 .player-table th,
 .player-table td {
   text-align: left;
-  padding: 0.15rem 0.35rem;
+  padding: 0.1rem 0.2rem;
   border-bottom: 1px solid var(--soft-tint);
   white-space: nowrap;
+}
+.player-table th {
+  font-weight: 600;
+  color: var(--muted);
+}
+.player-table__name {
+  /* Pawn-coloured stripe lives on the left border so we don't need a
+   * separate swatch column. The 3px stripe + minimum padding keeps the
+   * table compact. */
+  padding-left: 0.3rem;
 }
 .player-table tr.player-row--active {
   background: var(--soft-tint);
@@ -276,16 +303,29 @@ body {
 /* ---------- Players panel (§11.3) ---------- */
 
 .players-panel {
+  /* Side-by-side per seat by default; stack vertically when the
+   * containing panel can't hold two mats next to each other. The
+   * .panel host has container-type: inline-size so @container queries
+   * resolve against the player_mats panel's width. */
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.4rem;
-  height: 100%;
   align-items: stretch;
 }
 .players-panel > .panel {
-  flex: 1 1 0;
+  flex: 1 1 18rem;
   border-width: 2px;
   min-width: 14rem;
+}
+@container (max-width: 36rem) {
+  .players-panel {
+    flex-direction: column;
+  }
+  .players-panel > .panel {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
 }
 .seat-stats {
   display: flex;
@@ -353,6 +393,12 @@ body {
   grid-auto-flow: column;
   gap: 1px;
 }
+/* Mat geometry is driven by the --mat-tile-px CSS variable set on
+ * .mat-grid (see PlayersPanel.tsx). The variable is derived from the
+ * TILE constant in TileFace.tsx, so a single bump there resizes
+ * tiles, side columns, and cost icons in lock-step. The `40px` /
+ * `17px` / `13px` defaults are fallbacks for callers that didn't
+ * thread the variable through. */
 .mat-level-row {
   display: flex;
   align-items: center;
@@ -361,7 +407,7 @@ body {
   border: 1px solid var(--ink);
   background: var(--panel-bg);
   font-size: 0.7em;
-  min-height: 40px;
+  min-height: var(--mat-tile-px, 40px);
 }
 .mat-level-row__costs {
   /* Vertical stack: money on top, then coal cubes, then iron cubes.
@@ -372,39 +418,31 @@ body {
   justify-content: center;
   gap: 0;
   flex-shrink: 0;
-  height: 40px;
-}
-.mat-cost__icon {
-  width: 13px;
-  height: 13px;
-}
-.mat-cost__icon {
-  display: block;
-  flex-shrink: 0;
+  height: var(--mat-tile-px, 40px);
 }
 .mat-level-row__tile {
   /* Natural mat-tile size, scaled down by MatScaler when the host
    * panel is too narrow. SVG viewBox makes the inside scale with it. */
-  width: 40px;
-  height: 40px;
+  width: var(--mat-tile-px, 40px);
+  height: var(--mat-tile-px, 40px);
   display: block;
   flex-shrink: 0;
 }
 .mat-level-row__tile--placeholder {
-  width: 40px;
-  height: 40px;
+  width: var(--mat-tile-px, 40px);
+  height: var(--mat-tile-px, 40px);
   background: rgba(0, 0, 0, 0.05);
   border: 1px dashed var(--muted);
 }
 .mat-side-col {
   display: block;
   flex-shrink: 0;
-  width: 17px;
-  height: 40px;
+  width: var(--mat-side-px, 17px);
+  height: var(--mat-tile-px, 40px);
 }
 .mat-side-col--placeholder {
-  width: 17px;
-  height: 40px;
+  width: var(--mat-side-px, 17px);
+  height: var(--mat-tile-px, 40px);
 }
 
 .mat-scaler {
@@ -883,7 +921,9 @@ body {
   width: 100%;
   height: 100%;
   aspect-ratio: 1;
-  border-radius: 50%;
+  /* Square pawn tokens (matches the seat swatches that drop into the
+   * cells in flat 2x2 tiles). */
+  border-radius: 0;
   border: 1px solid var(--ink);
 }
 

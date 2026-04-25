@@ -47,7 +47,12 @@ import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
 import { Panel } from "../layout/Panel";
-import { TILE, TileFace } from "../tiles/TileFace";
+import {
+  LINK_TILE_HEIGHT,
+  LINK_TILE_WIDTH,
+  TILE,
+  TileFace,
+} from "../tiles/TileFace";
 import { useWizard } from "../wizards/WizardProvider";
 
 const CANVAS = 900;
@@ -481,7 +486,10 @@ function SlotAcceptGlyph({
   );
 }
 
-const BEER_BOX = 10;
+/** Beer-indicator side length, kept proportional to TILE so a TILE
+ *  bump scales the merchant beer slots in lock-step. 10/28 from the
+ *  original constants. */
+const BEER_BOX = TILE * (10 / 28);
 
 function MerchantCityShape({
   city,
@@ -496,38 +504,52 @@ function MerchantCityShape({
   active: boolean;
 }) {
   const [x, y] = city.position;
-  // Layout: name on top, bonus badge below name, then a row of D-slots
-  // (TILE × TILE each), each with a beer indicator below it. The
-  // city always renders city.slotCount slots; inactive cities show
-  // empty D frames + no beer indicator.
+  // Layout (top → bottom):
+  //   - link-points indicator (one LinkPointsIcon per link point — 2
+  //     for every merchant per §2.4)
+  //   - city name
+  //   - row of D-slots (TILE × TILE each)
+  //   - beer indicator below each slot
+  //   - bonus badge below the slots / beer
+  // Inactive cities show empty D frames + no beer indicator.
   const slotCount = Math.max(city.slotCount, 1);
   const clusterW = slotCount * TILE;
   const totalH = TILE + BEER_BOX + 2;
+  // Vertical offsets relative to the slot row's top-left (0, 0):
+  const NAME_Y = -10;
+  const LINK_BADGE_Y = NAME_Y - 16;
+  const BONUS_BADGE_Y = TILE + BEER_BOX + 14;
   return (
     <g
       className={"board-merchant" + (active ? "" : " board-merchant--inactive")}
       transform={`translate(${x - clusterW / 2}, ${y - totalH / 2})`}
     >
+      <g transform={`translate(${clusterW / 2}, ${LINK_BADGE_Y})`}>
+        <LinkPointsBadge count={city.linkPoints} />
+      </g>
       <text
         x={clusterW / 2}
-        y={-12}
+        y={NAME_Y}
         className="board-merchant__label"
         textAnchor="middle"
       >
         {city.name}
       </text>
-      <g transform={`translate(${clusterW / 2}, -3)`}>
-        <BonusBadge bonus={city.bonus} value={city.bonusValue} />
-      </g>
       {Array.from({ length: slotCount }).map((_, i) => {
         const slot = slotMap.get(i);
+        // Beer indicator always renders so inactive merchants
+        // (Nottingham / Warrington in 2-player, Nottingham in 3-player)
+        // still show an empty barrel placeholder under each D-slot.
         return (
           <g key={i} transform={`translate(${i * TILE}, 0)`}>
             <DSlot accept={slot?.accept ?? null} />
-            {slot ? <BeerIndicator hasBeer={slot.hasBeer} /> : null}
+            <BeerIndicator hasBeer={slot?.hasBeer ?? false} />
           </g>
         );
       })}
+      <g transform={`translate(${clusterW / 2}, ${BONUS_BADGE_Y})`}>
+        <BonusBadge bonus={city.bonus} value={city.bonusValue} />
+      </g>
     </g>
   );
 }
@@ -630,6 +652,11 @@ function BeerIndicator({ hasBeer }: { hasBeer: boolean }) {
   );
 }
 
+/** Merchant bonus / link-point badge sizing. 1.5× the underlying icon
+ *  size used elsewhere — keeps the merchant indicators readable at the
+ *  larger TILE scale. */
+const MERCHANT_BADGE_SIZE = 21;
+
 function BonusBadge({
   bonus,
   value,
@@ -637,32 +664,154 @@ function BonusBadge({
   bonus: string;
   value: number;
 }) {
-  // Renders the bonus icon centred at (0, 0). The four bonuses share
-  // their respective shared icon components.
+  // Renders the bonus icon(s) centred at (0, 0). The four bonuses
+  // share their respective shared icon components; DEVELOP uses one
+  // bulb per develop point (no numeric overlay).
+  const half = MERCHANT_BADGE_SIZE / 2;
   if (bonus === "VP") {
-    return <VictoryPointsIcon x={-7} y={-7} size={14} amount={value} />;
+    return (
+      <VictoryPointsIcon
+        x={-half}
+        y={-half}
+        size={MERCHANT_BADGE_SIZE}
+        amount={value}
+      />
+    );
   }
   if (bonus === "MONEY") {
-    return <MoneyCoin amount={value} size={14} x={-7} y={-7} />;
+    return (
+      <MoneyCoin
+        amount={value}
+        size={MERCHANT_BADGE_SIZE}
+        x={-half}
+        y={-half}
+      />
+    );
   }
   if (bonus === "INCOME") {
-    return <IncomeGainedIcon x={-7} y={-7} size={14} amount={value} />;
+    return (
+      <IncomeGainedIcon
+        x={-half}
+        y={-half}
+        size={MERCHANT_BADGE_SIZE}
+        amount={value}
+      />
+    );
   }
-  // DEVELOP — uncrossed light-bulb glyph + the develop count to its right.
+  // DEVELOP — N uncrossed light bulbs in a row (no numeric overlay).
+  const count = Math.max(1, value);
+  const gap = 1.5;
+  const totalW = MERCHANT_BADGE_SIZE * count + gap * (count - 1);
+  const startX = -totalW / 2;
   return (
     <g>
-      <DevelopIcon x={-9} y={-7} size={14} />
-      <text
-        x={7}
-        y={3}
-        fontSize={6}
-        fontWeight={700}
-        fill="#1a1a1a"
-        style={{ pointerEvents: "none" }}
-      >
-        {value}
-      </text>
+      {Array.from({ length: count }).map((_, i) => (
+        <DevelopIcon
+          key={i}
+          x={startX + i * (MERCHANT_BADGE_SIZE + gap)}
+          y={-half}
+          size={MERCHANT_BADGE_SIZE}
+        />
+      ))}
     </g>
+  );
+}
+
+/** N pointy-top link-point hexagons sharing vertical edges so they
+ *  read as a single connected merchant indicator with one outer
+ *  border. Per-hex content (golden bar with filled circular ends) is
+ *  the same as LinkPointsIcon. Centred at (0, 0). */
+function LinkPointsBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  // Internal coord frame: 16 units tall (one hex + 1u top/bottom
+  // margin); per-hex centre-to-centre distance is r√3 horizontally.
+  const r = 7;
+  const halfHexW = (r * Math.sqrt(3)) / 2; // ≈ 6.062
+  const dx = halfHexW * 2; // ≈ 12.124
+  const cy = 8;
+  const yTop = cy - r;
+  const yMidTop = cy - r / 2;
+  const yMidBot = cy + r / 2;
+  const yBot = cy + r;
+  const sideMargin = 16 - dx; // ≈ 3.876
+  const innerW = sideMargin + dx * count;
+  const innerH = 16;
+  const cxs: number[] = [];
+  for (let i = 0; i < count; i++) {
+    cxs.push(sideMargin / 2 + halfHexW + i * dx);
+  }
+  // Walk the outer outline clockwise: top edge zig-zag → right side →
+  // bottom zig-zag in reverse → left side. Yields 4*count + 2 verts.
+  const outline: string[] = [];
+  for (let i = 0; i < count; i++) {
+    outline.push(`${cxs[i]!.toFixed(2)},${yTop.toFixed(2)}`);
+    outline.push(`${(cxs[i]! + halfHexW).toFixed(2)},${yMidTop.toFixed(2)}`);
+  }
+  outline.push(
+    `${(cxs[count - 1]! + halfHexW).toFixed(2)},${yMidBot.toFixed(2)}`,
+  );
+  for (let i = count - 1; i >= 0; i--) {
+    outline.push(`${cxs[i]!.toFixed(2)},${yBot.toFixed(2)}`);
+    if (i > 0) {
+      outline.push(
+        `${(cxs[i - 1]! + halfHexW).toFixed(2)},${yMidBot.toFixed(2)}`,
+      );
+    }
+  }
+  outline.push(`${(cxs[0]! - halfHexW).toFixed(2)},${yMidBot.toFixed(2)}`);
+  outline.push(`${(cxs[0]! - halfHexW).toFixed(2)},${yMidTop.toFixed(2)}`);
+
+  const pxPerUnit = MERCHANT_BADGE_SIZE / 16;
+  const widthPx = innerW * pxPerUnit;
+  const heightPx = MERCHANT_BADGE_SIZE;
+  const innerHalfW = 3.5;
+  const innerR = 1.9;
+
+  return (
+    <svg
+      x={-widthPx / 2}
+      y={-heightPx / 2}
+      width={widthPx}
+      height={heightPx}
+      viewBox={`0 0 ${innerW.toFixed(2)} ${innerH}`}
+      aria-label={`${count} link points`}
+    >
+      <polygon
+        points={outline.join(" ")}
+        fill="#0a0a0a"
+        stroke="#c89020"
+        strokeWidth={1.1}
+        strokeLinejoin="round"
+      />
+      {/* Faint divider between adjacent hex cells. */}
+      {Array.from({ length: count - 1 }).map((_, i) => (
+        <line
+          key={i}
+          x1={cxs[i]! + halfHexW}
+          y1={yMidTop}
+          x2={cxs[i]! + halfHexW}
+          y2={yMidBot}
+          stroke="#c89020"
+          strokeWidth={0.45}
+          opacity={0.45}
+        />
+      ))}
+      {/* Per-hex link glyph: horizontal golden bar + filled ends. */}
+      {cxs.map((cx, i) => (
+        <g key={i}>
+          <line
+            x1={cx - innerHalfW}
+            y1={cy}
+            x2={cx + innerHalfW}
+            y2={cy}
+            stroke="#c89020"
+            strokeWidth={1.6}
+          />
+          <circle cx={cx - innerHalfW} cy={cy} r={innerR} fill="#c89020" />
+          <circle cx={cx + innerHalfW} cy={cy} r={innerR} fill="#c89020" />
+        </g>
+      ))}
+    </svg>
   );
 }
 
@@ -681,16 +830,16 @@ function LinkToken({
   angle?: number;
 }) {
   // Player-coloured rounded rectangle with the canal / rail asset
-  // inside, painted at the line midpoint or centroid.
-  const tileH = 7;
-  const tileW = tileH * 2; // 14 wide
+  // inside, painted at the line midpoint or centroid. Size derives
+  // from `LINK_TILE_HEIGHT` so a single TILE bump scales tiles AND
+  // their links together at a fixed ratio.
   return (
     <LinkTileIcon
       era={era}
       color={color}
-      size={tileH}
-      x={cx - tileW / 2}
-      y={cy - tileH / 2}
+      size={LINK_TILE_HEIGHT}
+      x={cx - LINK_TILE_WIDTH / 2}
+      y={cy - LINK_TILE_HEIGHT / 2}
       angle={angle}
     />
   );

@@ -9,17 +9,25 @@ import type { CSSProperties } from "react";
 
 export function MoneyCoin({
   amount,
+  label,
   size = 14,
   x,
   y,
   style,
 }: {
   amount: number;
+  /** Override the displayed text (e.g. "21+"). When omitted, shows amount. */
+  label?: string;
   size?: number;
   x?: number;
   y?: number;
   style?: CSSProperties;
 }) {
+  const text = label ?? String(amount);
+  // Squeeze the glyph down a bit when the label is wider so multi-char
+  // strings like "21+" still fit inside the coin.
+  const fontSize =
+    text.length >= 3 ? 5.2 : text.length === 2 ? 6.0 : 6.5;
   return (
     <svg
       width={size}
@@ -28,7 +36,7 @@ export function MoneyCoin({
       y={y}
       viewBox="0 0 14 14"
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
-      aria-label={`£${amount}`}
+      aria-label={label ?? `£${amount}`}
     >
       <circle
         cx={7}
@@ -40,13 +48,13 @@ export function MoneyCoin({
       />
       <text
         x={7}
-        y={9.6}
+        y={9.4}
         textAnchor="middle"
-        fontSize={6.5}
+        fontSize={fontSize}
         fontWeight={700}
         fill="#1a1a1a"
       >
-        {amount}
+        {text}
       </text>
     </svg>
   );

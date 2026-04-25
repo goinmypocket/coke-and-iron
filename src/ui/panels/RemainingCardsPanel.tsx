@@ -1,26 +1,30 @@
 // =============================================================================
-// §11.6 Remaining cards — inventory of cards still "in the deck" from a
-// player's perspective.
+// §11.6 Remaining cards — inventory of cards still UNPLAYED from the
+// active player's perspective.
 //
-// The canal-era face-down removed cards (state.removedCards, identities
-// known to the engine but hidden from players) are FOLDED into the same
-// pool as state.drawDeck for category counts. That way:
+// "Remaining" means every non-wild card that has not yet been played and
+// shuffled into a discard pile. The pool therefore includes:
 //
-//   - Players can't tell which specific card was removed (the removed
-//     identities mix in with the still-shuffled deck).
-//   - The aggregate per-category counts are honest: "Birmingham × 3"
-//     means there are 3 Birminghams nobody has seen yet, regardless of
-//     whether they're in the draw pile or face-down.
+//   - state.drawDeck             (unseen)
+//   - state.removedCards         (canal-era face-down, unseen)
+//   - every player's current hand (own hand visible to the active
+//                                  player; other hands hidden — but the
+//                                  aggregate counts are public, just
+//                                  like physical cards face-down on the
+//                                  table)
 //
-// Header ratio: (drawDeck + removedCards) / total non-wild deck size.
-// The denominator is constant for the duration of the game — every
-// non-wild card just moves between draw pile / removed / hands / discards;
-// none vanish or duplicate.
+// Discards are excluded — those have been played and are publicly known.
 //
-// Rows for cards that *could* still be in the unseen pool but currently
-// happen to be 0 (all copies in hands or discards) render muted at ×0
-// rather than disappearing — so a player can scan for "where did all
-// the Birminghams go?".
+// All counts are computed CLIENT-SIDE in this component from the public
+// game state. Aggregating across hands means a viewer can't tell whose
+// hand a specific card sits in — only that it hasn't been played.
+//
+// Header ratio: remaining-non-wild / total-non-wild universe. The
+// denominator is constant for the duration of the game.
+//
+// Rows for cards that exist in the universe but currently total 0
+// (all copies in discards) render muted at 0/N rather than vanishing,
+// so players can scan for "where did all the Birminghams go?".
 // =============================================================================
 
 import { useMemo } from "react";
@@ -44,22 +48,16 @@ const DISTRICT_ORDER: readonly DistrictTag[] = [
 ];
 
 export function RemainingCardsPanel() {
-  const view = useGameState((s) => {
-    const handsAndDiscards = s.players.reduce(
-      (acc, p) => acc + countNonWild(p.hand) + countNonWild(p.discardPile),
-      0,
-    );
-    const deckPoolSize = s.drawDeck.length + s.removedCards.length;
-    const total = deckPoolSize + handsAndDiscards;
-    return {
+  const view = useGameState(
+    (s) => ({
       drawDeck: s.drawDeck,
       removedCards: s.removedCards,
+      players: s.players,
       districtCities: s.districtCities,
       playerCount: s.playerCount,
-      deckPoolSize,
-      total,
-    };
-  }, shallowEqual);
+    }),
+    shallowEqual,
+  );
 
   const cityToDistrict = useMemo(
     () => cityDistrictMap(view.districtCities),
@@ -67,8 +65,8 @@ export function RemainingCardsPanel() {
   );
 
   // Canonical universe of non-wild cards for this player count — every
-  // card type that could ever appear in the unseen pool. Built once per
-  // playerCount; values never change mid-game.
+  // card type that could ever appear, with its total copy count. Built
+  // once per playerCount; values never change mid-game.
   const universe = useMemo(
     () =>
       groupCanonicalCards(
@@ -78,20 +76,44 @@ export function RemainingCardsPanel() {
     [view.playerCount, cityToDistrict],
   );
 
-  const deckPool = useMemo(
-    () => [...view.drawDeck, ...view.removedCards],
-    [view.drawDeck, view.removedCards],
+  const universeTotal = useMemo(() => {
+    let n = 0;
+    for (const list of Object.values(universe.locations)) {
+      for (const e of list) n += e.total;
+    }
+    for (const e of universe.industries) n += e.total;
+    return n;
+  }, [universe]);
+
+  // Unplayed pool = deck + removed + every player's hand. The active
+  // player sees their own hand directly in the Hand panel; the panel
+  // here aggregates so other hands stay hidden.
+  const remainingPool = useMemo(
+    () => [
+      ...view.drawDeck,
+      ...view.removedCards,
+      ...view.players.flatMap((p) => p.hand),
+    ],
+    [view.drawDeck, view.removedCards, view.players],
   );
 
+  const remainingNonWild = useMemo(() => {
+    let n = 0;
+    for (const c of remainingPool) {
+      if (c.kind === "LOCATION" || c.kind === "INDUSTRY") n++;
+    }
+    return n;
+  }, [remainingPool]);
+
   const counts = useMemo(
-    () => countByKey(deckPool, cityToDistrict),
-    [deckPool, cityToDistrict],
+    () => countByKey(remainingPool, cityToDistrict),
+    [remainingPool, cityToDistrict],
   );
 
   return (
     <Panel
       id="remaining_cards"
-      title={`Remaining cards — ${view.deckPoolSize}/${view.total}`}
+      title={`Remaining cards — ${remainingNonWild}/${universeTotal}`}
       maximizable
     >
       <div className="remaining-cards__grid">
@@ -122,14 +144,6 @@ export function RemainingCardsPanel() {
       </div>
     </Panel>
   );
-}
-
-function countNonWild(cards: readonly Card[]): number {
-  let n = 0;
-  for (const c of cards) {
-    if (c.kind === "LOCATION" || c.kind === "INDUSTRY") n++;
-  }
-  return n;
 }
 
 function Group({

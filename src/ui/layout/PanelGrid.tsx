@@ -1,23 +1,28 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import layoutConfig from "../../../config/layout.json";
 
 interface PanelPlacement {
   readonly id: string;
   readonly column: string;
-  readonly row: string;
+  readonly row?: string;
 }
 
 interface LayoutFile {
   readonly columns: string;
-  readonly rows: string;
+  readonly rows?: string;
   readonly panels: readonly PanelPlacement[];
 }
 
 /**
- * Reads `config/layout.json` and arranges named panels in a CSS Grid.
- * Children is a map of panel id → ReactNode; cells whose id has no
- * mapping render empty. Adding a new panel = one entry in the json
- * and one entry in the map.
+ * Reads `config/layout.json` and arranges named panels in three vertical
+ * flex columns. `columns` is a CSS-grid-style track string ("8rem 1fr
+ * 13rem"); each track becomes one flex column. Panels with `column`
+ * starting at track N are stacked into column N in declaration order.
+ *
+ * Page layout is flex-column friendly so the document scrolls
+ * vertically rather than each panel scrolling on its own. The legacy
+ * `row` field on each panel is retained in the schema for backwards
+ * compatibility but is ignored — declaration order drives stacking.
  */
 export function PanelGrid({
   children,
@@ -25,34 +30,62 @@ export function PanelGrid({
   children: Readonly<Record<string, ReactNode>>;
 }) {
   const cfg = layoutConfig as unknown as LayoutFile;
+  const tracks = cfg.columns.split(/\s+/).filter(Boolean);
+  const groups: PanelPlacement[][] = tracks.map(() => []);
+  for (const p of cfg.panels) {
+    const idx = Math.max(0, startTrack(p.column) - 1);
+    if (idx < groups.length) groups[idx]!.push(p);
+  }
   return (
     <div
       className="panel-grid"
       style={{
-        display: "grid",
-        gridTemplateColumns: cfg.columns,
-        gridTemplateRows: cfg.rows,
+        display: "flex",
+        flexDirection: "row",
         gap: "0.5rem",
-        width: "100%",
-        flex: 1,
-        minHeight: 0,
         padding: "0.5rem",
+        width: "100%",
         boxSizing: "border-box",
+        alignItems: "flex-start",
       }}
     >
-      {cfg.panels.map((p) => (
+      {tracks.map((track, i) => (
         <div
-          key={p.id}
+          key={i}
+          className="panel-grid__col"
           style={{
-            gridColumn: p.column,
-            gridRow: p.row,
-            minHeight: 0,
             display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem",
+            minWidth: 0,
+            ...trackStyle(track),
           }}
         >
-          {children[p.id] ?? null}
+          {groups[i]!.map((p) => (
+            <div
+              key={p.id}
+              className="panel-grid__cell"
+              style={{ display: "flex", width: "100%", minWidth: 0 }}
+            >
+              {children[p.id] ?? null}
+            </div>
+          ))}
         </div>
       ))}
     </div>
   );
+}
+
+function startTrack(span: string): number {
+  const match = span.match(/^(\d+)/);
+  return match ? Number(match[1]) : 1;
+}
+
+function trackStyle(track: string): CSSProperties {
+  if (track.endsWith("fr")) {
+    const fr = parseFloat(track.slice(0, -2)) || 1;
+    return { flex: `${fr} 1 0`, minWidth: 0 };
+  }
+  if (track === "auto") return { flex: "0 0 auto" };
+  return { flex: "0 0 auto", width: track };
 }

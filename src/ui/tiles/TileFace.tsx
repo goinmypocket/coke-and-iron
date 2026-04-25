@@ -3,6 +3,13 @@
 // is drawn (board, mat). Always renders as a square of TILE × TILE
 // units in the owner's pawn colour.
 //
+// SCALING: internal geometry is authored at BASE_TILE = 28, the
+// historical tile size. The output is wrapped in a `scale(TILE_SCALE)`
+// transform so the rendered tile fills TILE × TILE units in the host
+// SVG. Bumping `TILE` is the single knob that resizes tiles on the
+// main board AND in player-mat rows; `LINK_TILE_HEIGHT` and
+// `MAT_TILE_PX` are derived from it as ratios so they bump together.
+//
 // All metadata glyphs (cubes / barrels / VP / link points / income /
 // no-develop) come from the shared icon components in src/ui/icons/.
 // This file only handles the tile background and corner positioning.
@@ -18,7 +25,21 @@ import { LinkPointsIcon } from "../icons/LinkPointsIcon";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { INDUSTRY_ICON } from "../industryIcons";
 
-export const TILE = 28;
+/** Internal coordinate system unit. Internal geometry is authored at
+ *  this scale and never references TILE directly; the wrapper transform
+ *  maps it to the exported TILE size. */
+const BASE_TILE = 28;
+/** Tile edge length in host-SVG units. Sole knob for tile size. */
+export const TILE = 40;
+const TILE_SCALE = TILE / BASE_TILE;
+/** Link-tile height as a fraction of TILE — keeps the link-to-tile
+ *  visual ratio constant regardless of TILE. */
+export const LINK_TILE_RATIO = 0.45;
+export const LINK_TILE_HEIGHT = TILE * LINK_TILE_RATIO;
+export const LINK_TILE_WIDTH = LINK_TILE_HEIGHT * 2;
+/** Display size of a mat tile in CSS pixels — also derived from TILE
+ *  so player mats grow / shrink in lock-step with the main board. */
+export const MAT_TILE_PX = TILE * 1.4;
 
 const ROMAN: readonly string[] = [
   "",
@@ -77,31 +98,46 @@ function FlippedFace({
   const topColor = ownerColor;
   const bottomColor = mix(ownerColor, "#fffdf6", 0.55);
   return (
-    <g>
-      <rect width={TILE} height={TILE} rx={2} fill={topColor} />
-      <rect y={TILE / 2} width={TILE} height={TILE / 2} fill={bottomColor} />
+    <g transform={`scale(${TILE_SCALE})`}>
+      <rect width={BASE_TILE} height={BASE_TILE} rx={2} fill={topColor} />
       <rect
-        width={TILE}
-        height={TILE}
+        y={BASE_TILE / 2}
+        width={BASE_TILE}
+        height={BASE_TILE / 2}
+        fill={bottomColor}
+      />
+      <rect
+        width={BASE_TILE}
+        height={BASE_TILE}
         rx={2}
         fill="none"
         stroke="#1a1a1a"
         strokeWidth={0.7}
       />
       <CornerLevel level={spec.level} fill="#fffdf6" />
-      <LinkCascade count={spec.linkPoints} x={TILE - 2} y={4} alignRight />
+      <LinkCascade
+        count={spec.linkPoints}
+        x={BASE_TILE - 2}
+        y={4}
+        alignRight
+      />
       {spec.vp > 0 ? (
-        <VictoryPointsIcon x={1} y={TILE - 9} size={8} amount={spec.vp} />
+        <VictoryPointsIcon
+          x={1}
+          y={BASE_TILE - 9}
+          size={8}
+          amount={spec.vp}
+        />
       ) : null}
       {spec.incomeBonus > 0 ? (
         <IncomeGainedIcon
-          x={TILE - 9}
-          y={TILE - 9}
+          x={BASE_TILE - 9}
+          y={BASE_TILE - 9}
           size={8}
           amount={spec.incomeBonus}
         />
       ) : null}
-      <CenterIcon industry={spec.industry} y={TILE * 0.62} />
+      <CenterIcon industry={spec.industry} y={BASE_TILE * 0.62} />
     </g>
   );
 }
@@ -119,11 +155,11 @@ function UnflippedFace({
 }) {
   const tint = mix(ownerColor, "#fffdf6", 0.7);
   return (
-    <g>
-      <rect width={TILE} height={TILE} rx={2} fill={tint} />
+    <g transform={`scale(${TILE_SCALE})`}>
+      <rect width={BASE_TILE} height={BASE_TILE} rx={2} fill={tint} />
       <rect
-        width={TILE}
-        height={TILE}
+        width={BASE_TILE}
+        height={BASE_TILE}
         rx={2}
         fill="none"
         stroke="#1a1a1a"
@@ -133,13 +169,13 @@ function UnflippedFace({
       <CornerBeerCost count={spec.beerToSell} />
       {spec.lightBulb ? (
         <DevelopIcon
-          x={TILE - 7.5}
-          y={TILE - 7.5}
+          x={BASE_TILE - 7.5}
+          y={BASE_TILE - 7.5}
           size={7}
           consumption
         />
       ) : null}
-      <CenterIcon industry={spec.industry} y={TILE * 0.5} />
+      <CenterIcon industry={spec.industry} y={BASE_TILE * 0.5} />
       {carriesResources(spec.industry) && resources > 0 ? (
         <ResourceTokens industry={spec.industry} count={resources} />
       ) : null}
@@ -163,7 +199,7 @@ function CornerBeerCost({ count }: { count: number }) {
     tokens.push(
       <BeerIcon
         key={i}
-        x={TILE - size - 1 - col * (size + 0.5)}
+        x={BASE_TILE - size - 1 - col * (size + 0.5)}
         y={1 + row * (size + 0.5)}
         size={size}
         consumption
@@ -187,8 +223,8 @@ function ResourceTokens({
   const gapH = 0.6;
   const gapV = 0.6;
   const inset = 1;
-  const rightEdge = TILE - inset;
-  const bottomEdge = TILE - inset;
+  const rightEdge = BASE_TILE - inset;
+  const bottomEdge = BASE_TILE - inset;
   const colStep = size + gapH;
   const rowStep = size + gapV;
   const tokens: JSX.Element[] = [];
@@ -255,11 +291,11 @@ function CenterIcon({
   industry: IndustryName;
   y: number;
 }) {
-  const size = TILE * 0.42;
+  const size = BASE_TILE * 0.42;
   return (
     <image
       href={INDUSTRY_ICON[industry]}
-      x={TILE / 2 - size / 2}
+      x={BASE_TILE / 2 - size / 2}
       y={y - size / 2}
       width={size}
       height={size}
@@ -280,7 +316,7 @@ function StackDots({ count }: { count: number }) {
       <circle
         key={i}
         cx={startX + i * step}
-        cy={TILE - 2.5}
+        cy={BASE_TILE - 2.5}
         r={r}
         fill="#1a1a1a"
       />,

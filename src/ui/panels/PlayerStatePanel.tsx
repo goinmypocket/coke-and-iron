@@ -12,6 +12,10 @@ const ORDINALS = ["1st", "2nd", "3rd", "4th"] as const;
  * §11.5 Player state — one row per seat in CURRENT turn order
  * (first-to-act at the top; active seat tinted warm gold).
  *
+ * Columns are tight so the table fits the RHS column (~13rem):
+ * Player (with pawn-coloured left border), money, VP, raw income step,
+ * income-level icon, money spent this round, turn-order ordinal.
+ *
  * The outer component subscribes to the seat list + active-index only,
  * so a re-seat or active-change is the only thing that re-renders the
  * table layout. Each row is its own component that subscribes
@@ -27,12 +31,13 @@ export function PlayerStatePanel() {
       <table className="player-table">
         <thead>
           <tr>
-            <th></th>
-            <th>Name</th>
+            <th>Player</th>
             <th>£</th>
             <th>VP</th>
-            <th>Inc step</th>
-            <th>Inc level</th>
+            <th>Step</th>
+            <th title="Income level">
+              <CurrentIncomeIcon size={12} iconOnly />
+            </th>
             <th>Spent</th>
             <th>Order</th>
           </tr>
@@ -77,28 +82,22 @@ function PlayerRow({
   if (!row) return null;
   return (
     <tr className={isActive ? "player-row--active" : ""}>
-      <td>
-        <span
-          className="pawn-swatch"
-          style={{ background: row.pawnColor }}
-        />
-      </td>
-      <td>{row.name}</td>
-      <td>
-        <MoneyCoin amount={row.money} size={14} />
+      <td
+        className="player-table__name"
+        style={{ borderLeft: `3px solid ${row.pawnColor}` }}
+      >
+        {row.name}
       </td>
       <td>
-        <VictoryPointsIcon amount={row.vp} size={14} />
+        <MoneyCoin amount={row.money} size={13} />
+      </td>
+      <td>
+        <VictoryPointsIcon amount={row.vp} size={13} />
       </td>
       <td>{row.incomeStep}</td>
-      <td>
-        <CurrentIncomeIcon amount={stepToLevel(row.incomeStep)} size={14} />
-      </td>
+      <td>{stepToLevel(row.incomeStep)}</td>
       <td>{row.spentThisRound}</td>
-      <td>
-        {ordinal}
-        {isActive ? " ←" : ""}
-      </td>
+      <td>{ordinal}</td>
     </tr>
   );
 }

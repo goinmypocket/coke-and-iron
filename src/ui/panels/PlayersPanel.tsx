@@ -13,7 +13,13 @@
 // every other industry is a single column. Tiles are square and the
 // same TILE × TILE size everywhere — board, mat, and resource preview.
 // =============================================================================
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { stepToLevel } from "../../engine";
 import type {
   IndustryName,
@@ -32,9 +38,14 @@ import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
-import { TILE, TileFace } from "../tiles/TileFace";
-import { TileSideColumn } from "../tiles/TileSideColumn";
+import { MAT_TILE_PX, TILE, TileFace } from "../tiles/TileFace";
+import { MAT_SIDE_COL_PX, TileSideColumn } from "../tiles/TileSideColumn";
 import { useWizard } from "../wizards/WizardProvider";
+
+/** Cost icon size on the mat (£ coin, coal cubes, iron cubes). Kept
+ *  proportional to the mat tile so a single TILE bump scales the
+ *  whole row. 13/40 from the original constants. */
+const MAT_COST_ICON_PX = MAT_TILE_PX * (13 / 40);
 
 interface IndustryColumnSpec {
   industry: IndustryName;
@@ -135,7 +146,16 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
         </span>
       </div>
       <MatScaler>
-        <div className="mat-grid">
+        <div
+          className="mat-grid"
+          style={
+            {
+              "--mat-tile-px": `${MAT_TILE_PX}px`,
+              "--mat-side-px": `${MAT_SIDE_COL_PX}px`,
+              "--mat-cost-icon-px": `${MAT_COST_ICON_PX}px`,
+            } as CSSProperties
+          }
+        >
           {INDUSTRY_COLUMNS.map((col) => (
             <IndustryColumn
               key={col.industry}
@@ -343,12 +363,12 @@ function MatLevelRow({
       <div className="mat-level-row__costs">
         {spec ? (
           <>
-            <MoneyCoin amount={spec.costMoney} size={13} />
+            <MoneyCoin amount={spec.costMoney} size={MAT_COST_ICON_PX} />
             {Array.from({ length: spec.coalCost }).map((_, i) => (
-              <CoalIcon key={`c${i}`} size={13} />
+              <CoalIcon key={`c${i}`} size={MAT_COST_ICON_PX} />
             ))}
             {Array.from({ length: spec.ironCost }).map((_, i) => (
-              <IronIcon key={`i${i}`} size={13} />
+              <IronIcon key={`i${i}`} size={MAT_COST_ICON_PX} />
             ))}
           </>
         ) : null}
