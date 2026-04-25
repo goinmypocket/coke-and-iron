@@ -35,13 +35,25 @@ interface TileFaceProps {
   spec: IndustryTileSpec;
   ownerColor: string;
   face: "unflipped" | "flipped";
+  /** Live resource count drawn on the unflipped face for Coal/Iron/
+   *  Brewery — cubes pack column-major from the bottom-right going
+   *  up max two rows then leftward. Mat callers pass the level's
+   *  capacity; board callers pass live remaining. Ignored for
+   *  non-resource industries and for the flipped face. */
+  resources?: number;
 }
 
-export function TileFace({ spec, ownerColor, face }: TileFaceProps) {
+export function TileFace({ spec, ownerColor, face, resources }: TileFaceProps) {
   if (face === "flipped") {
     return <FlippedFace spec={spec} ownerColor={ownerColor} />;
   }
-  return <UnflippedFace spec={spec} ownerColor={ownerColor} />;
+  return (
+    <UnflippedFace
+      spec={spec}
+      ownerColor={ownerColor}
+      resources={resources ?? 0}
+    />
+  );
 }
 
 function FlippedFace({
@@ -77,9 +89,11 @@ function FlippedFace({
 function UnflippedFace({
   spec,
   ownerColor,
+  resources,
 }: {
   spec: IndustryTileSpec;
   ownerColor: string;
+  resources: number;
 }) {
   const tint = mix(ownerColor, "#fffdf6", 0.7);
   return (
@@ -99,7 +113,78 @@ function UnflippedFace({
       ) : null}
       {spec.lightBulb ? <CornerNoDev /> : null}
       <CenterIcon industry={spec.industry} y={TILE * 0.5} />
+      {carriesResources(spec.industry) && resources > 0 ? (
+        <ResourceCubes industry={spec.industry} count={resources} />
+      ) : null}
     </g>
+  );
+}
+
+/** Bottom-right packed cube stack drawn directly on the tile face.
+ *  Cubes pack column-major from the bottom-right corner, going up to
+ *  a max of 2 rows before starting a new column to the left. */
+function ResourceCubes({
+  industry,
+  count,
+}: {
+  industry: IndustryName;
+  count: number;
+}) {
+  const cubeSize = 3.6;
+  const gapH = 0.7;
+  const gapV = 0.7;
+  const inset = 1.2;
+  const rightEdge = TILE - inset;
+  const bottomEdge = TILE - inset;
+  const colStep = cubeSize + gapH;
+  const rowStep = cubeSize + gapV;
+  const tokens: JSX.Element[] = [];
+  for (let i = 0; i < count; i++) {
+    const col = Math.floor(i / 2);
+    const row = i % 2;
+    const x = rightEdge - cubeSize - col * colStep;
+    const y = bottomEdge - cubeSize - row * rowStep;
+    tokens.push(<TileCube key={i} industry={industry} x={x} y={y} size={cubeSize} />);
+  }
+  return <g style={{ pointerEvents: "none" }}>{tokens}</g>;
+}
+
+function TileCube({
+  industry,
+  x,
+  y,
+  size,
+}: {
+  industry: IndustryName;
+  x: number;
+  y: number;
+  size: number;
+}) {
+  if (industry === "BREWERY") {
+    return (
+      <ellipse
+        cx={x + size / 2}
+        cy={y + size / 2}
+        rx={size / 2}
+        ry={size / 2 + 0.3}
+        fill="#c79b3f"
+        stroke="#5b4516"
+        strokeWidth={0.25}
+      />
+    );
+  }
+  const fill = industry === "COAL_MINE" ? "#1a1a1a" : "#a8825a";
+  const strokeColor = industry === "COAL_MINE" ? "#fffdf6" : "#1a1a1a";
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={size}
+      height={size}
+      fill={fill}
+      stroke={strokeColor}
+      strokeWidth={0.25}
+    />
   );
 }
 

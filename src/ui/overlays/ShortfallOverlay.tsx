@@ -18,6 +18,7 @@ import type { GameState, IndustryName, PlayerId } from "../../engine";
 import { reasonToText } from "../affordances/toast";
 import { useEngine } from "../hooks/useEngine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { MoneyCoin } from "../icons/MoneyCoin";
 
 const INDUSTRY_LABEL: Readonly<Record<IndustryName, string>> = {
   COAL_MINE: "Coal",
@@ -114,7 +115,8 @@ function ShortfallBody({ view }: { view: View }) {
     <div className="overlay-backdrop">
       <div className="shortfall-overlay" style={{ borderColor: view.pawnColor }}>
         <header className="shortfall-overlay__title">
-          Shortfall — {view.headPlayerName} owes £{view.owed}
+          Shortfall — {view.headPlayerName} owes{" "}
+          <MoneyCoin amount={view.owed} size={14} />
         </header>
         <p className="shortfall-overlay__lead">
           Pick own tiles to remove for half their printed build cost.
@@ -123,10 +125,10 @@ function ShortfallBody({ view }: { view: View }) {
         </p>
         <div className="shortfall-overlay__totals">
           <span>
-            Proceeds: <strong>£{proceeds}</strong>
+            Proceeds: <MoneyCoin amount={proceeds} size={14} />
           </span>
           <span>
-            Remaining: <strong>£{remaining}</strong>
+            Remaining: <MoneyCoin amount={remaining} size={14} />
           </span>
           <span>VP loss if finalized: {Math.min(view.vp, remaining)}</span>
         </div>
@@ -154,7 +156,10 @@ function ShortfallBody({ view }: { view: View }) {
                     {INDUSTRY_LABEL[spec.industry]} L{spec.level} @ {tile.cityName}
                     {tile.flipped ? " (flipped)" : ""}
                   </span>
-                  <span>£{Math.floor(spec.costMoney / 2)}</span>
+                  <MoneyCoin
+                    amount={Math.floor(spec.costMoney / 2)}
+                    size={14}
+                  />
                 </li>
               );
             })
@@ -180,7 +185,7 @@ function ShortfallBody({ view }: { view: View }) {
                 : "Pick more tiles until proceeds cover the debt."
             }
           >
-            Submit (£{proceeds})
+            Submit (<MoneyCoin amount={proceeds} size={12} />)
           </button>
           <button
             type="button"

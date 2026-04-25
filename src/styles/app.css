@@ -263,9 +263,13 @@ body {
   gap: 0.2rem;
 }
 .mat-grid {
-  display: grid;
-  /* Coal · Iron · Brewery · Cotton · Manufacturer (2 internal cols) · Pottery */
-  grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
+  /* Each industry column takes only as much width as its rows
+   * need (cost icons + tile + side column + count). Flex layout
+   * lets the row determine its own width; the parent simply lays
+   * the columns out left-to-right. */
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
   gap: 0.2rem;
   padding-top: 0.25rem;
 }
@@ -349,7 +353,7 @@ body {
   flex-shrink: 0;
 }
 .mat-side-col--placeholder {
-  width: 22px;
+  width: 18px;
   height: 28px;
 }
 .mat-level-row__count {

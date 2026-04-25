@@ -24,6 +24,7 @@ import {
   INDUSTRY_ICON,
   INDUSTRY_LABEL as INDUSTRY_FULL_LABEL,
 } from "../industryIcons";
+import { MoneyCoin } from "../icons/MoneyCoin";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
 import { TileSideColumn } from "../tiles/TileSideColumn";
@@ -110,7 +111,9 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
       maximizable
     >
       <div className="seat-stats">
-        <span title="Money">£{view.money}</span>
+        <span title="Money" className="seat-stats__money">
+          <MoneyCoin amount={view.money} size={13} />
+        </span>
         <span title="Victory points">{view.vp} VP</span>
         <span title="Income level (step)">
           L{stepToLevel(view.incomeStep)}
@@ -284,13 +287,18 @@ function MatLevelRow({
           viewBox={`0 0 ${TILE} ${TILE}`}
           aria-hidden
         >
-          <TileFace spec={spec} ownerColor={pawnColor} face="unflipped" />
+          <TileFace
+            spec={spec}
+            ownerColor={pawnColor}
+            face="unflipped"
+            resources={matResources}
+          />
         </svg>
       ) : (
         <div className="mat-level-row__tile mat-level-row__tile--placeholder" />
       )}
       {spec ? (
-        <TileSideColumn spec={spec} resources={matResources} />
+        <TileSideColumn spec={spec} />
       ) : (
         <div className="mat-side-col mat-side-col--placeholder" />
       )}
@@ -341,11 +349,11 @@ function CostCoin({ amount }: { amount: number }) {
         x={COST_ICON / 2}
         y={COST_ICON / 2 + 2.6}
         textAnchor="middle"
-        fontSize={6.5}
+        fontSize={7}
         fontWeight={700}
         fill="#1a1a1a"
       >
-        £{amount}
+        {amount}
       </text>
     </svg>
   );

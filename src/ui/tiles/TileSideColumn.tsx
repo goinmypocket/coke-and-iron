@@ -1,36 +1,23 @@
 // =============================================================================
 // §11.3 Mat right column — sibling of TileFace inside a mat row.
 //
-// Coal Mine / Iron Works / Brewery → resource cubes packed column-major
-// from the bottom-right corner of the column, growing upward to a max
-// of 2 rows before starting a new column to the left. Coal renders as
-// a black square cube, iron as an orange square cube, brewery as a
-// beer-barrel ellipse.
-//
-// Cotton Mill / Manufacturer / Pottery → bonus icons stacked vertically:
-// VP hex on top, income arrow in the middle, link-point cluster on
-// the bottom. Cells whose value is 0 drop out so a tile with only one
-// of the three doesn't look top-heavy.
+// Always renders the bonus stack (VP top, income middle, link-points
+// bottom). Production cubes for Coal/Iron/Brewery are drawn directly
+// on the tile face (TileFace's UnflippedFace ResourceCubes element)
+// rather than in this column, so the column has uniform contents
+// across every industry.
 // =============================================================================
 
-import type { IndustryName, IndustryTileSpec } from "../../engine";
-import { TILE, carriesResources } from "./TileFace";
+import type { IndustryTileSpec } from "../../engine";
+import { TILE } from "./TileFace";
 
-export const SIDE_COL_W = 22;
-
-const CUBE = 6;
-const CUBE_GAP_H = 1;
-const CUBE_GAP_V = 1;
-const CUBE_INSET = 1;
+export const SIDE_COL_W = 18;
 
 export function TileSideColumn({
   spec,
-  resources,
 }: {
   spec: IndustryTileSpec;
-  resources: number;
 }) {
-  const isResource = carriesResources(spec.industry);
   return (
     <svg
       className="mat-side-col"
@@ -39,78 +26,12 @@ export function TileSideColumn({
       viewBox={`0 0 ${SIDE_COL_W} ${TILE}`}
       aria-hidden
     >
-      {isResource ? (
-        <CubeStack industry={spec.industry} count={resources} />
-      ) : (
-        <BonusStack
-          vp={spec.vp}
-          income={spec.incomeBonus}
-          linkPoints={spec.linkPoints}
-        />
-      )}
-    </svg>
-  );
-}
-
-function CubeStack({
-  industry,
-  count,
-}: {
-  industry: IndustryName;
-  count: number;
-}) {
-  if (count <= 0) return null;
-  const rightEdge = SIDE_COL_W - CUBE_INSET;
-  const bottomEdge = TILE - CUBE_INSET;
-  const colStep = CUBE + CUBE_GAP_H;
-  const rowStep = CUBE + CUBE_GAP_V;
-  const cubes: JSX.Element[] = [];
-  for (let i = 0; i < count; i++) {
-    const col = Math.floor(i / 2);
-    const row = i % 2;
-    const x = rightEdge - CUBE - col * colStep;
-    const y = bottomEdge - CUBE - row * rowStep;
-    cubes.push(<ResourceToken key={i} industry={industry} x={x} y={y} />);
-  }
-  return <g>{cubes}</g>;
-}
-
-function ResourceToken({
-  industry,
-  x,
-  y,
-}: {
-  industry: IndustryName;
-  x: number;
-  y: number;
-}) {
-  if (industry === "BREWERY") {
-    const cx = x + CUBE / 2;
-    const cy = y + CUBE / 2;
-    return (
-      <ellipse
-        cx={cx}
-        cy={cy}
-        rx={CUBE / 2}
-        ry={CUBE / 2 + 0.4}
-        fill="#c79b3f"
-        stroke="#5b4516"
-        strokeWidth={0.4}
+      <BonusStack
+        vp={spec.vp}
+        income={spec.incomeBonus}
+        linkPoints={spec.linkPoints}
       />
-    );
-  }
-  const fill = industry === "COAL_MINE" ? "#1a1a1a" : "#a8825a";
-  const strokeColor = industry === "COAL_MINE" ? "#fffdf6" : "#1a1a1a";
-  return (
-    <rect
-      x={x}
-      y={y}
-      width={CUBE}
-      height={CUBE}
-      fill={fill}
-      stroke={strokeColor}
-      strokeWidth={0.4}
-    />
+    </svg>
   );
 }
 
