@@ -19,6 +19,13 @@ export {
 export { rankSeats } from "./ranking";
 export type { RankReason, RankedSeat } from "./ranking";
 export { reduce } from "./reduce";
+export {
+  isOwnSeat,
+  projectFor,
+  projectForSpectator,
+  type PlayerView,
+  type PlayerInView,
+} from "./view";
 export { makeRng, shuffle, randomInt } from "./rng";
 export type { Rng } from "./rng";
 export type {
