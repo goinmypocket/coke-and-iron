@@ -101,6 +101,54 @@ body {
   filter: brightness(0.95);
 }
 
+/* ---------- Panel grid (responsive) ----------
+ *
+ * ≥ 48em: columns side by side at their track-string preferred widths
+ *         (income / board+mats / info). flex-wrap is on so any column
+ *         that can't shrink to fit drops onto its own row instead of
+ *         forcing horizontal page scroll.
+ * < 48em: flex-direction switches to column; every track stacks
+ *         full-width. Page handles vertical overflow via .app-shell.
+ */
+
+.panel-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+.panel-grid__col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  /* When a column wraps onto its own row, grow to fill the row so the
+   * board/info column never sits in a half-empty band. */
+  flex-grow: 1;
+}
+.panel-grid__cell {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 47.999em) {
+  .panel-grid {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+  .panel-grid__col {
+    /* In narrow regime every column owns one full-width row. Override
+     * the inline track-string flex / width set in PanelGrid.tsx. */
+    flex: 0 0 auto !important;
+    width: 100% !important;
+  }
+}
+
 /* ---------- Panel chrome (§10) ---------- */
 
 .panel {
@@ -110,7 +158,10 @@ body {
   min-width: 0;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  min-height: 4rem;
+  /* No min-height — panels are bounding boxes for their content, not a
+   * standalone visual element with a floor size. A short panel (e.g.
+   * a one-line action strip) sits at content height; a tall one (mats,
+   * recent log) grows naturally. */
   /* No overflow: hidden — panels grow to fit their content and the page
    * scrolls vertically. The maximized variant re-enables clipping so
    * its inner content owns the scrollbar. */
@@ -152,13 +203,14 @@ body {
   overflow: auto;
 }
 .panel__title {
-  padding: 0.2rem 0.45rem;
+  padding: 0.15rem 0.4rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--ink);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
 }
 .panel__maximize {
   background: transparent;
@@ -173,26 +225,61 @@ body {
 }
 .panel__content {
   /* No flex:1 — content sizes itself, panel grows to wrap the title +
-   * content stack. Page handles overflow (see .app-shell). */
-  padding: 0.5rem;
+   * content stack. Page handles overflow (see .app-shell). Padding is
+   * tight so the panel border hugs the content. */
+  padding: 0.35rem;
 }
 
 /* Income panel is very dense — turn off inline-size containment so its
  * intrinsic width is honoured, and squeeze the padding so the ladder
- * hugs the column. */
+ * hugs the column. The right border is dropped so the income panel
+ * visually attaches to the board's left edge as a protruding box (see
+ * `.panel-grid__col[data-col-idx="0"]` rule below — that column eats
+ * the panel-grid gap so the two panels share the board's leading
+ * border line as the seam). */
 [data-panel-id="income"] {
   min-width: 0;
   container-type: normal;
+  border-right: none;
 }
 [data-panel-id="income"] .panel__content {
   padding: 0.2rem 0.15rem;
 }
 
+/* Income column attaches flush to the board column. Negative right
+ * margin eats the .panel-grid `gap: 0.5rem` so col 1's right edge
+ * touches col 2's left edge; combined with `border-right: none` on
+ * the income panel above, the board's own left border becomes the
+ * shared seam between the two boxes. Reset in narrow regime where
+ * panels stack vertically and there's no neighbour to attach to. */
+.panel-grid__col[data-col-idx="0"] {
+  margin-right: -0.5rem;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 47.999em) {
+  .panel-grid__col[data-col-idx="0"] {
+    margin-right: 0;
+  }
+  [data-panel-id="income"] {
+    border-right: 1px solid var(--ink);
+  }
+}
+
 /* Board panel: square content area so the 900x900 board SVG fills it
- * exactly. Title bar adds a small strip above. */
+ * exactly. Title bar adds a small strip above. The width is capped to
+ * (100svh - chrome) so on a wide-but-short viewport (or a tall-but-
+ * narrow phone) the board stays inside the visible area instead of
+ * forcing the page to scroll vertically just to see the bottom of the
+ * map. `100svh` (small viewport height) accounts for mobile browser
+ * UI that dynamically hides/shows. */
 [data-panel-id="board"] .panel__content {
+  width: 100%;
+  max-width: calc(100svh - 5rem);
   aspect-ratio: 1 / 1;
   padding: 0.25rem;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* ---------- Panel-specific rules (just enough to render legibly) ---------- */
@@ -303,30 +390,21 @@ body {
 
 /* ---------- Players panel (§11.3) ---------- */
 
+/* Layout: a CSS grid of one cell per seat sub-panel. `auto-fit` plus a
+ * `minmax(min-content, 1fr)` track lets seats sit side-by-side when
+ * there's room and stack vertically when the player_mats panel is too
+ * narrow for two seats. Avoids the circular sizing of a flex container
+ * whose sub-panel widths feed back through MatScaler (`width: 100%`)
+ * into their own basis. */
 .players-panel {
-  /* Side-by-side per seat by default; stack vertically when the
-   * containing panel can't hold two mats next to each other. The
-   * .panel host has container-type: inline-size so @container queries
-   * resolve against the player_mats panel's width. */
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: 0.4rem;
-  align-items: stretch;
+  align-items: start;
 }
 .players-panel > .panel {
-  flex: 1 1 18rem;
   border-width: 2px;
-  min-width: 14rem;
-}
-@container (max-width: 36rem) {
-  .players-panel {
-    flex-direction: column;
-  }
-  .players-panel > .panel {
-    flex: 0 0 auto;
-    min-width: 0;
-  }
+  min-width: 0;
 }
 .seat-stats {
   display: flex;
@@ -420,6 +498,14 @@ body {
   gap: 0;
   flex-shrink: 0;
   height: var(--mat-tile-px, 40px);
+}
+/* CSS sizes the cost icons rather than the React `size` prop so they
+ * track --mat-cost-icon-px (which itself follows the board tile px).
+ * This is the lock-step needed for the player-mat tile size to match
+ * the on-board tile size at any zoom or viewport width. */
+.mat-level-row__costs > svg {
+  width: var(--mat-cost-icon-px, 13px);
+  height: var(--mat-cost-icon-px, 13px);
 }
 .mat-level-row__tile {
   /* Natural mat-tile size, scaled down by MatScaler when the host

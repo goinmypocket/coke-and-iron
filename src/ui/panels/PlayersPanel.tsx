@@ -39,13 +39,13 @@ import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
 import { MAT_TILE_PX, TILE, TileFace } from "../tiles/TileFace";
-import { MAT_SIDE_COL_PX, TileSideColumn } from "../tiles/TileSideColumn";
+import { TileSideColumn } from "../tiles/TileSideColumn";
 import { useWizard } from "../wizards/WizardProvider";
 
-/** Cost icon size on the mat (£ coin, coal cubes, iron cubes). Kept
- *  proportional to the mat tile so a single TILE bump scales the
- *  whole row. 13/40 from the original constants. */
-const MAT_COST_ICON_PX = MAT_TILE_PX * (13 / 40);
+/** Mat tile floor in px — never let the mat shrink below this even
+ *  when the board renders very small (phone-portrait viewport). The
+ *  player still needs the tile face metadata to be readable. */
+const MAT_TILE_FLOOR_PX = 28;
 
 interface IndustryColumnSpec {
   industry: IndustryName;
@@ -150,9 +150,15 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
           className="mat-grid"
           style={
             {
-              "--mat-tile-px": `${MAT_TILE_PX}px`,
-              "--mat-side-px": `${MAT_SIDE_COL_PX}px`,
-              "--mat-cost-icon-px": `${MAT_COST_ICON_PX}px`,
+              // Mat tiles match the board's live rendered tile size so
+              // a player at the table sees identical-sized tiles in
+              // both places. Falls back to the fixed MAT_TILE_PX when
+              // the board hasn't reported in yet (first paint), and
+              // stays above MAT_TILE_FLOOR_PX so the mat remains
+              // readable on a phone-narrow board.
+              "--mat-tile-px": `max(${MAT_TILE_FLOOR_PX}px, var(--board-tile-px, ${MAT_TILE_PX}px))`,
+              "--mat-side-px": `calc(var(--mat-tile-px) * 17 / 40)`,
+              "--mat-cost-icon-px": `calc(var(--mat-tile-px) * 13 / 40)`,
             } as CSSProperties
           }
         >
@@ -363,12 +369,16 @@ function MatLevelRow({
       <div className="mat-level-row__costs">
         {spec ? (
           <>
-            <MoneyCoin amount={spec.costMoney} size={MAT_COST_ICON_PX} />
+            {/* size prop here is just a fallback dimension — the actual
+             *  rendered size is driven by CSS (--mat-cost-icon-px) so
+             *  the cost icons scale with the mat tile, which itself
+             *  follows the board's live tile pixel size. */}
+            <MoneyCoin amount={spec.costMoney} />
             {Array.from({ length: spec.coalCost }).map((_, i) => (
-              <CoalIcon key={`c${i}`} size={MAT_COST_ICON_PX} />
+              <CoalIcon key={`c${i}`} />
             ))}
             {Array.from({ length: spec.ironCost }).map((_, i) => (
-              <IronIcon key={`i${i}`} size={MAT_COST_ICON_PX} />
+              <IronIcon key={`i${i}`} />
             ))}
           </>
         ) : null}
