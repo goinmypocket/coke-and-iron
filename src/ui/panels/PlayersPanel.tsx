@@ -15,7 +15,6 @@
 // browser zoom and panel resize, with no overflow possible (containment
 // is enforced by SVG semantics, not by `overflow: hidden`).
 // =============================================================================
-import type { CSSProperties } from "react";
 import { stepToLevel } from "../../engine";
 import type {
   IndustryName,
@@ -230,7 +229,6 @@ function MatSvg({
       className="mat-svg"
       viewBox={`0 0 ${MAT_W} ${MAT_H}`}
       preserveAspectRatio="xMidYMid meet"
-      style={{ width: "100%", display: "block" } satisfies CSSProperties}
     >
       {columns.map((col, i) => (
         <g key={col.spec.industry} transform={`translate(${col.x}, 0)`}>

@@ -193,6 +193,14 @@ body {
   align-items: stretch;
   height: var(--board-edge);
 }
+.board-region__income {
+  /* Hard-cap the income strip's height to --board-edge to defeat any
+   * subpixel rounding on the 21 ladder rows that would otherwise let
+   * the strip render a few px taller than the board square. */
+  height: var(--board-edge);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
 .board-region .board-svg {
   /* Board square: width derives from height via aspect-ratio. Height
    * = --board-edge via parent .board-region. */
@@ -993,19 +1001,21 @@ body {
   opacity: 0.8;
 }
 
-/* ---------- Narrow-viewport scale-down ----------
+/* ---------- Narrow-viewport global scale-down ----------
  *
- * The default --board-edge of 40rem assumes a viewport at least
- * ~44rem wide (40 board + ~3 chrome + income strip). On smaller
- * screens, we override --board-edge with a vw-based value so the
- * board (and therefore the income, the mat, and any other geometry
- * derived from --board-edge) all shrink together to fit.
+ * Below the cutoff, shrink the root font-size proportionally so
+ * EVERYTHING rem-based (board, mat, income, panels, text, padding,
+ * gaps) scales down in lock-step until the board fits horizontally.
+ * Single knob, uniform shrink — no per-property overrides needed.
  *
- * On these narrow viewports we lose strict zoom-scaling (vw is
- * physical-constant), but the board fitting on screen at all is
- * what matters more on a phone. */
-@media (max-width: 44rem) {
-  :root {
-    --board-edge: calc(100vw - 4rem);
+ * 50rem viewport at default 16px = 800 CSS px. The default
+ * --board-edge (40rem) plus ~10rem of chrome and income strip needs
+ * about 50rem of width, so 50rem is the cut-in. Below it, root
+ * font shrinks linearly with viewport width: at viewport = 50rem,
+ * root = 16px (matches default); at viewport = 25rem (~phone),
+ * root = 8px and --board-edge renders at 320 device px. */
+@media (max-width: 50rem) {
+  html {
+    font-size: calc(100vw / 50);
   }
 }
