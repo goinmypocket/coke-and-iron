@@ -4,7 +4,7 @@ import { Engine } from "./engine/Engine";
 import { LoopbackTransport } from "./network/LoopbackTransport";
 import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
-import { PanelGrid } from "./ui/layout/PanelGrid";
+import { GameLayout } from "./ui/layout/GameLayout";
 import { ContextBar } from "./ui/affordances/ContextBar";
 import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
@@ -41,19 +41,25 @@ export function App() {
         <div className="app-shell">
           <PromptStrip />
           <ContextBar />
-          <PanelGrid>
-            {{
-              game_state: <GameStatePanel />,
-              player_info: <PlayerStatePanel />,
-              player_mats: <PlayersPanel />,
-              board: <BoardPanel />,
-              income: <IncomeTrackerPanel />,
-              hand: <HandPanel />,
-              actions: <ActionsPanel />,
-              recent_actions: <RecentActionsPanel />,
-              remaining_cards: <RemainingCardsPanel />,
-            }}
-          </PanelGrid>
+          <GameLayout
+            status={
+              <>
+                <IncomeTrackerPanel />
+                <GameStatePanel />
+                <PlayerStatePanel />
+              </>
+            }
+            board={<BoardPanel />}
+            workspace={
+              <>
+                <ActionsPanel />
+                <HandPanel />
+                <RemainingCardsPanel />
+              </>
+            }
+            players={<PlayersPanel />}
+            log={<RecentActionsPanel />}
+          />
         </div>
         <ShortfallOverlay />
         <EndGameOverlay />

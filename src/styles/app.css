@@ -101,51 +101,63 @@ body {
   filter: brightness(0.95);
 }
 
-/* ---------- Panel grid (responsive) ----------
+/* ---------- Game layout (CSS Grid with named template areas) ----------
  *
- * ≥ 48em: columns side by side at their track-string preferred widths
- *         (income / board+mats / info). flex-wrap is on so any column
- *         that can't shrink to fit drops onto its own row instead of
- *         forcing horizontal page scroll.
- * < 48em: flex-direction switches to column; every track stacks
- *         full-width. Page handles vertical overflow via .app-shell.
+ * Wide (≥ 48em):
+ *
+ *   ┌─────────┬────────┬───────────┐
+ *   │ status  │  board │ workspace │
+ *   ├─────────┴────────┤           │
+ *   │     players      │           │
+ *   ├──────────────────┴───────────┤
+ *   │             log              │
+ *   └──────────────────────────────┘
+ *
+ * Narrow (< 48em): everything stacks full-width — board first so the
+ * map is the first thing you see on a phone, then workspace, status,
+ * players, log.
+ *
+ * The shell file (`GameLayout.tsx`) emits five named regions and
+ * knows nothing about the panels inside them; reshaping the layout
+ * is a CSS-only edit on the `grid-template-areas` strings below.
  */
 
-.panel-grid {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+.game-layout {
+  display: grid;
+  grid-template-areas:
+    "status board workspace"
+    "players board workspace"
+    "log     log   workspace";
+  grid-template-columns: auto 1fr 14rem;
+  grid-template-rows: auto auto 1fr;
   gap: 0.5rem;
   padding: 0.5rem;
   width: 100%;
   box-sizing: border-box;
-  align-items: flex-start;
+  align-items: start;
 }
-.panel-grid__col {
+.game-layout__region {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
-  /* When a column wraps onto its own row, grow to fill the row so the
-   * board/info column never sits in a half-empty band. */
-  flex-grow: 1;
 }
-.panel-grid__cell {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-}
+.game-layout__region--status    { grid-area: status; }
+.game-layout__region--board     { grid-area: board; }
+.game-layout__region--workspace { grid-area: workspace; }
+.game-layout__region--players   { grid-area: players; }
+.game-layout__region--log       { grid-area: log; }
 
 @media (max-width: 47.999em) {
-  .panel-grid {
-    flex-direction: column;
-    flex-wrap: nowrap;
-  }
-  .panel-grid__col {
-    /* In narrow regime every column owns one full-width row. Override
-     * the inline track-string flex / width set in PanelGrid.tsx. */
-    flex: 0 0 auto !important;
-    width: 100% !important;
+  .game-layout {
+    grid-template-areas:
+      "board"
+      "workspace"
+      "status"
+      "players"
+      "log";
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
   }
 }
 
@@ -232,38 +244,13 @@ body {
 
 /* Income panel is very dense — turn off inline-size containment so its
  * intrinsic width is honoured, and squeeze the padding so the ladder
- * hugs the column. The right border is dropped so the income panel
- * visually attaches to the board's left edge as a protruding box (see
- * `.panel-grid__col[data-col-idx="0"]` rule below — that column eats
- * the panel-grid gap so the two panels share the board's leading
- * border line as the seam). */
+ * hugs the column. */
 [data-panel-id="income"] {
   min-width: 0;
   container-type: normal;
-  border-right: none;
 }
 [data-panel-id="income"] .panel__content {
   padding: 0.2rem 0.15rem;
-}
-
-/* Income column attaches flush to the board column. Negative right
- * margin eats the .panel-grid `gap: 0.5rem` so col 1's right edge
- * touches col 2's left edge; combined with `border-right: none` on
- * the income panel above, the board's own left border becomes the
- * shared seam between the two boxes. Reset in narrow regime where
- * panels stack vertically and there's no neighbour to attach to. */
-.panel-grid__col[data-col-idx="0"] {
-  margin-right: -0.5rem;
-  position: relative;
-  z-index: 1;
-}
-@media (max-width: 47.999em) {
-  .panel-grid__col[data-col-idx="0"] {
-    margin-right: 0;
-  }
-  [data-panel-id="income"] {
-    border-right: 1px solid var(--ink);
-  }
 }
 
 /* Board panel: square content area so the 900x900 board SVG fills it

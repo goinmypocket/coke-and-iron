@@ -38,10 +38,3 @@ export {
   extractCatalogue,
 } from "./tiles";
 export type { TilesConfig } from "./tiles";
-
-export {
-  LayoutConfigSchema,
-  DEFAULT_LAYOUT_CONFIG,
-  parseLayoutConfig,
-} from "./layout";
-export type { LayoutConfig } from "./layout";
