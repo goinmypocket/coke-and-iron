@@ -113,11 +113,16 @@ body {
  *   │       log         │           │
  *   └───────────────────┴───────────┘
  *
- * `status` (income / game state / player info) is fixed-width on the
- * left so its dense table doesn't blow out the layout. `board` and
- * `players` share the centre column (mats sit under the board, so
- * they get the same generous width as the board does). `workspace`
- * (actions / hand / remaining cards) is fixed-width on the right.
+ * Column tracks are FRACTIONAL (fr units) so every panel scales
+ * proportionally with the viewport — at 50em or 200em wide the
+ * status / board / workspace columns keep the same relative widths.
+ * Min-rem clamps prevent the side columns from squeezing below
+ * legibility on narrow viewports before the media query kicks in.
+ *
+ * `board` and `players` share the centre column so the mats sit
+ * directly under the board and inherit its column width — the
+ * tile-parity rule on `.mat-svg` (497 / 900 of column width)
+ * depends on this.
  *
  * Narrow (< 48em): everything stacks full-width — board first.
  *
@@ -132,7 +137,10 @@ body {
     "status  board    workspace"
     "status  players  workspace"
     "log     log      workspace";
-  grid-template-columns: 14rem 1fr 14rem;
+  grid-template-columns:
+    minmax(10rem, 1fr)
+    minmax(20rem, 4fr)
+    minmax(10rem, 1fr);
   grid-template-rows: auto auto 1fr;
   gap: 0.5rem;
   padding: 0.5rem;
@@ -355,17 +363,16 @@ body {
 
 /* ---------- Players panel (§11.3) ---------- */
 
-/* Layout: a CSS grid of one cell per seat sub-panel. `auto-fit` plus a
- * `minmax(min-content, 1fr)` track lets seats sit side-by-side when
- * there's room and stack vertically when the player_mats panel is too
- * narrow for two seats. Avoids the circular sizing of a flex container
- * whose sub-panel widths feed back through MatScaler (`width: 100%`)
- * into their own basis. */
+/* Seats stack vertically — one seat per row at full container width.
+ * This is what makes mat tiles render at the same on-screen px as
+ * board tiles: each seat panel is the same width as the board panel
+ * (both are in the centre grid column), and the .mat-svg width rule
+ * below scales the mat viewBox to the board's per-unit ratio. Tiling
+ * seats side-by-side would halve their width and break tile parity. */
 .players-panel {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.4rem;
-  align-items: start;
 }
 .players-panel > .panel {
   border-width: 2px;
@@ -387,14 +394,20 @@ body {
 }
 /* The mat is one SVG per seat; everything inside (industry columns,
  * level rows, tile faces, cost icons, side columns, labels) is in
- * viewBox units. The SVG's CSS width fills the seat sub-panel, and
- * the viewBox handles uniform scaling — no JS-side resize observer
- * needed, no per-row CSS-variable plumbing, no MatScaler. SVG
- * semantics enforce containment (nothing can paint outside the
- * viewBox).  Only state-styling lives in CSS. */
+ * viewBox units. SVG semantics enforce containment (nothing can paint
+ * outside the viewBox).
+ *
+ * TILE PARITY WITH THE BOARD: the board SVG is 900 viewBox units
+ * wide; the mat SVG is 497 viewBox units wide. For board tile and
+ * mat tile to render at the same on-screen pixel size when both
+ * panels share the same column width, the mat must render at
+ * 497/900 ≈ 55% of the column width. The mat then sits centred in
+ * its panel with whitespace on either side — the user explicitly
+ * accepts this as the cost of pixel-identical tiles. */
 .mat-svg {
-  width: 100%;
+  width: calc(100% * 497 / 900);
   display: block;
+  margin: 0 auto;
 }
 .mat-row {
   /* Empty levels fade out; clickable rows show a pointer; the picked
