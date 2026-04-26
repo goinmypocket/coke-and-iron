@@ -4,7 +4,6 @@ import { Engine } from "./engine/Engine";
 import { LoopbackTransport } from "./network/LoopbackTransport";
 import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
-import { GameLayout } from "./ui/layout/GameLayout";
 import { ContextBar } from "./ui/affordances/ContextBar";
 import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
@@ -34,30 +33,27 @@ export function App() {
 
   if (!engine) return <div>Game loading…</div>;
 
+  // Single vertical stack. Each panel sits at its natural (rem-based,
+  // fixed) width; the order below is the on-screen render order from
+  // top to bottom. On viewports too narrow for the default board edge
+  // (--board-edge in app.css), the whole stack scales down via the
+  // narrow-viewport media query so the board still fits horizontally.
   return (
     <EngineProvider engine={engine}>
       <WizardProvider>
         <div className="app-shell">
           <PromptStrip />
           <ContextBar />
-          <GameLayout
-            status={
-              <>
-                <GameStatePanel />
-                <PlayerStatePanel />
-              </>
-            }
-            board={<BoardPanel />}
-            workspace={
-              <>
-                <ActionsPanel />
-                <HandPanel />
-                <RemainingCardsPanel />
-              </>
-            }
-            players={<PlayersPanel />}
-            log={<RecentActionsPanel />}
-          />
+          <div className="game-stack">
+            <BoardPanel />
+            <ActionsPanel />
+            <HandPanel />
+            <PlayersPanel />
+            <GameStatePanel />
+            <PlayerStatePanel />
+            <RemainingCardsPanel />
+            <RecentActionsPanel />
+          </div>
         </div>
         <ShortfallOverlay />
         <EndGameOverlay />

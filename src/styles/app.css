@@ -8,15 +8,24 @@
 
   /* ---------- Geometry knobs ----------
    *
-   * The board's edge length in CSS units. Rem-based so it grows
-   * physically with browser zoom (when you Ctrl+ to enlarge text,
-   * the board grows too). Capped by 90vw so the whole board still
-   * fits horizontally on a phone-portrait viewport.
+   * --board-edge is the board square's edge length. It is the single
+   * source of truth for every fixed dimension in the game UI:
    *
-   * Every other geometric constant in the game UI derives from this
-   * (mat width, etc.) — bumping --board-edge resizes the whole game
-   * proportionally without further edits. */
-  --board-edge: min(40rem, 90vw);
+   *   - board square width / height
+   *   - income strip total height (= --board-edge by construction;
+   *     row height = --board-edge / 21)
+   *   - mat svg width  (= --board-edge × 497/900, see .mat-svg below)
+   *
+   * Pure-rem so it grows physically with browser zoom (when you
+   * Ctrl+ to enlarge text, the board grows by the same factor).
+   * The narrow-viewport media query at the bottom of this file
+   * overrides --board-edge with a vw-based value so the board still
+   * fits on a phone-portrait viewport.
+   *
+   * Bumping --board-edge resizes the whole game proportionally with
+   * no further edits. */
+  --board-edge: 40rem;
+  --income-row-h: calc(var(--board-edge) / 21);
 }
 
 html,
@@ -113,111 +122,44 @@ body {
   filter: brightness(0.95);
 }
 
-/* ---------- Game layout (CSS Grid with named template areas) ----------
+/* ---------- Game layout (single vertical stack) ----------
  *
- * Wide (≥ 48em):
+ * One flex column, panels stacked top-to-bottom in App.tsx's order:
+ * Board → Actions → Hand → Players → GameState → PlayerInfo →
+ * RemainingCards → RecentActions log.
  *
- *   ┌─────────┬─────────┬───────────┐
- *   │ status  │ board   │ workspace │
- *   │         ├─────────┤           │
- *   │         │ players │           │
- *   ├─────────┴─────────┤           │
- *   │       log         │           │
- *   └───────────────────┴───────────┘
+ * Each panel is at its own natural width — `align-items: flex-start`
+ * keeps panels left-aligned at content width rather than stretching
+ * them to fill the viewport. The page handles vertical overflow.
  *
- * Column tracks are FRACTIONAL (fr units) so every panel scales
- * proportionally with the viewport — at 50em or 200em wide the
- * status / board / workspace columns keep the same relative widths.
- * Min-rem clamps prevent the side columns from squeezing below
- * legibility on narrow viewports before the media query kicks in.
- *
- * `board` and `players` share the centre column so the mats sit
- * directly under the board and inherit its column width — the
- * tile-parity rule on `.mat-svg` (497 / 900 of column width)
- * depends on this.
- *
- * Narrow (< 48em): everything stacks full-width — board first.
- *
- * The shell file (`GameLayout.tsx`) emits five named regions and
- * knows nothing about the panels inside them; reshaping the layout
- * is a CSS-only edit on the `grid-template-areas` strings below.
+ * On viewports too narrow for the default --board-edge (40rem), the
+ * narrow media query at the bottom of this file shrinks --board-edge
+ * to a vw-based value so the board fits horizontally. Everything
+ * else (mat, income) follows because they all derive from --board-edge.
  */
 
-.game-layout {
-  display: grid;
-  grid-template-areas:
-    "status  board    workspace"
-    "status  players  workspace"
-    "log     log      workspace";
-  grid-template-columns:
-    minmax(10rem, 1fr)
-    minmax(20rem, 4fr)
-    minmax(10rem, 1fr);
-  grid-template-rows: auto auto 1fr;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  width: 100%;
-  box-sizing: border-box;
-  align-items: start;
-}
-.game-layout__region {
+.game-stack {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 0;
-  /* Regions are bounding boxes — their content sizes itself to fit
-   * the cell. The page document is the only thing that scrolls (plus
-   * the explicit log opt-in). */
-  min-height: 0;
-}
-.game-layout__region--status    { grid-area: status; }
-.game-layout__region--board     { grid-area: board; }
-.game-layout__region--workspace { grid-area: workspace; }
-.game-layout__region--players   { grid-area: players; }
-.game-layout__region--log       { grid-area: log; }
-
-@media (max-width: 47.999em) {
-  .game-layout {
-    grid-template-areas:
-      "board"
-      "workspace"
-      "status"
-      "players"
-      "log";
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-  }
+  padding: 0.5rem;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ---------- Panel chrome (§10) ---------- */
 
+/* Panels are bounding boxes for their content. They size themselves
+ * to fit the content (no width: 100% stretch, no min-height floor)
+ * so each panel is just as wide as the widest thing inside it. The
+ * page document is the only thing that scrolls; the recent-actions
+ * panel opts in to internal scroll via its own rule. */
 .panel {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  min-width: 0;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  /* No min-height — panels are bounding boxes for their content, not a
-   * standalone visual element with a floor size. A short panel (e.g.
-   * a one-line action strip) sits at content height; a tall one (mats,
-   * recent log) grows naturally. */
-  /* No overflow: hidden — panels grow to fit their content and the page
-   * scrolls vertically. The maximized variant re-enables clipping so
-   * its inner content owns the scrollbar. */
-  /* Make every panel a size container so its descendants can scale
-   * with the panel's measured width via cqi units (used by mats and
-   * hand cards). */
-  container-type: inline-size;
-}
-/* Panels that opt into width-relative scaling: font-size derives
- * from the container width, capped to a usable range. Only the panels
- * whose visual elements (cards, mat tiles) genuinely need to shrink
- * with the panel; the dense info panels match the body font size so
- * they read consistently with Remaining Cards. */
-[data-panel-id="hand"] .panel__content,
-[data-panel-id="player_mats"] .panel__content {
-  font-size: clamp(0.6rem, 4cqi, 1rem);
 }
 .panel--emphasized {
   outline: 2px solid var(--warm-gold);
@@ -231,46 +173,20 @@ body {
   line-height: 1.15;
 }
 .panel__content {
-  /* No flex:1 — content sizes itself, panel grows to wrap the title +
-   * content stack. Padding is tight so the panel border hugs the
-   * content. Default `overflow: hidden` means a panel acts as a hard
-   * bounding box for its content; only opt-in scrollers (recent
-   * actions log) override this. */
   padding: 0.35rem;
   overflow: hidden;
 }
 
-
-/* Board panel: holds two children side by side — a rectangular income
- * ladder on the left and the square board on the right. Region size
- * is anchored to --board-edge (rem-based, see :root above), so the
- * whole region scales with browser zoom — Ctrl+ enlarges everything
- * inside, including the board and its tiles. The page handles any
- * resulting vertical overflow.
- *
- *   - Region height = --board-edge.
- *   - Board square: `aspect-ratio: 1/1` with `height: 100%`, so its
- *     width also = --board-edge.
- *   - Income strip: natural width from its rem-sized cells.
- *
- * .panel__content centres the .board-region in cases where the grid
- * cell is wider than needed (whitespace at the sides — the user
- * accepts this in exchange for a fixed-rem, zoom-scalable board). */
-[data-panel-id="board"] .panel__content {
-  padding: 0.25rem;
-  display: flex;
-  justify-content: center;
-}
+/* Board panel: holds the rectangular income ladder and the square
+ * board side by side. All sizes derive from --board-edge — the panel
+ * width = income natural width + board width (--board-edge), the
+ * panel height = --board-edge + chrome. No outer whitespace. */
 .board-region {
   display: flex;
   flex-direction: row;
   gap: 0.4rem;
   align-items: stretch;
   height: var(--board-edge);
-}
-.board-region__income {
-  flex: 0 0 auto;
-  overflow: hidden;
 }
 .board-region .board-svg {
   /* Board square: width derives from height via aspect-ratio. Height
@@ -826,44 +742,57 @@ body {
   justify-content: flex-end;
 }
 
-/* ---------- Income tracker (§11.1) ---------- */
+/* ---------- Income tracker (§11.1) ----------
+ *
+ * Sized so the ladder's total height equals --board-edge: 21 rows
+ * (1 compressed + 20 levels) at --income-row-h each. Cells are
+ * square at --income-row-h. Money-coin glyph and step-text sizes
+ * derive from the row height too, so everything scales in lock-step
+ * with the board (and therefore with browser zoom). */
 
 .income-ladder {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 0.8em;
   display: flex;
   flex-direction: column;
-  gap: 1px;
 }
 .income-row {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: var(--income-row-h) auto;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
   justify-content: start;
+  height: var(--income-row-h);
 }
 .income-row__level {
   display: flex;
   justify-content: center;
   align-items: center;
+  width: var(--income-row-h);
+  height: var(--income-row-h);
+}
+/* Force the level money-coin to fill the row's reserved square. */
+.income-row__level > svg {
+  width: calc(var(--income-row-h) * 0.85);
+  height: calc(var(--income-row-h) * 0.85);
 }
 .income-row__cells {
-  /* Cells are a fixed small square — height just slightly larger
-   * than the level coin to its left. Fixed-size grid columns mean
-   * the ladder doesn't stretch to fill the panel's width. */
+  /* Reserve 4 cells worth of width even when the row has fewer cells,
+   * so every row's cell-grid lines up vertically. */
   display: grid;
-  grid-template-columns: repeat(4, 20px);
+  grid-template-columns: repeat(4, var(--income-row-h));
   gap: 1px;
+  height: var(--income-row-h);
 }
 .income-cell {
   position: relative;
-  width: 20px;
-  height: 20px;
+  width: var(--income-row-h);
+  height: var(--income-row-h);
   background: #2a2a2a;
   color: #e5d9b4;
   border: 1px solid #1a1a1a;
+  box-sizing: border-box;
 }
 .income-cell__step {
   position: absolute;
@@ -871,7 +800,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.55rem;
+  /* Step number sized to row height so it stays readable as the
+   * board scales. */
+  font-size: calc(var(--income-row-h) * 0.5);
   pointer-events: none;
 }
 .income-cell__markers {
@@ -1055,4 +986,21 @@ body {
 }
 .action-btn--dimmed:hover:not(:disabled) {
   opacity: 0.8;
+}
+
+/* ---------- Narrow-viewport scale-down ----------
+ *
+ * The default --board-edge of 40rem assumes a viewport at least
+ * ~44rem wide (40 board + ~3 chrome + income strip). On smaller
+ * screens, we override --board-edge with a vw-based value so the
+ * board (and therefore the income, the mat, and any other geometry
+ * derived from --board-edge) all shrink together to fit.
+ *
+ * On these narrow viewports we lose strict zoom-scaling (vw is
+ * physical-constant), but the board fitting on screen at all is
+ * what matters more on a phone. */
+@media (max-width: 44rem) {
+  :root {
+    --board-edge: calc(100vw - 4rem);
+  }
 }
