@@ -228,31 +228,50 @@ body {
   overflow: hidden;
 }
 
-/* Income panel is very dense — turn off inline-size containment so its
- * intrinsic width is honoured, and squeeze the padding so the ladder
- * hugs the column. */
-[data-panel-id="income"] {
-  min-width: 0;
-  container-type: normal;
-}
-[data-panel-id="income"] .panel__content {
-  padding: 0.2rem 0.15rem;
-}
 
-/* Board panel: square content area so the 900x900 board SVG fills it
- * exactly. Title bar adds a small strip above. The width is capped to
- * (100svh - chrome) so on a wide-but-short viewport (or a tall-but-
- * narrow phone) the board stays inside the visible area instead of
- * forcing the page to scroll vertically just to see the bottom of the
- * map. `100svh` (small viewport height) accounts for mobile browser
- * UI that dynamically hides/shows. */
+/* Board panel: holds two children side by side — a rectangular income
+ * ladder on the left and the square board on the right. The panel is
+ * NO larger than is needed to contain both:
+ *
+ *   - Region height: capped by `min(100svh - chrome, fits-in-cell)` so
+ *     the whole region fits in one viewport vertically.
+ *   - Board square: `aspect-ratio: 1/1` with `height: 100%`, so its
+ *     width derives from the region height.
+ *   - Income strip: `flex: 0 0 auto` — natural width from its content.
+ *
+ * Total panel content width = income natural width + region height
+ * (board side). The .panel__content centres the .board-region in
+ * cases where the grid cell is wider than needed. */
 [data-panel-id="board"] .panel__content {
-  width: 100%;
-  max-width: calc(100svh - 5rem);
-  aspect-ratio: 1 / 1;
   padding: 0.25rem;
-  margin: 0 auto;
-  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+}
+.board-region {
+  display: flex;
+  flex-direction: row;
+  gap: 0.4rem;
+  align-items: stretch;
+  height: calc(100svh - 5rem);
+  /* Don't grow taller than what fits the parent grid cell minus the
+   * income strip's minimum sensible width — caps the board square's
+   * natural growth on wide-and-short viewports. */
+  max-height: 100%;
+  max-width: 100%;
+}
+.board-region__income {
+  flex: 0 0 auto;
+  /* Keep the ladder fully visible — no internal scroll. The viewport-
+   * height cap above + cqi-sized cells inside keep this comfortable. */
+  overflow: hidden;
+}
+.board-region .board-svg {
+  /* Board square: width derives from height via aspect-ratio. Height
+   * fills the row (capped by parent .board-region's height). */
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1 / 1;
+  display: block;
 }
 
 /* ---------- Panel-specific rules (just enough to render legibly) ---------- */

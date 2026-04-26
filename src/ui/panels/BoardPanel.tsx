@@ -54,6 +54,7 @@ import {
   TileFace,
 } from "../tiles/TileFace";
 import { useWizard } from "../wizards/WizardProvider";
+import { IncomeLadder } from "./IncomeTrackerPanel";
 
 const CANVAS = 900;
 // City bounding box scales to the slot count rather than padding to a
@@ -203,11 +204,15 @@ export function BoardPanel() {
 
   return (
     <Panel id="board" title="Board">
-      <svg
-        className="board-svg"
-        viewBox={`0 0 ${CANVAS} ${CANVAS}`}
-        preserveAspectRatio="xMidYMid meet"
-      >
+      <div className="board-region">
+        <div className="board-region__income">
+          <IncomeLadder />
+        </div>
+        <svg
+          className="board-svg"
+          viewBox={`0 0 ${CANVAS} ${CANVAS}`}
+          preserveAspectRatio="xMidYMid meet"
+        >
         <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="#f3edd8" />
         <Lines
           lines={view.lines}
@@ -291,7 +296,8 @@ export function BoardPanel() {
           currentPlayerIndex={view.currentPlayerIndex}
           players={view.players}
         />
-      </svg>
+        </svg>
+      </div>
     </Panel>
   );
 }

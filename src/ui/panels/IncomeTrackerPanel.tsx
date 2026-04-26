@@ -11,6 +11,10 @@
 // that range all stack into the single compressed cell — the engine
 // still tracks the raw step, so the Game State and Player Info panels
 // continue to display the precise level / step numbers.
+//
+// The ladder renders as a chrome-less `<IncomeLadder>` component;
+// the board panel embeds it next to the board so the two share a
+// single bounding box (a rectangular ladder + a square map).
 // =============================================================================
 
 import { useMemo } from "react";
@@ -23,7 +27,6 @@ import {
 import type { PawnColor, PlayerId } from "../../engine";
 import { useGameState } from "../hooks/useGameState";
 import { MoneyCoin } from "../icons/MoneyCoin";
-import { Panel } from "../layout/Panel";
 
 interface SeatMarker {
   readonly seatId: PlayerId;
@@ -54,7 +57,10 @@ const LEVELS_TOP_DOWN: readonly number[] = (() => {
   return arr;
 })();
 
-export function IncomeTrackerPanel() {
+/** Chrome-less income ladder. Sized by its content (rem-based cells)
+ *  so a parent can lay it out side-by-side with other geometry —
+ *  notably the board, which embeds it inside its own panel chrome. */
+export function IncomeLadder() {
   // Read the players array directly — its outer reference is stable
   // unless one of the players actually mutates. Building a fresh array
   // of fresh objects in the selector would create a NEW value every
@@ -78,63 +84,61 @@ export function IncomeTrackerPanel() {
   }, [players]);
 
   return (
-    <Panel id="income" title="Income">
-      <ol className="income-ladder">
-        <li key="compressed" className="income-row">
-          <div className="income-row__level">
-            <MoneyCoin amount={21} label="21+" size={18} />
+    <ol className="income-ladder">
+      <li key="compressed" className="income-row">
+        <div className="income-row__level">
+          <MoneyCoin amount={21} label="21+" size={18} />
+        </div>
+        <div className="income-row__cells">
+          <div className="income-cell">
+            <span className="income-cell__step">61+</span>
+            {compressedMarkers.length > 0 ? (
+              <div className="income-cell__markers">
+                {compressedMarkers.map((m) => (
+                  <span
+                    key={m.seatId}
+                    className="income-cell__marker"
+                    style={{ background: m.pawnColor }}
+                    title={`Seat ${m.seatId + 1}`}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
-          <div className="income-row__cells">
-            <div className="income-cell">
-              <span className="income-cell__step">61+</span>
-              {compressedMarkers.length > 0 ? (
-                <div className="income-cell__markers">
-                  {compressedMarkers.map((m) => (
-                    <span
-                      key={m.seatId}
-                      className="income-cell__marker"
-                      style={{ background: m.pawnColor }}
-                      title={`Seat ${m.seatId + 1}`}
-                    />
-                  ))}
-                </div>
-              ) : null}
+        </div>
+      </li>
+      {LEVELS_TOP_DOWN.map((level) => {
+        const steps = STEPS_BY_LEVEL.get(level) ?? [];
+        return (
+          <li key={level} className="income-row">
+            <div className="income-row__level">
+              <MoneyCoin amount={level} size={18} />
             </div>
-          </div>
-        </li>
-        {LEVELS_TOP_DOWN.map((level) => {
-          const steps = STEPS_BY_LEVEL.get(level) ?? [];
-          return (
-            <li key={level} className="income-row">
-              <div className="income-row__level">
-                <MoneyCoin amount={level} size={18} />
-              </div>
-              <div className="income-row__cells">
-                {steps.map((step) => {
-                  const cellMarkers = markersByStep.get(step) ?? [];
-                  return (
-                    <div key={step} className="income-cell">
-                      <span className="income-cell__step">{step}</span>
-                      {cellMarkers.length > 0 ? (
-                        <div className="income-cell__markers">
-                          {cellMarkers.map((m) => (
-                            <span
-                              key={m.seatId}
-                              className="income-cell__marker"
-                              style={{ background: m.pawnColor }}
-                              title={`Seat ${m.seatId + 1}`}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </Panel>
+            <div className="income-row__cells">
+              {steps.map((step) => {
+                const cellMarkers = markersByStep.get(step) ?? [];
+                return (
+                  <div key={step} className="income-cell">
+                    <span className="income-cell__step">{step}</span>
+                    {cellMarkers.length > 0 ? (
+                      <div className="income-cell__markers">
+                        {cellMarkers.map((m) => (
+                          <span
+                            key={m.seatId}
+                            className="income-cell__marker"
+                            style={{ background: m.pawnColor }}
+                            title={`Seat ${m.seatId + 1}`}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

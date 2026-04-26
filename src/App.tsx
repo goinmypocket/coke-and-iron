@@ -16,7 +16,6 @@ import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { BoardPanel } from "./ui/panels/BoardPanel";
 import { GameStatePanel } from "./ui/panels/GameStatePanel";
 import { HandPanel } from "./ui/panels/HandPanel";
-import { IncomeTrackerPanel } from "./ui/panels/IncomeTrackerPanel";
 import { PlayersPanel } from "./ui/panels/PlayersPanel";
 import { PlayerStatePanel } from "./ui/panels/PlayerStatePanel";
 import { RecentActionsPanel } from "./ui/panels/RecentActionsPanel";
@@ -44,7 +43,6 @@ export function App() {
           <GameLayout
             status={
               <>
-                <IncomeTrackerPanel />
                 <GameStatePanel />
                 <PlayerStatePanel />
               </>
