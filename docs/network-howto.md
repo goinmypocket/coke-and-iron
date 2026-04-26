@@ -24,8 +24,30 @@ joining from anywhere). Read your half.
 ### Starting a brand-new game
 
 ```bash
-npm run host -- --player-count 3
+npm run host
 ```
+
+The lobby comes up empty with the default 2 seats. The first browser
+to connect becomes the **lobby host** and gets an in-page setup row:
+
+- **Players**: pick 2 / 3 / 4 — the seat list resizes immediately for
+  every connected client.
+- **Load save**: pick one of the host's `saves/*.json` files from the
+  dropdown and click **Load** to replace the lobby with that save's
+  pre-filled identities. **Refresh** re-reads the saves directory;
+  **New game** discards the loaded save and returns to a fresh empty
+  lobby.
+
+You can also pre-seed any of these from the CLI:
+
+```bash
+npm run host -- --player-count 3
+npm run host -- --load saves/current.json
+```
+
+> If you forget the `--` separator (e.g. `npm run host --player-count 3`),
+> the host detects it and auto-recovers with a one-line warning. The
+> separator is still recommended.
 
 Common flags:
 

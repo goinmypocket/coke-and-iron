@@ -24,10 +24,15 @@ export function App() {
           status={net.status}
           clientId={net.clientId}
           lobby={net.lobby}
+          availableSaves={net.availableSaves}
           onClaim={net.claimSeat}
           onRelease={net.releaseSeat}
           onLock={net.lockLobby}
           onStart={net.startGame}
+          onSetPlayerCount={net.setPlayerCount}
+          onLoadSave={net.loadSave}
+          onNewGame={net.newGame}
+          onListSaves={net.listSaves}
         />
         <Toaster position="bottom-center" duration={3000} />
       </>

@@ -17,6 +17,8 @@
 import type { Intent, PlayerCount } from "../engine/types";
 import type { ResolvedBundle } from "./saveFile";
 
+export type { PlayerCount };
+
 export const PROTOCOL_VERSION = 1 as const;
 
 /** Pawn colours the lobby offers. The engine accepts any string for
@@ -119,6 +121,23 @@ export interface S2CError {
   readonly message: string;
 }
 
+/** Summary of a save file the host has on disk; sent to the lobby host
+ * so they can pick one to load before starting. Times are ISO strings. */
+export interface SaveSummary {
+  readonly name: string;
+  readonly playerCount: PlayerCount;
+  readonly seed: number;
+  readonly createdAt: string;
+  readonly mtime: string;
+  readonly intentCount: number;
+  readonly bytes: number;
+}
+
+export interface S2CSavesList {
+  readonly type: "SAVES_LIST";
+  readonly saves: readonly SaveSummary[];
+}
+
 export type ServerMessage =
   | S2CWelcome
   | S2CLobbyState
@@ -126,6 +145,7 @@ export type ServerMessage =
   | S2CIntentAccepted
   | S2CIntentRejected
   | S2CPaused
+  | S2CSavesList
   | S2CError;
 
 // -----------------------------------------------------------------------------
@@ -167,13 +187,44 @@ export interface C2SSetPaused {
   readonly paused: boolean;
 }
 
+/** Host-only, lobby phase. Resize the lobby seat list. Discards any
+ * loaded-save state. */
+export interface C2SSetPlayerCount {
+  readonly type: "SET_PLAYER_COUNT";
+  readonly count: PlayerCount;
+}
+
+/** Host-only, lobby phase. Replace the current lobby with one
+ * pre-filled from the named save file (must be in the host's saves
+ * directory). */
+export interface C2SLoadSave {
+  readonly type: "LOAD_SAVE";
+  readonly filename: string;
+}
+
+/** Host-only, lobby phase. Discard any loaded save and reset to an
+ * empty lobby with the current player count. */
+export interface C2SNewGame {
+  readonly type: "NEW_GAME";
+}
+
+/** Host-only, lobby phase. Request the list of save files the host
+ * has on disk. Server replies with S2CSavesList. */
+export interface C2SListSaves {
+  readonly type: "LIST_SAVES";
+}
+
 export type ClientMessage =
   | C2SClaimSeat
   | C2SReleaseSeat
   | C2SLockLobby
   | C2SStartGame
   | C2SIntent
-  | C2SSetPaused;
+  | C2SSetPaused
+  | C2SSetPlayerCount
+  | C2SLoadSave
+  | C2SNewGame
+  | C2SListSaves;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -195,6 +246,7 @@ export function parseServerMessage(raw: string): ServerMessage | null {
       case "INTENT_ACCEPTED":
       case "INTENT_REJECTED":
       case "PAUSED":
+      case "SAVES_LIST":
       case "ERROR":
         return obj as ServerMessage;
       default:
@@ -216,6 +268,10 @@ export function parseClientMessage(raw: string): ClientMessage | null {
       case "START_GAME":
       case "INTENT":
       case "SET_PAUSED":
+      case "SET_PLAYER_COUNT":
+      case "LOAD_SAVE":
+      case "NEW_GAME":
+      case "LIST_SAVES":
         return obj as ClientMessage;
       default:
         return null;

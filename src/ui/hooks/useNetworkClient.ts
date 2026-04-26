@@ -31,6 +31,8 @@ import {
 import type {
   LobbyColor,
   LobbyState,
+  PlayerCount,
+  SaveSummary,
   ServerMessage,
 } from "../../network/protocol";
 
@@ -50,6 +52,9 @@ export interface UseNetworkClient {
    * hide private info (own hand, etc.) in that case. */
   readonly mySeatId: number | null;
   readonly paused: boolean;
+  /** Most recent save listing the host received from the server. null
+   * until the host requests one (or auto-fetches on lobby connect). */
+  readonly availableSaves: readonly SaveSummary[] | null;
   readonly claimSeat: (
     seatId: number,
     displayName: string,
@@ -59,6 +64,10 @@ export interface UseNetworkClient {
   readonly lockLobby: (locked: boolean) => void;
   readonly startGame: () => void;
   readonly setPaused: (paused: boolean) => void;
+  readonly setPlayerCount: (count: PlayerCount) => void;
+  readonly loadSave: (filename: string) => void;
+  readonly newGame: () => void;
+  readonly listSaves: () => void;
 }
 
 function defaultUrl(): string {
@@ -74,6 +83,9 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
   const [engine, setEngine] = useState<Engine | null>(null);
   const [seats, setSeats] = useState<LobbyState["seats"] | null>(null);
   const [paused, setPausedState] = useState(false);
+  const [availableSaves, setAvailableSaves] = useState<
+    readonly SaveSummary[] | null
+  >(null);
 
   const handleRef = useRef<NetworkedEngineHandle | null>(null);
   const clientIdRef = useRef<string | null>(null);
@@ -89,6 +101,7 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
       onLobbyState: (next) => {
         setLobby(next);
       },
+      onSavesList: (list) => setAvailableSaves(list),
       onSnapshot: (msg) => onSnapshot(msg),
       onIntentAccepted: (intent, originator) => {
         // Originator already applied locally — skip to avoid double-apply.
@@ -152,7 +165,15 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
   const api = useMemo<
     Pick<
       UseNetworkClient,
-      "claimSeat" | "releaseSeat" | "lockLobby" | "startGame" | "setPaused"
+      | "claimSeat"
+      | "releaseSeat"
+      | "lockLobby"
+      | "startGame"
+      | "setPaused"
+      | "setPlayerCount"
+      | "loadSave"
+      | "newGame"
+      | "listSaves"
     >
   >(
     () => ({
@@ -162,6 +183,10 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
       lockLobby: (locked) => wsRef.current?.lockLobby(locked),
       startGame: () => wsRef.current?.startGame(),
       setPaused: (p) => wsRef.current?.setPaused(p),
+      setPlayerCount: (count) => wsRef.current?.setPlayerCount(count),
+      loadSave: (filename) => wsRef.current?.loadSave(filename),
+      newGame: () => wsRef.current?.newGame(),
+      listSaves: () => wsRef.current?.listSaves(),
     }),
     [],
   );
@@ -193,6 +218,7 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
     seats,
     mySeatId,
     paused,
+    availableSaves,
     ...api,
   };
 }

@@ -98,6 +98,45 @@ describe("HostGame — lobby + game flow", () => {
     });
   });
 
+  it("host can change player count from the lobby and seats resize", () => {
+    const host = new HostGame({
+      seed: 5,
+      playerCount: 2,
+      autoEndTurn: false,
+      allowUndo: true,
+      bundle: {},
+      autosavePath: `${process.cwd()}/saves/__test__.json`,
+      debounceMs: 50_000,
+    });
+    const a = attach(host, "client-a");
+    attach(host, "client-b");
+
+    // Host is the first attached client (a).
+    host.handleSetPlayerCount("client-a", 4);
+    const lobby = lastOfType(a, "LOBBY_STATE");
+    expect(lobby?.lobby.playerCount).toBe(4);
+    expect(lobby?.lobby.seats).toHaveLength(4);
+    // All seats unclaimed after a resize.
+    expect(lobby?.lobby.seats.every((s) => s.claimedBy === null)).toBe(true);
+  });
+
+  it("non-host attempting setPlayerCount gets an ERROR", () => {
+    const host = new HostGame({
+      seed: 5,
+      playerCount: 2,
+      autoEndTurn: false,
+      allowUndo: true,
+      bundle: {},
+      autosavePath: `${process.cwd()}/saves/__test__.json`,
+      debounceMs: 50_000,
+    });
+    attach(host, "client-a"); // host
+    const b = attach(host, "client-b");
+    host.handleSetPlayerCount("client-b", 4);
+    const err = lastOfType(b, "ERROR");
+    expect(err?.message).toMatch(/only the host/i);
+  });
+
   it("rejects intents from non-seat-holders", () => {
     const host = new HostGame({
       seed: 5,

@@ -45,35 +45,63 @@ function parseArgs(argv: readonly string[]): CliArgs {
     autoEndTurn: false,
     allowUndo: true,
   };
+
+  // npm strips `--flag value` if the user forgot the `--` separator
+  // (e.g. `npm run host --player-count 3` → only "3" reaches us). It
+  // does keep `--flag=value` as the env var npm_config_<flag>. Read
+  // those as a fallback so both invocation styles work.
+  const envPlayerCount = readEnvNumber("npm_config_player_count");
+  if (envPlayerCount !== null) {
+    if (envPlayerCount !== 2 && envPlayerCount !== 3 && envPlayerCount !== 4) {
+      throw new Error(
+        `npm_config_player_count must be 2, 3, or 4 (got ${envPlayerCount})`,
+      );
+    }
+    args.playerCount = envPlayerCount as PlayerCount;
+  }
+  const envPort = readEnvNumber("npm_config_port");
+  if (envPort !== null) args.port = envPort;
+  const envSeed = readEnvNumber("npm_config_seed");
+  if (envSeed !== null) args.seed = envSeed;
+  if (process.env["npm_config_load"]) args.load = process.env["npm_config_load"]!;
+  if (process.env["npm_config_auto_end_turn"] === "true") args.autoEndTurn = true;
+  if (process.env["npm_config_no_undo"] === "true") args.allowUndo = false;
+
+  // Track a bare positional value so we can fail loudly if the user
+  // dropped the `--` and only the value reached the script.
+  const positional: string[] = [];
+
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    switch (a) {
-      case "--port": {
-        const v = argv[++i];
-        if (!v) throw new Error("--port needs a value");
-        args.port = Number(v);
+    // Allow both `--flag value` and `--flag=value`.
+    const [flag, inline] =
+      a && a.startsWith("--") && a.includes("=")
+        ? [a.slice(0, a.indexOf("=")), a.slice(a.indexOf("=") + 1)]
+        : [a, undefined];
+    const consumeValue = (label: string): string => {
+      if (inline !== undefined) return inline;
+      const v = argv[++i];
+      if (!v) throw new Error(`${label} needs a value`);
+      return v;
+    };
+    switch (flag) {
+      case "--port":
+        args.port = Number(consumeValue("--port"));
         break;
-      }
-      case "--load": {
-        const v = argv[++i];
-        if (!v) throw new Error("--load needs a path");
-        args.load = v;
+      case "--load":
+        args.load = consumeValue("--load");
         break;
-      }
       case "--player-count": {
-        const v = Number(argv[++i]);
+        const v = Number(consumeValue("--player-count"));
         if (v !== 2 && v !== 3 && v !== 4) {
           throw new Error("--player-count must be 2, 3, or 4");
         }
         args.playerCount = v;
         break;
       }
-      case "--seed": {
-        const v = argv[++i];
-        if (!v) throw new Error("--seed needs a value");
-        args.seed = Number(v);
+      case "--seed":
+        args.seed = Number(consumeValue("--seed"));
         break;
-      }
       case "--auto-end-turn":
         args.autoEndTurn = true;
         break;
@@ -85,14 +113,47 @@ function parseArgs(argv: readonly string[]): CliArgs {
         printHelpAndExit();
         break;
       default:
-        // Skip unknown args silently so npm script flags pass through.
         if (a?.startsWith("--")) {
           // eslint-disable-next-line no-console
           console.warn(`[host] unknown arg ignored: ${a}`);
+        } else if (a !== undefined) {
+          positional.push(a);
         }
     }
   }
+
+  // The most common mistake: `npm run host --player-count 3` (no `--`
+  // separator). npm consumes `--player-count` and forwards only `3`.
+  // Detect this and either auto-recover (one bare numeric in 2..4) or
+  // hard-fail with guidance.
+  if (positional.length > 0) {
+    if (
+      args.playerCount === null &&
+      positional.length === 1 &&
+      /^[234]$/.test(positional[0]!)
+    ) {
+      args.playerCount = Number(positional[0]) as PlayerCount;
+      console.warn(
+        `[host] interpreting positional "${positional[0]}" as --player-count;` +
+          ` next time use \`npm run host -- --player-count ${positional[0]}\`` +
+          ` (note the \`--\` separator).`,
+      );
+    } else {
+      throw new Error(
+        `[host] unexpected positional args: ${positional.join(" ")}\n` +
+          `Did you forget the \`--\` separator? Try:\n` +
+          `  npm run host -- --player-count 3 --port 8787`,
+      );
+    }
+  }
   return args;
+}
+
+function readEnvNumber(key: string): number | null {
+  const v = process.env[key];
+  if (v === undefined || v === "" || v === "true" || v === "false") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 function printHelpAndExit(): never {
@@ -238,6 +299,18 @@ function routeMessage(
       return;
     case "SET_PAUSED":
       game.handleSetPaused(clientId, msg.paused);
+      return;
+    case "SET_PLAYER_COUNT":
+      game.handleSetPlayerCount(clientId, msg.count);
+      return;
+    case "LOAD_SAVE":
+      game.handleLoadSave(clientId, msg.filename);
+      return;
+    case "NEW_GAME":
+      game.handleNewGame(clientId);
+      return;
+    case "LIST_SAVES":
+      game.handleListSaves(clientId);
       return;
   }
 }

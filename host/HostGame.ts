@@ -20,6 +20,7 @@ import {
   LOBBY_COLORS,
   PROTOCOL_VERSION,
   type LobbyState,
+  type SaveSummary as ProtocolSaveSummary,
   type ServerMessage,
 } from "../src/network/protocol";
 import { resolveBundle, type ResolvedBundle, type SaveFile } from "../src/network/saveFile";
@@ -33,7 +34,13 @@ import {
   setLocked,
   snapshotSeats,
 } from "./lobby";
-import { autosavePath, writeSaveToDisk } from "./saves";
+import {
+  autosavePath,
+  listSaves,
+  readSaveFromDisk,
+  resolveSavePath,
+  writeSaveToDisk,
+} from "./saves";
 
 export interface HostGameOptions {
   readonly seed: number;
@@ -62,19 +69,24 @@ export class HostGame {
   private lobby: LobbyState;
   private engine: Engine | null = null;
   private bundle: ResolvedBundle | null = null;
-  private readonly seed: number;
-  private readonly playerCount: PlayerCount;
-  private readonly autoEndTurn: boolean;
-  private readonly allowUndo: boolean;
-  private readonly initialBundle: EngineConfigBundle;
-  private readonly createdAt: string;
+  // Mutable until handleStartGame() — the lobby host can rebuild the
+  // lobby (resize seats, load a save, return to a fresh game) up to
+  // that point. After construction of the engine these values are
+  // captured into snapshot/save and don't change for the rest of the
+  // session.
+  private seed: number;
+  private playerCount: PlayerCount;
+  private autoEndTurn: boolean;
+  private allowUndo: boolean;
+  private initialBundle: EngineConfigBundle;
+  private createdAt: string;
   private paused = false;
   private readonly connections = new Map<string, ConnectionMeta>();
   private readonly autosaveFile: string;
   private readonly debounceMs: number;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private readonly loadedIntents: readonly Intent[] | null;
+  private loadedIntents: readonly Intent[] | null;
 
   constructor(opts: HostGameOptions) {
     this.seed = opts.loadFrom?.seed ?? opts.seed;
@@ -202,6 +214,126 @@ export class HostGame {
     }
     this.lobby = result.lobby;
     this.broadcastLobby();
+  }
+
+  /** Host-only, lobby phase. Resize the lobby seat list. Resetting the
+   * count discards any loaded-save state (because the save's seat
+   * identities don't necessarily map onto the new size). */
+  handleSetPlayerCount(clientId: string, count: PlayerCount): void {
+    if (clientId !== this.lobby.hostId) {
+      this.errorTo(clientId, "only the host can change the player count");
+      return;
+    }
+    if (this.engine !== null) {
+      this.errorTo(clientId, "cannot change player count — game already started");
+      return;
+    }
+    if (this.lobby.locked) {
+      this.errorTo(clientId, "unlock the lobby before changing player count");
+      return;
+    }
+    if (count !== 2 && count !== 3 && count !== 4) {
+      this.errorTo(clientId, `player count must be 2, 3, or 4 (got ${count})`);
+      return;
+    }
+    if (count === this.playerCount && !this.lobby.fromSave) {
+      // No-op when the value is unchanged on a fresh lobby; we still
+      // re-broadcast in case the caller wants a confirmation.
+      this.broadcastLobby();
+      return;
+    }
+    this.playerCount = count;
+    // Changing the count drops the save state and any pre-filled
+    // identity seats. Preserve the host id so the host stays the host.
+    this.loadedIntents = null;
+    this.lobby = emptyLobby(this.lobby.hostId, count);
+    this.broadcastLobby();
+  }
+
+  /** Host-only, lobby phase. Replace the lobby with one pre-filled
+   * from the named save. Filename must be inside the host's saves dir
+   * (no path traversal). */
+  handleLoadSave(clientId: string, filename: string): void {
+    if (clientId !== this.lobby.hostId) {
+      this.errorTo(clientId, "only the host can load a save");
+      return;
+    }
+    if (this.engine !== null) {
+      this.errorTo(clientId, "cannot load — game already started");
+      return;
+    }
+    if (this.lobby.locked) {
+      this.errorTo(clientId, "unlock the lobby before loading a save");
+      return;
+    }
+    const path = resolveSavePath(filename);
+    if (!path) {
+      this.errorTo(clientId, `invalid save filename: ${filename}`);
+      return;
+    }
+    let save: SaveFile;
+    try {
+      save = readSaveFromDisk(path);
+    } catch (err) {
+      this.errorTo(clientId, `failed to read save: ${(err as Error).message}`);
+      return;
+    }
+    this.seed = save.seed;
+    this.playerCount = save.playerCount;
+    this.autoEndTurn = save.autoEndTurn;
+    this.allowUndo = save.allowUndo;
+    this.initialBundle = save.bundle;
+    this.createdAt = save.createdAt;
+    this.loadedIntents = save.intentLog;
+    this.lobby = lobbyFromSave(
+      this.lobby.hostId,
+      save.playerCount,
+      save.bundle.seats,
+    );
+    this.broadcastLobby();
+  }
+
+  /** Host-only, lobby phase. Discard any loaded save and reset to an
+   * empty lobby with the current player count. */
+  handleNewGame(clientId: string): void {
+    if (clientId !== this.lobby.hostId) {
+      this.errorTo(clientId, "only the host can reset the game");
+      return;
+    }
+    if (this.engine !== null) {
+      this.errorTo(clientId, "cannot reset — game already started");
+      return;
+    }
+    if (this.lobby.locked) {
+      this.errorTo(clientId, "unlock the lobby before resetting");
+      return;
+    }
+    this.loadedIntents = null;
+    this.initialBundle = {};
+    this.createdAt = new Date().toISOString();
+    this.seed = Math.floor(Math.random() * 0x7fffffff);
+    this.lobby = emptyLobby(this.lobby.hostId, this.playerCount);
+    this.broadcastLobby();
+  }
+
+  /** Host-only. Send the current saves directory listing back to the
+   * requesting client. */
+  handleListSaves(clientId: string): void {
+    if (clientId !== this.lobby.hostId) {
+      this.errorTo(clientId, "only the host can list saves");
+      return;
+    }
+    const saves: ProtocolSaveSummary[] = listSaves().map((s) => ({
+      name: s.name,
+      playerCount: s.playerCount as PlayerCount,
+      seed: s.seed,
+      createdAt: s.createdAt,
+      mtime: s.mtime,
+      intentCount: s.intentCount,
+      bytes: s.bytes,
+    }));
+    const c = this.connections.get(clientId);
+    c?.send({ type: "SAVES_LIST", saves });
   }
 
   handleStartGame(clientId: string): SaveResult {

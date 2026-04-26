@@ -3,7 +3,7 @@
 // fs read/write. Saves live under ./saves/ relative to the project root.
 // =============================================================================
 import { mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildSaveFile,
@@ -40,23 +40,69 @@ export interface SaveSummary {
   readonly name: string;
   readonly bytes: number;
   readonly mtime: string;
+  readonly playerCount: number;
+  readonly seed: number;
+  readonly createdAt: string;
+  readonly intentCount: number;
 }
 
+/** List every parseable save file in `dir`, sorted by mtime descending
+ * (most recently modified first). Files that can't be parsed are
+ * skipped — the host UI surfaces what it can rather than blowing up
+ * the whole list because of one corrupt file. */
 export function listSaves(dir: string = DEFAULT_SAVES_DIR): SaveSummary[] {
   ensureSavesDir(dir);
   const entries = readdirSync(dir).filter((n) => n.endsWith(".json"));
-  return entries.map((name) => {
+  const summaries: SaveSummary[] = [];
+  for (const name of entries) {
     const full = join(dir, name);
-    const st = statSync(full);
-    return {
-      path: full,
-      name,
-      bytes: st.size,
-      mtime: st.mtime.toISOString(),
-    };
-  });
+    try {
+      const st = statSync(full);
+      const save = parseSaveFile(readFileSync(full, "utf8"));
+      summaries.push({
+        path: full,
+        name,
+        bytes: st.size,
+        mtime: st.mtime.toISOString(),
+        playerCount: save.playerCount,
+        seed: save.seed,
+        createdAt: save.createdAt,
+        intentCount: save.intentLog.length,
+      });
+    } catch {
+      // Skip unparseable files silently — they're not load candidates.
+    }
+  }
+  summaries.sort((a, b) => (a.mtime < b.mtime ? 1 : a.mtime > b.mtime ? -1 : 0));
+  return summaries;
 }
 
 export function autosavePath(dir: string = DEFAULT_SAVES_DIR): string {
   return join(dir, AUTOSAVE_NAME);
+}
+
+/** Resolve a user-supplied filename to a path inside `dir`. Returns
+ * null if the filename is unsafe (path traversal, absolute path, or
+ * resolves outside the saves directory). */
+export function resolveSavePath(
+  filename: string,
+  dir: string = DEFAULT_SAVES_DIR,
+): string | null {
+  // Reject anything that isn't a plain "name.json": no slashes, no
+  // backslashes, no parent refs.
+  if (
+    filename.length === 0 ||
+    filename.includes("/") ||
+    filename.includes("\\") ||
+    filename.includes("..") ||
+    filename.startsWith(".")
+  ) {
+    return null;
+  }
+  if (!filename.endsWith(".json")) return null;
+  const full = resolve(dir, filename);
+  // Defensive: ensure the resolved path is still inside the saves dir.
+  const dirAbs = resolve(dir);
+  if (!full.startsWith(dirAbs + sep) && full !== dirAbs) return null;
+  return full;
 }

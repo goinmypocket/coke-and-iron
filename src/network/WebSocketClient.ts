@@ -15,6 +15,8 @@ import {
   type ClientMessage,
   type LobbyColor,
   type LobbyState,
+  type PlayerCount,
+  type SaveSummary,
   type ServerMessage,
 } from "./protocol";
 import type { Intent } from "../engine/types";
@@ -33,6 +35,7 @@ export interface WebSocketClientHandlers {
   onIntentAccepted?: (intent: Intent, originator: string) => void;
   onIntentRejected?: (reason: string, intent: Intent) => void;
   onPaused?: (paused: boolean) => void;
+  onSavesList?: (saves: readonly SaveSummary[]) => void;
   onError?: (message: string) => void;
 }
 
@@ -91,6 +94,22 @@ export class WebSocketClient {
 
   setPaused = (paused: boolean): void => {
     this.send({ type: "SET_PAUSED", paused });
+  };
+
+  setPlayerCount = (count: PlayerCount): void => {
+    this.send({ type: "SET_PLAYER_COUNT", count });
+  };
+
+  loadSave = (filename: string): void => {
+    this.send({ type: "LOAD_SAVE", filename });
+  };
+
+  newGame = (): void => {
+    this.send({ type: "NEW_GAME" });
+  };
+
+  listSaves = (): void => {
+    this.send({ type: "LIST_SAVES" });
   };
 
   private send(msg: ClientMessage): void {
@@ -181,6 +200,9 @@ export class WebSocketClient {
         return;
       case "PAUSED":
         this.handlers.onPaused?.(msg.paused);
+        return;
+      case "SAVES_LIST":
+        this.handlers.onSavesList?.(msg.saves);
         return;
       case "ERROR":
         this.handlers.onError?.(msg.message);
