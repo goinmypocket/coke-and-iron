@@ -24,7 +24,7 @@
 // card-only wizards run.
 // =============================================================================
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type {
   DistrictCity,
   Era,
@@ -92,34 +92,6 @@ function slotCellPos(
 
 export function BoardPanel() {
   const wizard = useWizard();
-  const svgRef = useRef<SVGSVGElement | null>(null);
-
-  // Publish the live rendered board-tile pixel size to a global CSS
-  // custom property so the player mat (and any future tile consumer)
-  // can render its tiles at the same on-screen size as the board's.
-  // The board SVG uses a viewBox of CANVAS units; one tile occupies
-  // TILE units in that frame, so px-per-tile = renderedWidth * TILE /
-  // CANVAS. ResizeObserver picks up window resizes, zoom, and column
-  // reflows. Property is removed on unmount so a panel hot-swap
-  // doesn't leave a stale value on :root.
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const root = document.documentElement;
-    const update = () => {
-      const w = svg.getBoundingClientRect().width;
-      if (w === 0) return;
-      const tilePx = (w * TILE) / CANVAS;
-      root.style.setProperty("--board-tile-px", `${tilePx}px`);
-    };
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(svg);
-    return () => {
-      obs.disconnect();
-      root.style.removeProperty("--board-tile-px");
-    };
-  }, []);
   const view = useGameState((s) => ({
     era: s.era,
     round: s.round,
@@ -232,7 +204,6 @@ export function BoardPanel() {
   return (
     <Panel id="board" title="Board" maximizable>
       <svg
-        ref={svgRef}
         className="board-svg"
         viewBox={`0 0 ${CANVAS} ${CANVAS}`}
         preserveAspectRatio="xMidYMid meet"

@@ -2,24 +2,20 @@
 // §11.3 Players panel — outer container with one sub-panel per seated
 // player.
 //
-// Mat layout: every industry column shows one row per fixed level. The
-// row carries the *flipped* TileFace (the side the player will see when
-// the tile is sold or its resources drain — VP hex, link points, level
-// in beige on a pawn-coloured field, industry icon) plus a side margin
-// repeating the cost / coal / iron / beer-to-sell / era flag / no-dev
-// fields that the flipped face drops. Only the lowest level still in
-// the stack is clickable (mirrors stack[0], which the engine pops on
-// Build / Develop). Manufacturer spans two columns (L1-5 / L6-8);
-// every other industry is a single column. Tiles are square and the
-// same TILE × TILE size everywhere — board, mat, and resource preview.
+// Mat layout: every industry column shows one row per fixed level. Each
+// row carries the *flipped* TileFace plus a side margin showing the
+// cost/coal/iron/era/etc. fields the flipped face drops, with a side
+// column for VP/income/link-points bonuses on the right. Only the
+// lowest level still in the stack is clickable. Manufacturer spans two
+// sub-columns (L1-5 / L6-8); every other industry is a single column.
+//
+// The whole mat is rendered as ONE SVG per seat with a viewBox in
+// fixed units (TILE = 40). The SVG's CSS width fills the seat
+// sub-panel; the viewBox means everything inside scales uniformly with
+// browser zoom and panel resize, with no overflow possible (containment
+// is enforced by SVG semantics, not by `overflow: hidden`).
 // =============================================================================
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import type { CSSProperties } from "react";
 import { stepToLevel } from "../../engine";
 import type {
   IndustryName,
@@ -38,20 +34,24 @@ import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
-import { MAT_TILE_PX, TILE, TileFace } from "../tiles/TileFace";
-import { TileSideColumn } from "../tiles/TileSideColumn";
+import { TILE, TileFace } from "../tiles/TileFace";
+import { SIDE_COL_W, TileSideColumn } from "../tiles/TileSideColumn";
 import { useWizard } from "../wizards/WizardProvider";
 
-/** Mat tile floor in px — never let the mat shrink below this even
- *  when the board renders very small (phone-portrait viewport). The
- *  player still needs the tile face metadata to be readable. */
-const MAT_TILE_FLOOR_PX = 28;
+// Mat geometry in viewBox units (same scale as TILE on the board).
+const ROW_H = TILE;                                    // 40
+const COST_W = 14;                                     // money + coal + iron column
+const SIDE_W = SIDE_COL_W;                             // 17.14
+const COL_W = COST_W + TILE + SIDE_W;                  // ~71
+const LABEL_BAND = 14;                                 // industry icon + name strip
+const COST_ICON = COST_W * 0.95;                       // cost-column icon size
+const COL_SEPARATOR = "#1a1a1a";
 
 interface IndustryColumnSpec {
   industry: IndustryName;
   label: string;
   levels: readonly number[];
-  // Manufacturer only: split levels into two side-by-side columns.
+  // Manufacturer only: split levels into two side-by-side sub-columns.
   doubleColSplitAfter?: number;
 }
 
@@ -68,6 +68,20 @@ const INDUSTRY_COLUMNS: readonly IndustryColumnSpec[] = [
   },
   { industry: "POTTERY", label: "Pottery", levels: [1, 2, 3, 4, 5] },
 ];
+
+// Maximum visible levels in any single column (drives mat height).
+const MAX_VISIBLE_LEVELS = INDUSTRY_COLUMNS.reduce((m, c) => {
+  const visible = c.doubleColSplitAfter ?? c.levels.length;
+  return Math.max(m, visible);
+}, 0);
+
+// Total horizontal extent of the mat: every column is COL_W; double
+// columns count twice.
+const MAT_W = INDUSTRY_COLUMNS.reduce(
+  (sum, c) => sum + (c.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W),
+  0,
+);
+const MAT_H = MAX_VISIBLE_LEVELS * ROW_H + LABEL_BAND;
 
 export function PlayersPanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
@@ -127,107 +141,132 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
       borderColor={view.pawnColor}
       maximizable
     >
-      <div className="seat-stats">
-        <span title="Money" className="seat-stats__money">
-          <MoneyCoin amount={view.money} size={13} />
-        </span>
-        <span title="Victory points">
-          <VictoryPointsIcon amount={view.vp} size={14} />
-        </span>
-        <span title="Current income level">
-          <CurrentIncomeIcon amount={stepToLevel(view.incomeStep)} size={14} />
-        </span>
-        <span
-          className="seat-stats__link"
-          title={`${view.era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`}
-        >
-          <LinkTileIcon era={view.era} color={view.pawnColor} size={12} />
-          ×{view.linkSupply}
-        </span>
-      </div>
-      <MatScaler>
-        <div
-          className="mat-grid"
-          style={
-            {
-              // Mat tiles match the board's live rendered tile size so
-              // a player at the table sees identical-sized tiles in
-              // both places. Falls back to the fixed MAT_TILE_PX when
-              // the board hasn't reported in yet (first paint), and
-              // stays above MAT_TILE_FLOOR_PX so the mat remains
-              // readable on a phone-narrow board.
-              "--mat-tile-px": `max(${MAT_TILE_FLOOR_PX}px, var(--board-tile-px, ${MAT_TILE_PX}px))`,
-              "--mat-side-px": `calc(var(--mat-tile-px) * 17 / 40)`,
-              "--mat-cost-icon-px": `calc(var(--mat-tile-px) * 13 / 40)`,
-            } as CSSProperties
-          }
-        >
-          {INDUSTRY_COLUMNS.map((col) => (
-            <IndustryColumn
-              key={col.industry}
-              spec={col}
-              stack={view.stacks[col.industry]}
-              tileCatalogue={view.tileCatalogue}
-              pawnColor={view.pawnColor}
-              era={view.era}
-              pickCount={pickCounts.get(col.industry) ?? 0}
-              wantingIndustry={wantingIndustry}
-              onPick={() => wizard.pickIndustry(seatId, col.industry)}
-            />
-          ))}
-        </div>
-      </MatScaler>
+      <SeatStats
+        money={view.money}
+        vp={view.vp}
+        incomeStep={view.incomeStep}
+        linkSupply={view.linkSupply}
+        era={view.era}
+        pawnColor={view.pawnColor}
+      />
+      <MatSvg
+        stacks={view.stacks}
+        tileCatalogue={view.tileCatalogue}
+        pawnColor={view.pawnColor}
+        era={view.era}
+        wantingIndustry={wantingIndustry}
+        pickCounts={pickCounts}
+        onPickIndustry={(ind) => wizard.pickIndustry(seatId, ind)}
+      />
     </Panel>
   );
 }
 
-/** Scales the mat down to fit the host panel when the natural mat
- *  width exceeds the container, leaving the natural size when the
- *  panel is maximised and there's room to spare. The wrapper height
- *  collapses with the scaled content so adjacent rows in the panel
- *  stay tight against the mat. */
-function MatScaler({ children }: { children: ReactNode }) {
-  const outerRef = useRef<HTMLDivElement | null>(null);
-  const innerRef = useRef<HTMLDivElement | null>(null);
-  const [scale, setScale] = useState(1);
-  const [innerH, setInnerH] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    const outer = outerRef.current;
-    const inner = innerRef.current;
-    if (!outer || !inner) return;
-    const recompute = () => {
-      const aw = outer.clientWidth;
-      const iw = inner.scrollWidth;
-      const ih = inner.scrollHeight;
-      if (aw === 0 || iw === 0) return;
-      const next = Math.min(1, aw / iw);
-      setScale(next);
-      setInnerH(ih * next);
-    };
-    recompute();
-    const obs = new ResizeObserver(recompute);
-    obs.observe(outer);
-    obs.observe(inner);
-    return () => obs.disconnect();
-  }, []);
+function SeatStats({
+  money,
+  vp,
+  incomeStep,
+  linkSupply,
+  era,
+  pawnColor,
+}: {
+  money: number;
+  vp: number;
+  incomeStep: number;
+  linkSupply: number;
+  era: "CANAL" | "RAIL";
+  pawnColor: string;
+}) {
   return (
-    <div ref={outerRef} className="mat-scaler" style={{ height: innerH }}>
-      <div
-        ref={innerRef}
-        className="mat-scaler__inner"
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-          width: "max-content",
-        }}
+    <div className="seat-stats">
+      <span title="Money">
+        <MoneyCoin amount={money} size={13} />
+      </span>
+      <span title="Victory points">
+        <VictoryPointsIcon amount={vp} size={14} />
+      </span>
+      <span title="Current income level">
+        <CurrentIncomeIcon amount={stepToLevel(incomeStep)} size={14} />
+      </span>
+      <span
+        className="seat-stats__link"
+        title={`${era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`}
       >
-        {children}
-      </div>
+        <LinkTileIcon era={era} color={pawnColor} size={12} />
+        ×{linkSupply}
+      </span>
     </div>
   );
 }
 
-function IndustryColumn({
+function MatSvg({
+  stacks,
+  tileCatalogue,
+  pawnColor,
+  era,
+  wantingIndustry,
+  pickCounts,
+  onPickIndustry,
+}: {
+  stacks: Record<IndustryName, readonly number[]>;
+  tileCatalogue: readonly IndustryTileSpec[];
+  pawnColor: string;
+  era: "CANAL" | "RAIL";
+  wantingIndustry: boolean;
+  pickCounts: ReadonlyMap<IndustryName, number>;
+  onPickIndustry: (ind: IndustryName) => void;
+}) {
+  // Walk columns left-to-right, accumulating x offsets. Single columns
+  // advance by COL_W; doubles advance by 2 * COL_W. The label band sits
+  // in the bottom LABEL_BAND units of the viewBox.
+  let x = 0;
+  const columns: { x: number; w: number; spec: IndustryColumnSpec }[] = [];
+  for (const spec of INDUSTRY_COLUMNS) {
+    const w = spec.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W;
+    columns.push({ x, w, spec });
+    x += w;
+  }
+  return (
+    <svg
+      className="mat-svg"
+      viewBox={`0 0 ${MAT_W} ${MAT_H}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ width: "100%", display: "block" } satisfies CSSProperties}
+    >
+      {columns.map((col, i) => (
+        <g key={col.spec.industry} transform={`translate(${col.x}, 0)`}>
+          {i > 0 ? (
+            <line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={MAX_VISIBLE_LEVELS * ROW_H}
+              stroke={COL_SEPARATOR}
+              strokeWidth={0.6}
+            />
+          ) : null}
+          <IndustryColumnSvg
+            spec={col.spec}
+            stack={stacks[col.spec.industry]}
+            tileCatalogue={tileCatalogue}
+            pawnColor={pawnColor}
+            era={era}
+            pickCount={pickCounts.get(col.spec.industry) ?? 0}
+            wantingIndustry={wantingIndustry}
+            onPick={() => onPickIndustry(col.spec.industry)}
+          />
+          <ColumnLabel
+            industry={col.spec.industry}
+            label={col.spec.label}
+            width={col.w}
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function IndustryColumnSvg({
   spec,
   stack,
   tileCatalogue,
@@ -255,78 +294,86 @@ function IndustryColumn({
   const clickable =
     wantingIndustry && nextSpec !== null && !nextSpec.lightBulb;
 
-  const classes = [
-    "mat-stack",
-    spec.doubleColSplitAfter !== undefined ? "mat-stack--double" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  // Document-order list for the level grid. Levels render top-to-
-  // bottom in display, but we want LEVEL 1 AT THE BOTTOM so the
-  // levels in the array are emitted highest-first. Manufacturer
-  // splits across two columns (L1-5 / L6-8); the right column gets
-  // ghost cells at the top so its bottom row aligns with L1's row
-  // in the left column.
-  const isDouble = spec.doubleColSplitAfter !== undefined;
-  const renderCells: ({ kind: "level"; level: number } | { kind: "ghost" })[] =
-    [];
-  if (isDouble) {
-    const split = spec.doubleColSplitAfter!;
-    const leftLevels = spec.levels.slice(0, split).reverse();
-    const rightLevels = spec.levels.slice(split).reverse();
-    for (const lv of leftLevels) renderCells.push({ kind: "level", level: lv });
-    const rightRows = leftLevels.length;
-    const ghostsNeeded = rightRows - rightLevels.length;
-    for (let i = 0; i < ghostsNeeded; i++) renderCells.push({ kind: "ghost" });
-    for (const lv of rightLevels) renderCells.push({ kind: "level", level: lv });
-  } else {
-    for (const lv of [...spec.levels].reverse()) {
-      renderCells.push({ kind: "level", level: lv });
-    }
+  // Render levels highest-at-top so L1 sits at the bottom (where the
+  // engine pops from). Manufacturer's right sub-column has L8 at top
+  // and L6 at bottom, with two ghost rows above L8 so its bottom row
+  // shares a baseline with L1 in the left sub-column.
+  if (spec.doubleColSplitAfter !== undefined) {
+    const split = spec.doubleColSplitAfter;
+    const leftLevels = spec.levels.slice(0, split).reverse(); // L5..L1
+    const rightLevels = spec.levels.slice(split).reverse();   // L8..L6
+    const leftRows = leftLevels.length;
+    const rightGhosts = leftRows - rightLevels.length;
+    return (
+      <g>
+        {leftLevels.map((lv, i) => (
+          <MatLevelRowSvg
+            key={`L${lv}`}
+            x={0}
+            y={i * ROW_H}
+            level={lv}
+            count={counts.get(lv) ?? 0}
+            spec={specForLevel(spec.industry, lv, tileCatalogue)}
+            pawnColor={pawnColor}
+            era={era}
+            isNext={lv === nextLevel}
+            pickCount={lv === nextLevel ? pickCount : 0}
+            clickable={clickable && lv === nextLevel}
+            onClick={
+              clickable && lv === nextLevel ? onPick : undefined
+            }
+          />
+        ))}
+        {rightLevels.map((lv, i) => (
+          <MatLevelRowSvg
+            key={`R${lv}`}
+            x={COL_W}
+            y={(i + rightGhosts) * ROW_H}
+            level={lv}
+            count={counts.get(lv) ?? 0}
+            spec={specForLevel(spec.industry, lv, tileCatalogue)}
+            pawnColor={pawnColor}
+            era={era}
+            isNext={lv === nextLevel}
+            pickCount={lv === nextLevel ? pickCount : 0}
+            clickable={clickable && lv === nextLevel}
+            onClick={
+              clickable && lv === nextLevel ? onPick : undefined
+            }
+          />
+        ))}
+      </g>
+    );
   }
-
+  // Single-column industry.
+  const reversed = [...spec.levels].reverse();
+  const ghosts = MAX_VISIBLE_LEVELS - reversed.length;
   return (
-    <div className={classes}>
-      <div className={isDouble ? "mat-grid--double" : "mat-grid--single"}>
-        {renderCells.map((cell, i) =>
-          cell.kind === "ghost" ? (
-            <div
-              key={`ghost-${i}`}
-              className="mat-level-row mat-level-row--ghost"
-            />
-          ) : (
-            <MatLevelRow
-              key={cell.level}
-              level={cell.level}
-              count={counts.get(cell.level) ?? 0}
-              spec={specForLevel(spec.industry, cell.level, tileCatalogue)}
-              pawnColor={pawnColor}
-              era={era}
-              isNext={cell.level === nextLevel}
-              pickCount={cell.level === nextLevel ? pickCount : 0}
-              clickable={clickable && cell.level === nextLevel}
-              onClick={
-                clickable && cell.level === nextLevel ? onPick : undefined
-              }
-            />
-          ),
-        )}
-      </div>
-      <div className="mat-stack__label">
-        <img
-          src={INDUSTRY_ICON[spec.industry]}
-          alt={INDUSTRY_FULL_LABEL[spec.industry]}
-          className="mat-stack__icon"
+    <g>
+      {reversed.map((lv, i) => (
+        <MatLevelRowSvg
+          key={lv}
+          x={0}
+          y={(i + ghosts) * ROW_H}
+          level={lv}
+          count={counts.get(lv) ?? 0}
+          spec={specForLevel(spec.industry, lv, tileCatalogue)}
+          pawnColor={pawnColor}
+          era={era}
+          isNext={lv === nextLevel}
+          pickCount={lv === nextLevel ? pickCount : 0}
+          clickable={clickable && lv === nextLevel}
+          onClick={clickable && lv === nextLevel ? onPick : undefined}
         />
-        <span>{spec.label}</span>
-      </div>
-    </div>
+      ))}
+    </g>
   );
 }
 
-function MatLevelRow({
-  level,
+function MatLevelRowSvg({
+  x,
+  y,
+  level: _level,
   count,
   spec,
   pawnColor,
@@ -336,6 +383,8 @@ function MatLevelRow({
   clickable,
   onClick,
 }: {
+  x: number;
+  y: number;
   level: number;
   count: number;
   spec: IndustryTileSpec | null;
@@ -347,65 +396,140 @@ function MatLevelRow({
   onClick: (() => void) | undefined;
 }) {
   const cls = [
-    "mat-level-row",
-    count === 0 ? "mat-level-row--gone" : "",
-    isNext ? "mat-level-row--next" : "",
-    pickCount > 0 ? "mat-level-row--picked" : "",
-    clickable ? "mat-level-row--clickable" : "",
+    "mat-row",
+    count === 0 ? "mat-row--gone" : "",
+    isNext ? "mat-row--next" : "",
+    pickCount > 0 ? "mat-row--picked" : "",
+    clickable ? "mat-row--clickable" : "",
   ]
     .filter(Boolean)
     .join(" ");
-  // Production count for Coal/Iron/Brewery: tile is "fresh" on the mat
-  // so the BL count reads its level capacity (rail-era brewery uses
-  // resourceCapacityRail when defined).
   const matResources = spec ? matCapacityFor(spec, era) : 0;
   return (
-    <div
+    <g
+      transform={`translate(${x}, ${y})`}
       className={cls}
       onClick={onClick}
-      role={clickable ? "button" : undefined}
-      tabIndex={clickable ? 0 : undefined}
     >
-      <div className="mat-level-row__costs">
-        {spec ? (
-          <>
-            {/* size prop here is just a fallback dimension — the actual
-             *  rendered size is driven by CSS (--mat-cost-icon-px) so
-             *  the cost icons scale with the mat tile, which itself
-             *  follows the board's live tile pixel size. */}
-            <MoneyCoin amount={spec.costMoney} />
-            {Array.from({ length: spec.coalCost }).map((_, i) => (
-              <CoalIcon key={`c${i}`} />
-            ))}
-            {Array.from({ length: spec.ironCost }).map((_, i) => (
-              <IronIcon key={`i${i}`} />
-            ))}
-          </>
-        ) : null}
-      </div>
+      {/* Background — picks up hover/pick styling via CSS. */}
+      <rect
+        x={0}
+        y={0}
+        width={COL_W}
+        height={ROW_H}
+        fill="var(--panel-bg)"
+        stroke="#1a1a1a"
+        strokeWidth={isNext ? 0.8 : 0.4}
+      />
       {spec ? (
-        <svg
-          className="mat-level-row__tile"
-          viewBox={`0 0 ${TILE} ${TILE}`}
-          aria-hidden
-        >
-          <TileFace
-            spec={spec}
-            ownerColor={pawnColor}
-            face="unflipped"
-            resources={matResources}
-            stackCount={count}
-          />
-        </svg>
-      ) : (
-        <div className="mat-level-row__tile mat-level-row__tile--placeholder" />
-      )}
-      {spec ? (
-        <TileSideColumn spec={spec} />
-      ) : (
-        <div className="mat-side-col mat-side-col--placeholder" />
-      )}
-    </div>
+        <>
+          <CostStack spec={spec} />
+          <g transform={`translate(${COST_W}, 0)`}>
+            <TileFace
+              spec={spec}
+              ownerColor={pawnColor}
+              face="unflipped"
+              resources={matResources}
+              stackCount={count}
+            />
+          </g>
+          <g transform={`translate(${COST_W + TILE}, 0)`}>
+            <TileSideColumn spec={spec} />
+          </g>
+        </>
+      ) : null}
+      {pickCount > 0 ? (
+        <rect
+          x={0.5}
+          y={0.5}
+          width={COL_W - 1}
+          height={ROW_H - 1}
+          fill="none"
+          stroke="var(--warm-gold)"
+          strokeWidth={1.6}
+        />
+      ) : null}
+    </g>
+  );
+}
+
+function CostStack({ spec }: { spec: IndustryTileSpec }) {
+  // Vertical stack centred in COST_W: money on top, then coal cubes,
+  // then iron cubes. Total height is ROW_H; items are evenly spaced.
+  const items: { kind: "money" | "coal" | "iron" }[] = [{ kind: "money" }];
+  for (let i = 0; i < spec.coalCost; i++) items.push({ kind: "coal" });
+  for (let i = 0; i < spec.ironCost; i++) items.push({ kind: "iron" });
+  const n = items.length;
+  // Pack inside ROW_H with even gaps. Each glyph is COST_ICON tall.
+  const totalGlyph = n * COST_ICON;
+  const gap = n > 1 ? Math.max(0, (ROW_H - totalGlyph) / (n + 1)) : 0;
+  const startY =
+    n === 1 ? (ROW_H - COST_ICON) / 2 : gap;
+  return (
+    <g>
+      {items.map((item, i) => {
+        const cy = startY + i * (COST_ICON + gap);
+        const cx = (COST_W - COST_ICON) / 2;
+        if (item.kind === "money") {
+          return (
+            <MoneyCoin
+              key={i}
+              amount={spec.costMoney}
+              size={COST_ICON}
+              x={cx}
+              y={cy}
+            />
+          );
+        }
+        if (item.kind === "coal") {
+          return <CoalIcon key={i} size={COST_ICON} x={cx} y={cy} />;
+        }
+        return <IronIcon key={i} size={COST_ICON} x={cx} y={cy} />;
+      })}
+    </g>
+  );
+}
+
+function ColumnLabel({
+  industry,
+  label,
+  width,
+}: {
+  industry: IndustryName;
+  label: string;
+  width: number;
+}) {
+  // Label band sits at the bottom of the viewBox: industry icon on the
+  // left, label text to its right, both centred horizontally.
+  const y = MAX_VISIBLE_LEVELS * ROW_H;
+  const iconSize = LABEL_BAND - 2;
+  const labelFontSize = LABEL_BAND * 0.62;
+  // Approximate text width so we can centre icon + text together.
+  const textWidth = label.length * labelFontSize * 0.5;
+  const totalW = iconSize + 2 + textWidth;
+  const startX = (width - totalW) / 2;
+  return (
+    <g transform={`translate(0, ${y})`}>
+      <image
+        href={INDUSTRY_ICON[industry]}
+        x={startX}
+        y={1}
+        width={iconSize}
+        height={iconSize}
+        preserveAspectRatio="xMidYMid meet"
+        aria-label={INDUSTRY_FULL_LABEL[industry]}
+      />
+      <text
+        x={startX + iconSize + 2}
+        y={LABEL_BAND - 3}
+        fontSize={labelFontSize}
+        fontWeight={600}
+        fill="var(--muted)"
+        style={{ textTransform: "uppercase" }}
+      >
+        {label}
+      </text>
+    </g>
   );
 }
 
@@ -465,4 +589,3 @@ function nextPopLevel(
   if (idx === undefined) return null;
   return catalogue[idx]?.level ?? null;
 }
-

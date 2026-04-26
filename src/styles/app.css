@@ -407,152 +407,30 @@ body {
   align-items: center;
   gap: 0.2rem;
 }
-.mat-grid {
-  /* Each industry column takes only as much width as its rows
-   * need. A vertical separator sits between adjacent columns.
-   * align-items: flex-end so columns of different heights line up
-   * along the bottom (their L1 / L6 rows share a baseline). */
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 0;
-  padding-top: 0.25rem;
-}
-.mat-stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: stretch;
-  gap: 0.1rem;
-  font-size: 0.85em;
-  padding: 0 0.3rem;
-}
-.mat-stack + .mat-stack {
-  border-left: 1px solid var(--ink);
-}
-.mat-stack__label {
-  font-size: 0.7em;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.05rem;
-  line-height: 1;
-  margin-top: 0.2rem;
-}
-.mat-stack__icon {
-  width: 0.95rem;
-  height: 0.95rem;
-  display: block;
-}
-.mat-grid--single {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.mat-grid--double {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: repeat(5, auto);
-  grid-auto-flow: column;
-  gap: 1px;
-}
-/* Mat geometry is driven by the --mat-tile-px CSS variable set on
- * .mat-grid (see PlayersPanel.tsx). The variable is derived from the
- * TILE constant in TileFace.tsx, so a single bump there resizes
- * tiles, side columns, and cost icons in lock-step. The `40px` /
- * `17px` / `13px` defaults are fallbacks for callers that didn't
- * thread the variable through. */
-.mat-level-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: 0;
-  border: 1px solid var(--ink);
-  background: var(--panel-bg);
-  font-size: 0.7em;
-  min-height: var(--mat-tile-px, 40px);
-}
-.mat-level-row__costs {
-  /* Vertical stack: money on top, then coal cubes, then iron cubes.
-   * Total height ≈ tile height. */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  flex-shrink: 0;
-  height: var(--mat-tile-px, 40px);
-}
-/* CSS sizes the cost icons rather than the React `size` prop so they
- * track --mat-cost-icon-px (which itself follows the board tile px).
- * This is the lock-step needed for the player-mat tile size to match
- * the on-board tile size at any zoom or viewport width. */
-.mat-level-row__costs > svg {
-  width: var(--mat-cost-icon-px, 13px);
-  height: var(--mat-cost-icon-px, 13px);
-}
-.mat-level-row__tile {
-  /* Natural mat-tile size, scaled down by MatScaler when the host
-   * panel is too narrow. SVG viewBox makes the inside scale with it. */
-  width: var(--mat-tile-px, 40px);
-  height: var(--mat-tile-px, 40px);
-  display: block;
-  flex-shrink: 0;
-}
-.mat-level-row__tile--placeholder {
-  width: var(--mat-tile-px, 40px);
-  height: var(--mat-tile-px, 40px);
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px dashed var(--muted);
-}
-.mat-side-col {
-  display: block;
-  flex-shrink: 0;
-  width: var(--mat-side-px, 17px);
-  height: var(--mat-tile-px, 40px);
-}
-.mat-side-col--placeholder {
-  width: var(--mat-side-px, 17px);
-  height: var(--mat-tile-px, 40px);
-}
-
-.mat-scaler {
+/* The mat is one SVG per seat; everything inside (industry columns,
+ * level rows, tile faces, cost icons, side columns, labels) is in
+ * viewBox units. The SVG's CSS width fills the seat sub-panel, and
+ * the viewBox handles uniform scaling — no JS-side resize observer
+ * needed, no per-row CSS-variable plumbing, no MatScaler. SVG
+ * semantics enforce containment (nothing can paint outside the
+ * viewBox).  Only state-styling lives in CSS. */
+.mat-svg {
   width: 100%;
-  overflow: hidden;
+  display: block;
 }
-.mat-scaler__inner {
-  display: inline-block;
+.mat-row {
+  /* Empty levels fade out; clickable rows show a pointer; the picked
+   * gold outline is drawn as a `<rect>` inside the row group, so no
+   * outline rule here. */
 }
-.mat-level-row__count {
-  color: var(--muted);
-  padding: 0 2px;
-  white-space: nowrap;
-  font-size: 0.85em;
-}
-.mat-level-row--gone {
+.mat-row--gone {
   opacity: 0.35;
 }
-.mat-level-row--next {
-  border-width: 1.5px;
-}
-.mat-level-row--clickable {
+.mat-row--clickable {
   cursor: pointer;
 }
-.mat-level-row--clickable:hover {
-  background: var(--soft-tint);
-}
-.mat-level-row--picked {
-  outline: 2px solid var(--warm-gold);
-  outline-offset: -2px;
-}
-.mat-level-row--ghost {
-  visibility: hidden;
-  border: none;
-  background: transparent;
-  min-height: 0;
+.mat-row--clickable:hover > rect:first-child {
+  fill: var(--soft-tint);
 }
 /* ---------- Board (§11.2) ---------- */
 
