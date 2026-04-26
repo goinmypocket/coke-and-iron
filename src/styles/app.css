@@ -5,6 +5,18 @@
   --warm-gold: #c79b3f;
   --muted: #6b6b66;
   --soft-tint: #f3edd8;
+
+  /* ---------- Geometry knobs ----------
+   *
+   * The board's edge length in CSS units. Rem-based so it grows
+   * physically with browser zoom (when you Ctrl+ to enlarge text,
+   * the board grows too). Capped by 90vw so the whole board still
+   * fits horizontally on a phone-portrait viewport.
+   *
+   * Every other geometric constant in the game UI derives from this
+   * (mat width, etc.) — bumping --board-edge resizes the whole game
+   * proportionally without further edits. */
+  --board-edge: min(40rem, 90vw);
 }
 
 html,
@@ -230,18 +242,20 @@ body {
 
 
 /* Board panel: holds two children side by side — a rectangular income
- * ladder on the left and the square board on the right. The panel is
- * NO larger than is needed to contain both:
+ * ladder on the left and the square board on the right. Region size
+ * is anchored to --board-edge (rem-based, see :root above), so the
+ * whole region scales with browser zoom — Ctrl+ enlarges everything
+ * inside, including the board and its tiles. The page handles any
+ * resulting vertical overflow.
  *
- *   - Region height: capped by `min(100svh - chrome, fits-in-cell)` so
- *     the whole region fits in one viewport vertically.
+ *   - Region height = --board-edge.
  *   - Board square: `aspect-ratio: 1/1` with `height: 100%`, so its
- *     width derives from the region height.
- *   - Income strip: `flex: 0 0 auto` — natural width from its content.
+ *     width also = --board-edge.
+ *   - Income strip: natural width from its rem-sized cells.
  *
- * Total panel content width = income natural width + region height
- * (board side). The .panel__content centres the .board-region in
- * cases where the grid cell is wider than needed. */
+ * .panel__content centres the .board-region in cases where the grid
+ * cell is wider than needed (whitespace at the sides — the user
+ * accepts this in exchange for a fixed-rem, zoom-scalable board). */
 [data-panel-id="board"] .panel__content {
   padding: 0.25rem;
   display: flex;
@@ -252,22 +266,15 @@ body {
   flex-direction: row;
   gap: 0.4rem;
   align-items: stretch;
-  height: calc(100svh - 5rem);
-  /* Don't grow taller than what fits the parent grid cell minus the
-   * income strip's minimum sensible width — caps the board square's
-   * natural growth on wide-and-short viewports. */
-  max-height: 100%;
-  max-width: 100%;
+  height: var(--board-edge);
 }
 .board-region__income {
   flex: 0 0 auto;
-  /* Keep the ladder fully visible — no internal scroll. The viewport-
-   * height cap above + cqi-sized cells inside keep this comfortable. */
   overflow: hidden;
 }
 .board-region .board-svg {
   /* Board square: width derives from height via aspect-ratio. Height
-   * fills the row (capped by parent .board-region's height). */
+   * = --board-edge via parent .board-region. */
   height: 100%;
   width: auto;
   aspect-ratio: 1 / 1;
@@ -417,14 +424,16 @@ body {
  * outside the viewBox).
  *
  * TILE PARITY WITH THE BOARD: the board SVG is 900 viewBox units
- * wide; the mat SVG is 497 viewBox units wide. For board tile and
- * mat tile to render at the same on-screen pixel size when both
- * panels share the same column width, the mat must render at
- * 497/900 ≈ 55% of the column width. The mat then sits centred in
- * its panel with whitespace on either side — the user explicitly
- * accepts this as the cost of pixel-identical tiles. */
+ * wide and renders at --board-edge CSS units. So 1 board viewBox
+ * unit = (board-edge / 900) CSS px. The mat SVG is 497 viewBox
+ * units wide; for its tiles to render at the same CSS px size, the
+ * mat-svg must be (497 / 900) × board-edge CSS units wide.
+ *
+ * Anchoring the mat to --board-edge (not to its container width)
+ * means the mat scales with browser zoom in lock-step with the
+ * board, even though they live in different regions. */
 .mat-svg {
-  width: calc(100% * 497 / 900);
+  width: calc(var(--board-edge) * 497 / 900);
   display: block;
   margin: 0 auto;
 }
