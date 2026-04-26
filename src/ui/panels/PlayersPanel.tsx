@@ -139,7 +139,6 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
       id={`player_${seatId + 1}`}
       title={`${view.name}${view.isActive ? " ←" : ""}`}
       borderColor={view.pawnColor}
-      maximizable
     >
       <SeatStats
         money={view.money}

@@ -31,7 +31,7 @@ export function HandPanel() {
   );
 
   return (
-    <Panel id="hand" title={`Hand — ${view.name}`} maximizable>
+    <Panel id="hand" title={`Hand — ${view.name}`}>
       <div className="hand-grid">
         {view.hand.map((card, i) => (
           <CardFace

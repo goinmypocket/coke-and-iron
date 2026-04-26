@@ -105,17 +105,21 @@ body {
  *
  * Wide (≥ 48em):
  *
- *   ┌─────────┬────────┬───────────┐
- *   │ status  │  board │ workspace │
- *   ├─────────┴────────┤           │
- *   │     players      │           │
- *   ├──────────────────┴───────────┤
- *   │             log              │
- *   └──────────────────────────────┘
+ *   ┌─────────┬─────────┬───────────┐
+ *   │ status  │ board   │ workspace │
+ *   │         ├─────────┤           │
+ *   │         │ players │           │
+ *   ├─────────┴─────────┤           │
+ *   │       log         │           │
+ *   └───────────────────┴───────────┘
  *
- * Narrow (< 48em): everything stacks full-width — board first so the
- * map is the first thing you see on a phone, then workspace, status,
- * players, log.
+ * `status` (income / game state / player info) is fixed-width on the
+ * left so its dense table doesn't blow out the layout. `board` and
+ * `players` share the centre column (mats sit under the board, so
+ * they get the same generous width as the board does). `workspace`
+ * (actions / hand / remaining cards) is fixed-width on the right.
+ *
+ * Narrow (< 48em): everything stacks full-width — board first.
  *
  * The shell file (`GameLayout.tsx`) emits five named regions and
  * knows nothing about the panels inside them; reshaping the layout
@@ -125,10 +129,10 @@ body {
 .game-layout {
   display: grid;
   grid-template-areas:
-    "status board workspace"
-    "players board workspace"
-    "log     log   workspace";
-  grid-template-columns: auto 1fr 14rem;
+    "status  board    workspace"
+    "status  players  workspace"
+    "log     log      workspace";
+  grid-template-columns: 14rem 1fr 14rem;
   grid-template-rows: auto auto 1fr;
   gap: 0.5rem;
   padding: 0.5rem;
@@ -141,6 +145,10 @@ body {
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
+  /* Regions are bounding boxes — their content sizes itself to fit
+   * the cell. The page document is the only thing that scrolls (plus
+   * the explicit log opt-in). */
+  min-height: 0;
 }
 .game-layout__region--status    { grid-area: status; }
 .game-layout__region--board     { grid-area: board; }
@@ -195,51 +203,21 @@ body {
   outline: 2px solid var(--warm-gold);
   outline-offset: -1px;
 }
-.panel--maximized {
-  position: fixed;
-  inset: 1rem;
-  /* Override the base .panel width:100% so `inset` actually controls
-   * both edges. With an explicit width set, fixed-positioned elements
-   * ignore the `right` value and overflow the viewport. */
-  width: auto;
-  height: auto;
-  max-width: none;
-  max-height: none;
-  z-index: 100;
-  overflow: hidden;
-}
-.panel--maximized .panel__content {
-  /* Maximized panels are bound to the viewport, so re-enable internal
-   * scroll for tall content. Default panels (non-maximized) overflow
-   * the page, not themselves. */
-  overflow: auto;
-}
 .panel__title {
   padding: 0.15rem 0.4rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   border-bottom: 1px solid var(--ink);
   font-weight: 600;
   font-size: 0.78rem;
   line-height: 1.15;
 }
-.panel__maximize {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 1rem;
-  color: var(--muted);
-  padding: 0 0.25rem;
-}
-.panel__maximize:hover {
-  color: var(--ink);
-}
 .panel__content {
   /* No flex:1 — content sizes itself, panel grows to wrap the title +
-   * content stack. Page handles overflow (see .app-shell). Padding is
-   * tight so the panel border hugs the content. */
+   * content stack. Padding is tight so the panel border hugs the
+   * content. Default `overflow: hidden` means a panel acts as a hard
+   * bounding box for its content; only opt-in scrollers (recent
+   * actions log) override this. */
   padding: 0.35rem;
+  overflow: hidden;
 }
 
 /* Income panel is very dense — turn off inline-size containment so its
@@ -882,10 +860,9 @@ body {
 /* ---------- Recent actions (§11.9) ---------- */
 
 /* Cap the panel's content height so a long list scrolls inside the
- * panel rather than pushing every panel below it down the page. The
- * .panel--maximized variant already overrides overflow: hidden on the
- * panel and overflow: auto on the content, so the maximized panel
- * gets full-viewport scroll without us repeating the rule here. */
+ * panel rather than pushing every panel below it down the page. This
+ * is the only panel in the app that is allowed to scroll internally;
+ * every other panel is a hard bounding box (`overflow: hidden`). */
 [data-panel-id="recent_actions"] .panel__content {
   max-height: 22rem;
   overflow-y: auto;

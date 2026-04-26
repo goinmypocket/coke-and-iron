@@ -78,7 +78,7 @@ export function IncomeTrackerPanel() {
   }, [players]);
 
   return (
-    <Panel id="income" title="Income" maximizable>
+    <Panel id="income" title="Income">
       <ol className="income-ladder">
         <li key="compressed" className="income-row">
           <div className="income-row__level">

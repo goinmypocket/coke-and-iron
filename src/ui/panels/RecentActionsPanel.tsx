@@ -276,7 +276,7 @@ export function RecentActionsPanel() {
   const view = detailedLog.slice(-MAX_ENTRIES).slice().reverse();
 
   return (
-    <Panel id="recent_actions" title="Recent actions" maximizable>
+    <Panel id="recent_actions" title="Recent actions">
       {view.length === 0 ? (
         <div className="recent-actions__empty">No actions yet.</div>
       ) : (

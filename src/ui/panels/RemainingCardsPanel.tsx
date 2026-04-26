@@ -114,7 +114,6 @@ export function RemainingCardsPanel() {
     <Panel
       id="remaining_cards"
       title={`Remaining cards — ${remainingNonWild}/${universeTotal}`}
-      maximizable
     >
       <div className="remaining-cards__grid">
         {DISTRICT_ORDER.map((tag) => {

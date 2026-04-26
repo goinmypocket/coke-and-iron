@@ -202,7 +202,7 @@ export function BoardPanel() {
   );
 
   return (
-    <Panel id="board" title="Board" maximizable>
+    <Panel id="board" title="Board">
       <svg
         className="board-svg"
         viewBox={`0 0 ${CANVAS} ${CANVAS}`}
