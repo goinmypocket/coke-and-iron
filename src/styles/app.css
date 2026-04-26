@@ -122,15 +122,18 @@ body {
   filter: brightness(0.95);
 }
 
-/* ---------- Game layout (single vertical stack) ----------
+/* ---------- Game layout (flow with wrapping) ----------
  *
- * One flex column, panels stacked top-to-bottom in App.tsx's order:
- * Board → Actions → Hand → Players → GameState → PlayerInfo →
- * RemainingCards → RecentActions log.
+ * Flex-wrap row: panels flow left-to-right in the DOM order from
+ * App.tsx (Board → Actions → Hand → Players → GameState → PlayerInfo
+ * → RemainingCards → RecentActions). When there's enough horizontal
+ * room, panels sit side-by-side; when the row fills up, the next
+ * panel wraps to a new row. On a phone-portrait viewport every
+ * panel ends up on its own row.
  *
- * Each panel is at its own natural width — `align-items: flex-start`
- * keeps panels left-aligned at content width rather than stretching
- * them to fill the viewport. The page handles vertical overflow.
+ * Each panel is at its own natural (rem-based, fixed) width —
+ * panels never stretch to fill leftover space. The page handles
+ * vertical overflow.
  *
  * On viewports too narrow for the default --board-edge (40rem), the
  * narrow media query at the bottom of this file shrinks --board-edge
@@ -140,10 +143,12 @@ body {
 
 .game-stack {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.5rem;
   align-items: flex-start;
+  align-content: flex-start;
   width: 100%;
   box-sizing: border-box;
 }
