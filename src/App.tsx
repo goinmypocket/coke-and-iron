@@ -3,6 +3,7 @@ import { EngineProvider } from "./ui/hooks/EngineProvider";
 import { useNetworkClient } from "./ui/hooks/useNetworkClient";
 import { LobbyScreen } from "./ui/lobby/LobbyScreen";
 import { PromptStrip } from "./ui/affordances/PromptStrip";
+import { ViewerBanner } from "./ui/affordances/ViewerBanner";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
 import { EraRoundBanner } from "./ui/overlays/EraRoundBanner";
 import { ResourcePickerOverlay } from "./ui/overlays/ResourcePickerOverlay";
@@ -43,6 +44,7 @@ export function App() {
     <EngineProvider engine={net.engine} mySeatId={net.mySeatId}>
       <WizardProvider>
         <div className="app-shell">
+          <ViewerBanner />
           <PromptStrip />
           <ActionsPanel />
           <HandPanel />

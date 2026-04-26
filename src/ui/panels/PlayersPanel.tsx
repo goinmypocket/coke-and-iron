@@ -15,13 +15,14 @@
 // browser zoom and panel resize, with no overflow possible (containment
 // is enforced by SVG semantics, not by `overflow: hidden`).
 // =============================================================================
-import type { CSSProperties, ReactNode } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { stepToLevel } from "../../engine";
 import type {
   IndustryName,
   IndustryTileSpec,
   PlayerId,
 } from "../../engine";
+import { useMySeatId } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import {
   INDUSTRY_ICON,
@@ -99,18 +100,38 @@ const MAT_H = MAX_VISIBLE_LEVELS * ROW_H + LABEL_BAND;
 
 export function PlayersPanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
+  const mySeatId = useMySeatId();
+  // Render the viewer's own mat first, then everyone else in turn-order
+  // (rotated so the viewer's seat is the head). When the viewer is
+  // unseated (spectator), fall back to natural turn order.
+  const renderOrder = useMemo<readonly PlayerId[]>(() => {
+    if (mySeatId === null) return turnOrder;
+    const idx = turnOrder.indexOf(mySeatId);
+    if (idx <= 0) return turnOrder;
+    return [...turnOrder.slice(idx), ...turnOrder.slice(0, idx)];
+  }, [turnOrder, mySeatId]);
   return (
     <Panel id="player_mats" title="Player Mats">
       <div className="players-panel">
-        {turnOrder.map((seatId) => (
-          <PlayerSubPanel key={seatId} seatId={seatId} />
+        {renderOrder.map((seatId) => (
+          <PlayerSubPanel
+            key={seatId}
+            seatId={seatId}
+            isViewer={seatId === mySeatId}
+          />
         ))}
       </div>
     </Panel>
   );
 }
 
-function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
+function PlayerSubPanel({
+  seatId,
+  isViewer,
+}: {
+  seatId: PlayerId;
+  isViewer: boolean;
+}) {
   const wizard = useWizard();
   const view = useGameState((s) => {
     const p = s.players.find((pp) => pp.id === seatId);
@@ -152,7 +173,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
   return (
     <Panel
       id={`player_${seatId + 1}`}
-      title={`${view.name}${view.isActive ? " ←" : ""}`}
+      title={`${view.name}${isViewer ? " (you)" : ""}${view.isActive ? " ←" : ""}`}
       borderColor={view.pawnColor}
     >
       <SeatStats

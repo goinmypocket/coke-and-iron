@@ -290,11 +290,38 @@ body {
   background: var(--panel-bg);
   border-bottom: 1px solid var(--ink);
 }
-.hand-banner__label {
+/* Viewer banner — top-of-screen identity strip. Renders the viewer's
+ * own pawn-coloured name pill on the left and the current turn status
+ * on the right. */
+.viewer-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.75rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--ink);
+  font-size: 0.85rem;
+  gap: 0.6rem;
+}
+.viewer-banner--unseated {
+  color: var(--muted);
+  font-style: italic;
+}
+.viewer-banner__chip {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  color: white;
   font-weight: 600;
-  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+.viewer-banner__status {
   color: var(--muted);
 }
+.viewer-banner__active {
+  font-weight: 600;
+}
+
 .hand-banner__cards {
   display: flex;
   flex-direction: row;

@@ -62,22 +62,22 @@ export function ActionsPanel() {
       isMyTurn,
     };
   }, shallowEqual);
-  const activeHand = useGameState(
+  // Wizard chips and issue checks are driven by MY hand and MY mat —
+  // not the active player's. The wizard can only be started on my own
+  // turn (canAct gates that), so for normal play these are equivalent;
+  // reading them by mySeatId is defence-in-depth that keeps another
+  // player's data from ever flowing into the chip / issue selectors.
+  const myHand = useGameState(
     (s) => {
-      const id = s.turnOrder[s.currentPlayerIndex];
-      if (id === undefined) return null;
-      return s.players.find((p) => p.id === id)?.hand ?? null;
+      if (mySeatId === null) return null;
+      return s.players.find((p) => p.id === mySeatId)?.hand ?? null;
     },
     (a, b) => a === b,
   );
-  // Need the active player (for mat-stack lookups) and district cities
-  // (for slot accept-list lookups) so we can derive selection issues
-  // (empty stack, slot rejects industry, card city mismatch, etc.).
-  const activePlayer = useGameState(
+  const myPlayer = useGameState(
     (s) => {
-      const id = s.turnOrder[s.currentPlayerIndex];
-      if (id === undefined) return null;
-      return s.players.find((p) => p.id === id) ?? null;
+      if (mySeatId === null) return null;
+      return s.players.find((p) => p.id === mySeatId) ?? null;
     },
     (a, b) => a === b,
   );
@@ -130,11 +130,11 @@ export function ActionsPanel() {
   // k/n indicator. k = actions used so far this turn = total - remaining.
   // Reads naturally as "1/2" once the player has spent one of two actions.
   const actionsUsed = Math.max(0, flags.actionsTotal - flags.actionsRemaining);
-  const chips = describeChips(wizard.state, activeHand);
+  const chips = describeChips(wizard.state, myHand);
   const issues = describeIssues(
     wizard.state,
-    activeHand,
-    activePlayer,
+    myHand,
+    myPlayer,
     districtCities,
   );
   // Reset clears either an active wizard's picks or the IDLE-with-stash

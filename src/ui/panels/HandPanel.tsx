@@ -33,9 +33,9 @@ export function HandPanel() {
     // and visible). Drives the count badge on the deck button beside the
     // hand cards.
     return {
-      name: me?.displayName ?? "—",
       hand: me?.hand ?? [],
       isMyTurn: activeId !== null && activeId === mySeatId,
+      hasSeat: mySeatId !== null,
       drawDeckCount: s.drawDeck.length,
       districtCities: s.districtCities,
     };
@@ -48,11 +48,6 @@ export function HandPanel() {
 
   return (
     <div className="hand-banner">
-      <div className="hand-banner__label">
-        {mySeatId === null
-          ? "No seat claimed"
-          : `Hand — ${view.name}${view.isMyTurn ? "" : " (waiting)"}`}
-      </div>
       <div className="hand-banner__cards">
         <DeckButton
           remaining={view.drawDeckCount}
