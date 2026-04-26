@@ -25,9 +25,11 @@ export function MoneyCoin({
 }) {
   const text = label ?? String(amount);
   // Squeeze the glyph down a bit when the label is wider so multi-char
-  // strings like "21+" still fit inside the coin.
+  // strings like "21+" still fit inside the coin. Single-char text uses
+  // the same screen size (relative to icon size) as VP / Income — at
+  // viewBox 14 the 7.0 single-char base matches VP's 8.0 in viewBox 16.
   const fontSize =
-    text.length >= 3 ? 5.2 : text.length === 2 ? 6.0 : 6.5;
+    text.length >= 3 ? 5.6 : text.length === 2 ? 6.5 : 7.0;
   return (
     <svg
       width={size}

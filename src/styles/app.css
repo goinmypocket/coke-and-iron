@@ -25,7 +25,11 @@
    * Bumping --board-edge resizes the whole game proportionally with
    * no further edits. */
   --board-edge: 40rem;
-  --income-row-h: calc(var(--board-edge) / 21);
+  /* Ladder is 32 rows: 1 compressed top (21+) + 31 individual levels
+   * (20 down to MIN_INCOME_LEVEL = -10). Sizing each row at
+   * --board-edge / 32 means the ladder's total height equals the
+   * board square's edge. */
+  --income-row-h: calc(var(--board-edge) / 32);
 }
 
 html,
@@ -189,7 +193,9 @@ body {
 .board-region {
   display: flex;
   flex-direction: row;
-  gap: 0.4rem;
+  /* Hairline gap so the income ladder reads as snapped onto the board's
+   * left edge — they share one outer bounding box. */
+  gap: 0.1rem;
   align-items: stretch;
   height: var(--board-edge);
 }
@@ -260,20 +266,53 @@ body {
 }
 
 .hand-grid {
-  /* Compact 2 × 4 grid of cards. Card width is em-based so the cards
-   * scale with the panel's container-relative font-size — sized to
-   * fill most of the Hand panel's content area. */
+  /* Legacy 2 × 4 grid layout — retained in case any other panel still
+   * uses .hand-grid. The Hand itself now renders as .hand-banner. */
   display: grid;
   grid-template-columns: repeat(4, 4.5em);
   gap: 0.3em;
   justify-content: start;
 }
+
+/* ---------- Hand banner (top affordance) ----------
+ *
+ * Sits just under .actions-banner in the top affordance area: a
+ * chrome-less, centered horizontal strip with the active seat's hand
+ * laid out in one row. Wraps if the viewport can't fit every card. */
+.hand-banner {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--ink);
+}
+.hand-banner__label {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.hand-banner__cards {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: center;
+  align-items: center;
+}
 .card-face {
-  aspect-ratio: 5 / 7;
-  width: 4.5em;
+  /* Landscape format for the hand banner: cards are wider than tall
+   * so an 8-card hand reads as a single thin strip. Multi-industry
+   * cards lay their icons out side-by-side; see card-face--industry
+   * below for the row override. */
+  aspect-ratio: 7 / 5;
+  width: 5.6em;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
-  padding: 0.15em;
+  padding: 0.2em;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -290,30 +329,51 @@ body {
 .card-face--wild {
   background: var(--soft-tint);
   font-weight: 700;
-  font-size: 0.7em;
+  font-size: 0.95em;
 }
 .card-face__city {
-  /* Card body is ~3.4em wide; long city names like "Birmingham" must
-   * wrap into the available height, so size text well below the panel
-   * font and let break-word/hyphens kick in. */
-  font-size: 0.6em;
+  /* Bumped from 0.5em — readable at conversational distance. The
+   * longest single-word names ("Wolverhampton", "Coalbrookdale" — 13
+   * chars) still fit on one line at the wider 5.6em card body.
+   * Hyphenated names like "Burton-on-Trent" and "Stoke-on-Trent" wrap
+   * at their hyphens (the default Latin line-breaking behaviour) and
+   * never mid-word. */
+  font-size: 0.72em;
   font-weight: 600;
-  line-height: 1.05;
-  word-break: break-word;
-  hyphens: auto;
+  line-height: 1.1;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: manual;
 }
 .card-face--industry {
+  /* Multi-industry cards lay their icons left-to-right rather than
+   * stacked; row override beats the column default on .card-face. */
+  flex-direction: row;
   gap: 2px;
 }
 .card-face__industry-icon {
-  width: 100%;
-  max-width: 1.6em;
+  width: auto;
   height: auto;
+  max-width: 1.9em;
+  max-height: 100%;
   display: block;
+  object-fit: contain;
 }
 .card-face--picked {
   outline: 2px solid var(--warm-gold);
   outline-offset: -2px;
+}
+.card-face--deck {
+  /* Square trigger: same height as a hand card, but a 1:1 footprint so
+   * the deck reads as a stacked-card icon rather than a card face. The
+   * HandSizeIcon (3 fanned cards + count) renders inside; click opens
+   * RemainingCardsOverlay. */
+  aspect-ratio: 1 / 1;
+  width: auto;
+  height: 100%;
+  min-height: 2.8em;
+  font-family: inherit;
+  color: inherit;
 }
 
 /* ---------- Players panel (§11.3) ---------- */
@@ -336,11 +396,20 @@ body {
 .seat-stats {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding-bottom: 0.2rem;
+  /* Left-aligned row with even fixed gaps between items — they don't
+   * stretch to fill the seat header width, just sit comfortably
+   * spaced on the leading edge so a glance reads "money / VP / income
+   * / hand / links" without crowding. */
+  justify-content: flex-start;
+  gap: 0.85rem;
+  padding: 0.1rem 0.25rem 0.25rem;
   border-bottom: 1px dashed var(--soft-tint);
   font-size: 0.85em;
   font-weight: 500;
+}
+.seat-stats__item {
+  display: inline-flex;
+  align-items: center;
 }
 .seat-stats__link {
   display: inline-flex;
@@ -354,15 +423,18 @@ body {
  *
  * TILE PARITY WITH THE BOARD: the board SVG is 900 viewBox units
  * wide and renders at --board-edge CSS units. So 1 board viewBox
- * unit = (board-edge / 900) CSS px. The mat SVG is 497 viewBox
- * units wide; for its tiles to render at the same CSS px size, the
- * mat-svg must be (497 / 900) × board-edge CSS units wide.
+ * unit = (board-edge / 900) CSS px. The mat SVG is --mat-w-units
+ * viewBox units wide (set as a CSS custom property by the React
+ * component, so the value follows whatever PlayersPanel computes —
+ * column gaps, extra industries, etc. all stay parity-safe). The
+ * mat-svg width must therefore be (mat-w-units / 900) × board-edge
+ * CSS units.
  *
  * Anchoring the mat to --board-edge (not to its container width)
  * means the mat scales with browser zoom in lock-step with the
  * board, even though they live in different regions. */
 .mat-svg {
-  width: calc(var(--board-edge) * 497 / 900);
+  width: calc(var(--board-edge) * var(--mat-w-units) / 900);
   display: block;
   margin: 0 auto;
 }
@@ -757,11 +829,12 @@ body {
 
 /* ---------- Income tracker (§11.1) ----------
  *
- * Sized so the ladder's total height equals --board-edge: 21 rows
- * (1 compressed + 20 levels) at --income-row-h each. Cells are
- * square at --income-row-h. Money-coin glyph and step-text sizes
- * derive from the row height too, so everything scales in lock-step
- * with the board (and therefore with browser zoom). */
+ * Sized so the ladder's total height equals --board-edge: 32 rows
+ * (1 compressed top row + levels 20..-10 individually) at
+ * --income-row-h each. Cells are square at --income-row-h.
+ * Money-coin glyph and step-text sizes derive from the row height
+ * too, so everything scales in lock-step with the board (and
+ * therefore with browser zoom). */
 
 .income-ladder {
   list-style: none;
@@ -774,7 +847,9 @@ body {
   display: grid;
   grid-template-columns: var(--income-row-h) auto;
   align-items: center;
-  gap: 0.15rem;
+  /* Hairline gap between the level-coin column and the step-cells
+   * grid — keeps the ladder as narrow as the cells require. */
+  gap: 1px;
   justify-content: start;
   height: var(--income-row-h);
 }
@@ -791,10 +866,12 @@ body {
   height: calc(var(--income-row-h) * 0.85);
 }
 .income-row__cells {
-  /* Reserve 4 cells worth of width even when the row has fewer cells,
-   * so every row's cell-grid lines up vertically. */
+  /* Reserve 3 cells worth of width — the max any level needs (levels
+   * 11..20 each occupy 3 raw steps). Earlier code reserved 4; that
+   * extra column was always blank. Trimming it makes the ladder
+   * just-wide-enough to fit its widest row. */
   display: grid;
-  grid-template-columns: repeat(4, var(--income-row-h));
+  grid-template-columns: repeat(3, var(--income-row-h));
   gap: 1px;
   height: var(--income-row-h);
 }
@@ -844,13 +921,32 @@ body {
 
 /* ---------- Recent actions (§11.9) ---------- */
 
-/* Cap the panel's content height so a long list scrolls inside the
- * panel rather than pushing every panel below it down the page. This
- * is the only panel in the app that is allowed to scroll internally;
- * every other panel is a hard bounding box (`overflow: hidden`). */
-[data-panel-id="recent_actions"] .panel__content {
-  max-height: 22rem;
+/* Modal overlay — toggled from the "Log" button on ActionsPanel. The
+ * card sits at a comfortable reading width and scrolls if the log
+ * outgrows the viewport. Backdrop is the shared .overlay-backdrop. */
+.recent-actions-overlay {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  padding: 1rem;
+  width: min(38rem, 92vw);
+  max-height: 85vh;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.recent-actions-overlay__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.4rem;
+}
+.recent-actions-overlay__title {
+  font-weight: 700;
+  font-size: 1.05em;
 }
 
 .recent-actions {
@@ -904,9 +1000,66 @@ body {
   color: var(--muted);
   font-style: italic;
 }
+.recent-actions__divider {
+  /* Section gap between successive rounds — small centred label that
+   * names the round below it (newest-first list). Treats the newer
+   * block above and the older block below as distinct sections of the
+   * timeline without disturbing the flush per-row borders. */
+  list-style: none;
+  margin: 0.35rem 0 0.25rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: 1px dashed var(--soft-tint);
+  border-bottom: 1px dashed var(--soft-tint);
+  text-align: center;
+  background: transparent;
+}
+.recent-actions__divider--era {
+  /* Era flip is a much bigger event — solid borders, gold accent, a
+   * heavier band so the canal→rail boundary reads at a glance. */
+  color: var(--ink);
+  background: var(--warm-gold);
+  border-top: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0.5rem 0 0.4rem;
+  padding: 0.25rem 0.4rem;
+}
 
 /* ---------- Remaining cards (§11.6) ---------- */
 
+/* Modal overlay container — backdrop is shared .overlay-backdrop. The
+ * card sits at a comfortable reading width and scrolls if the universe
+ * grows past the viewport. */
+.remaining-cards-overlay {
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  padding: 1rem;
+  width: min(36rem, 92vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.remaining-cards-overlay__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.4rem;
+}
+.remaining-cards-overlay__title {
+  font-weight: 700;
+  font-size: 1.05em;
+}
 .remaining-cards__meta {
   font-size: 0.85em;
   color: var(--muted);
@@ -943,28 +1096,85 @@ body {
   opacity: 0.45;
 }
 
-/* ---------- Actions panel ---------- */
+/* ---------- Actions banner (top affordance) ----------
+ *
+ * Two stacked rows below PromptStrip:
+ *   1. action verbs (Build / Network / Develop / Sell / Loan / Scout
+ *      / Pass), prefixed by the "Actions k/n" counter chip;
+ *   2. wizard controls (Reset / End Action / Undo / End Turn) plus
+ *      the selection chips that summarise the player's current picks.
+ *
+ * Chrome-less so PromptStrip + ActionsPanel + HandPanel read as one
+ * continuous top affordance area.
+ */
 
-.actions-panel {
+.actions-banner {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  height: 100%;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--ink);
 }
-.actions-panel__verbs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
-  gap: 0.3rem;
+.actions-banner--emphasized {
+  /* When idle (no wizard active), draw attention to the verbs row by
+   * tinting the banner background — mirrors the old emphasized panel
+   * outline without the panel chrome. */
+  background: var(--soft-tint);
 }
-.actions-panel__controls {
+.actions-banner__row {
   display: flex;
-  gap: 0.3rem;
+  flex-direction: row;
   flex-wrap: wrap;
-  border-top: 1px dashed var(--soft-tint);
-  padding-top: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.actions-banner__verbs,
+.actions-banner__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.actions-banner__counter {
+  /* Compact chip-style "Actions k/n" indicator on the leading edge of
+   * the verbs row. Replaces the actions-left line that used to live
+   * in GameStatePanel. */
+  font-size: 0.85em;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--soft-tint);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.actions-banner__chips {
+  /* Selection summary for the active wizard. Chips read like the old
+   * ContextBar pills; sit next to the controls row so the player sees
+   * "what I've picked" right next to "what I can do with it". */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.actions-banner__chip {
+  background: var(--soft-tint);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8em;
+}
+.actions-banner__chip--error {
+  /* Inline selection error — same chip shape as the regular picks but
+   * tinted red so it stands out next to the picks it relates to. */
+  background: #fde7e7;
+  border-color: #b53030;
+  color: #7a1a1a;
+  font-weight: 600;
 }
 .action-btn {
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.6rem;
   font: inherit;
   cursor: pointer;
   background: var(--panel-bg);
@@ -1000,6 +1210,17 @@ body {
 .action-btn--dimmed:hover:not(:disabled) {
   opacity: 0.8;
 }
+.action-btn--neutral {
+  /* Visually demoted button for non-game actions (e.g., the Log
+   * toggle). Grey palette so it reads as "tool / utility" alongside
+   * the cream-paper game verbs without competing for attention. */
+  background: #d8d6d2;
+  border-color: #6a6a6a;
+  color: #2a2a2a;
+}
+.action-btn--neutral:hover:not(:disabled) {
+  background: #c4c2be;
+}
 
 /* ---------- Narrow-viewport global scale-down ----------
  *
@@ -1018,4 +1239,126 @@ body {
   html {
     font-size: calc(100vw / 50);
   }
+}
+
+/* ---------- Lobby (pre-game) ---------- */
+
+.lobby-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--paper);
+}
+
+.lobby-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+  padding: 1.5rem 2rem;
+  width: min(40rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+}
+
+.lobby-title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.lobby-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.lobby-share {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.lobby-share code {
+  background: var(--soft-tint);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, monospace;
+}
+
+.lobby-seats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lobby-seat {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--paper);
+  border: 1px solid #ddd9cc;
+  border-radius: 0.35rem;
+}
+
+.lobby-seat__index {
+  font-weight: 600;
+  width: 1.25rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.lobby-seat__body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) auto auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.lobby-seat__name,
+.lobby-seat__color {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #c8c4b6;
+  border-radius: 0.25rem;
+  background: white;
+  font-size: 0.95rem;
+}
+
+.lobby-seat__name:disabled,
+.lobby-seat__color:disabled {
+  background: #f0eee6;
+  color: var(--muted);
+}
+
+.lobby-seat__swatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+}
+
+.lobby-seat__actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.lobby-seat__claimed {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.lobby-host-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }

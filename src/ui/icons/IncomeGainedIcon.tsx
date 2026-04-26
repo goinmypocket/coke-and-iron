@@ -29,18 +29,25 @@ export function IncomeGainedIcon({
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
       aria-label={`+${amount} income`}
     >
+      {/* Arrow body widened (3 → 13, was 4.5 → 11.5) and lowered shoulder
+       *  so the inscribed number can use the same fontSize as VP /
+       *  Money icons. */}
       <path
-        d="M 8 1 L 14 8 L 11.5 8 L 11.5 14 L 4.5 14 L 4.5 8 L 2 8 Z"
+        d="M 8 1 L 14 7 L 13 7 L 13 14 L 3 14 L 3 7 L 2 7 Z"
         fill="#d4a017"
         stroke="#1a1a1a"
         strokeWidth={0.7}
         strokeLinejoin="round"
       />
+      {/* Number centred within the icon's full 16×16 viewBox (not just
+       *  the rectangular body at the bottom) — dominant-baseline keeps
+       *  it visually centred regardless of the font's metrics. */}
       <text
         x={8}
-        y={12.4}
+        y={8}
         textAnchor="middle"
-        fontSize={6}
+        dominantBaseline="central"
+        fontSize={8}
         fontWeight={700}
         fill="#1a1a1a"
       >

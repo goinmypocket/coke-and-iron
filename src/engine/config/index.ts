@@ -18,7 +18,9 @@ export {
   DEFAULT_CITIES_CONFIG,
   parseCitiesConfig,
   extractDistrictCities,
+  extractMarketPlacePosition,
   extractMerchantCities,
+  extractRoundTrackerPosition,
   buildMerchantBag,
 } from "./cities";
 export type { CitiesConfig } from "./cities";

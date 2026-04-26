@@ -39,27 +39,34 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
 import { buildDistanceMap } from "../../engine";
 import type {
   BeerSource,
+  Card,
   CoalSource,
+  DistrictCity,
   Era,
   GameState,
   IndustryName,
   IronSource,
+  Player,
   PlayerId,
   SecondRailLink,
   SellOrder,
+  SlotSpec,
 } from "../../engine";
 
 type NetworkSecondLink = SecondRailLink;
 import { reasonToText } from "../affordances/toast";
 import { useEngine } from "../hooks/useEngine";
+import { useGameState } from "../hooks/useGameState";
 import {
   INITIAL_WIZARD,
   pickedCardIndices,
@@ -133,6 +140,25 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   const engine = useEngine();
   const [state, dispatch] = useReducer(wizardReducer, INITIAL_WIZARD);
 
+  // Reset wizard state whenever the active seat changes. The wizard's
+  // picks (stashed card index, hand-card highlight, half-built BUILD /
+  // NETWORK / DEVELOP / SELL inputs, and so on) are all relative to
+  // the current player's hand and mat — once the turn passes those
+  // indices point at someone else's hand / a refilled different card,
+  // so leaving the highlight up just confuses the next player when
+  // their turn comes back. We track the previous seat in a ref so the
+  // initial mount doesn't fire a redundant reset.
+  const activeSeat = useGameState(
+    (s) => s.turnOrder[s.currentPlayerIndex] ?? null,
+  );
+  const prevSeatRef = useRef<number | null>(activeSeat);
+  useEffect(() => {
+    if (prevSeatRef.current !== activeSeat) {
+      prevSeatRef.current = activeSeat;
+      dispatch({ type: "RESET" });
+    }
+  }, [activeSeat]);
+
   // Card-first flow (§10.1) — when the user clicked a card before the
   // action verb, IDLE carries the stashed cardIndex; each start* method
   // picks it up so the wizard arrives pre-populated.
@@ -192,8 +218,19 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "START_BUILD" });
     if (stashedCard !== null) {
       dispatch({ type: "BUILD_SET_CARD", cardIndex: stashedCard });
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex];
+      const player =
+        playerId !== undefined
+          ? liveState.players.find((p) => p.id === playerId) ?? null
+          : null;
+      const card = player?.hand[stashedCard] ?? null;
+      const auto = autoIndustryForBuild(player, card, null);
+      if (auto !== null) {
+        dispatch({ type: "BUILD_SET_INDUSTRY", industry: auto });
+      }
     }
-  }, [stashedCard]);
+  }, [engine, stashedCard]);
 
   const startNetwork = useCallback(() => {
     dispatch({ type: "START_NETWORK" });
@@ -1015,8 +1052,29 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (live.phase === "AWAITING_BUILD_INPUTS") {
-        const projected: WizardState = { ...live, cardIndex };
+        const liveState = engine.getState();
+        const playerId = liveState.turnOrder[liveState.currentPlayerIndex];
+        const player =
+          playerId !== undefined
+            ? liveState.players.find((p) => p.id === playerId) ?? null
+            : null;
+        const card = player?.hand[cardIndex] ?? null;
+        // If the new card is a single-industry card, auto-pin the
+        // industry for the player. Falls back to keeping whatever
+        // industry was already picked (or null) when the card has
+        // multiple options or the only option is exhausted.
+        const slotSpec = lookupSlot(liveState, live.slot);
+        const auto = autoIndustryForBuild(player, card, slotSpec);
+        const nextIndustry = auto ?? live.industry;
+        const projected: WizardState = {
+          ...live,
+          cardIndex,
+          industry: nextIndustry,
+        };
         dispatch({ type: "BUILD_SET_CARD", cardIndex });
+        if (auto !== null && auto !== live.industry) {
+          dispatch({ type: "BUILD_SET_INDUSTRY", industry: auto });
+        }
         if (
           projected.cardIndex !== null &&
           projected.slot !== null &&
@@ -1105,8 +1163,33 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     (slot: BuildSlotPick) => {
       const live = state;
       if (live.phase !== "AWAITING_BUILD_INPUTS") return;
-      const projected: WizardState = { ...live, slot };
+      const liveState = engine.getState();
+      const playerId = liveState.turnOrder[liveState.currentPlayerIndex];
+      const player =
+        playerId !== undefined
+          ? liveState.players.find((p) => p.id === playerId) ?? null
+          : null;
+      const card =
+        live.cardIndex !== null
+          ? player?.hand[live.cardIndex] ?? null
+          : null;
+      const slotSpec = lookupSlot(liveState, slot);
+      // A slot whose accept-list narrows to one industry pins that
+      // industry for the player; same for single-industry cards. If
+      // both are present they must agree (the one that matches the
+      // player's available stack wins; if neither does, we leave the
+      // industry untouched and let autoIndustryForBuild emit a toast).
+      const auto = autoIndustryForBuild(player, card, slotSpec);
+      const nextIndustry = auto ?? live.industry;
+      const projected: WizardState = {
+        ...live,
+        slot,
+        industry: nextIndustry,
+      };
       dispatch({ type: "BUILD_SET_SLOT", slot });
+      if (auto !== null && auto !== live.industry) {
+        dispatch({ type: "BUILD_SET_INDUSTRY", industry: auto });
+      }
       if (
         projected.cardIndex !== null &&
         projected.slot !== null &&
@@ -1115,7 +1198,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
         submitBuild(projected);
       }
     },
-    [state, submitBuild],
+    [engine, state, submitBuild],
   );
 
   const pickLine = useCallback(
@@ -1756,6 +1839,50 @@ export function isMarketReachable(
  * deterministically (engine list order); decrements local counts so two
  * develops in one dispatch don't double-claim the same cube.
  */
+/** Look up a slot spec on the board by city + slot index. Returns null
+ *  if the city or slot index doesn't exist (the engine validates this
+ *  on dispatch, but we look up to inspect the accept-list at click
+ *  time so we can auto-pin the industry). */
+function lookupSlot(
+  state: GameState,
+  pick: BuildSlotPick | null,
+): SlotSpec | null {
+  if (!pick) return null;
+  const city = state.districtCities.find(
+    (c: DistrictCity) => c.name === pick.cityName,
+  );
+  return city?.slots[pick.slotIndex] ?? null;
+}
+
+/** Compute the industry to auto-pin on the wizard, given the player's
+ *  picked card and slot. Returns the industry when:
+ *    - the card is INDUSTRY with a single industry, OR
+ *    - the slot's accept-list narrows to one industry,
+ *    - and the player still has at least one tile of that industry on
+ *      their mat (otherwise the build is impossible).
+ *  When both card and slot pin, the slot wins (the engine rejects
+ *  placement on a slot whose accept-list doesn't include the chosen
+ *  industry, so honouring the slot keeps the pick legal). The
+ *  "no-stack-left" / "card and slot disagree" cases are surfaced
+ *  inline in ActionsPanel rather than via toasts. */
+function autoIndustryForBuild(
+  player: Player | null,
+  card: Card | null,
+  slot: SlotSpec | null,
+): IndustryName | null {
+  const fromCard =
+    card?.kind === "INDUSTRY" && card.industries.length === 1
+      ? card.industries[0]!
+      : null;
+  const fromSlot =
+    slot && slot.acceptList.length === 1 ? slot.acceptList[0]! : null;
+  const candidate: IndustryName | null = fromSlot ?? fromCard;
+  if (candidate === null) return null;
+  const stack = player?.mat.stacks[candidate] ?? [];
+  if (stack.length === 0) return null;
+  return candidate;
+}
+
 function autoResolveIronSources(
   state: GameState,
   count: number,

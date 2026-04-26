@@ -359,6 +359,11 @@ export interface GameState {
   readonly merchantCities: readonly MerchantCity[];
   readonly lines: readonly Line[];
   readonly tileCatalogue: readonly IndustryTileSpec[];
+  /** §11.2 — anchor (board viewBox units) for the coal/iron market
+   *  widget. Loaded from config/board.json so the dev tool can move it. */
+  readonly marketPlacePosition: Position;
+  /** §11.2 — anchor for the era + round + per-seat money-spent widget. */
+  readonly roundTrackerPosition: Position;
 
   /**
    * Seeded PRNG used for every random draw in the engine (deck shuffle,

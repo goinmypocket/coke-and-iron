@@ -1,6 +1,10 @@
 // =============================================================================
-// §11.6 Remaining cards — inventory of cards still UNPLAYED from the
-// active player's perspective.
+// §11.6 Remaining cards — modal overlay listing every non-wild card that is
+// still UNPLAYED from the active player's perspective.
+//
+// Replaces the old always-visible RemainingCardsPanel. The deck button in
+// the hand banner toggles this overlay; clicking the backdrop or the close
+// button dismisses it.
 //
 // "Remaining" means every non-wild card that has not yet been played and
 // shuffled into a discard pile. The pool therefore includes:
@@ -15,10 +19,6 @@
 //
 // Discards are excluded — those have been played and are publicly known.
 //
-// All counts are computed CLIENT-SIDE in this component from the public
-// game state. Aggregating across hands means a viewer can't tell whose
-// hand a specific card sits in — only that it hasn't been played.
-//
 // Header ratio: remaining-non-wild / total-non-wild universe. The
 // denominator is constant for the duration of the game.
 //
@@ -27,7 +27,7 @@
 // so players can scan for "where did all the Birminghams go?".
 // =============================================================================
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   buildDeck,
   DEFAULT_CARDS_CONFIG,
@@ -37,7 +37,6 @@ import {
 } from "../../engine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { DISTRICT_FILL, DISTRICT_LABEL } from "../industryIcons";
-import { Panel } from "../layout/Panel";
 
 const DISTRICT_ORDER: readonly DistrictTag[] = [
   "purple",
@@ -47,7 +46,40 @@ const DISTRICT_ORDER: readonly DistrictTag[] = [
   "teal",
 ];
 
-export function RemainingCardsPanel() {
+export function RemainingCardsOverlay({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  // ESC closes the modal — standard affordance for any overlay opened
+  // by a discrete trigger.
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="overlay-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="remaining-cards-overlay" role="dialog" aria-modal="true">
+        <RemainingCardsBody onClose={onClose} />
+      </div>
+    </div>
+  );
+}
+
+function RemainingCardsBody({ onClose }: { onClose: () => void }) {
   const view = useGameState(
     (s) => ({
       drawDeck: s.drawDeck,
@@ -64,9 +96,6 @@ export function RemainingCardsPanel() {
     [view.districtCities],
   );
 
-  // Canonical universe of non-wild cards for this player count — every
-  // card type that could ever appear, with its total copy count. Built
-  // once per playerCount; values never change mid-game.
   const universe = useMemo(
     () =>
       groupCanonicalCards(
@@ -85,9 +114,6 @@ export function RemainingCardsPanel() {
     return n;
   }, [universe]);
 
-  // Unplayed pool = deck + removed + every player's hand. The active
-  // player sees their own hand directly in the Hand panel; the panel
-  // here aggregates so other hands stay hidden.
   const remainingPool = useMemo(
     () => [
       ...view.drawDeck,
@@ -111,10 +137,20 @@ export function RemainingCardsPanel() {
   );
 
   return (
-    <Panel
-      id="remaining_cards"
-      title={`Remaining cards — ${remainingNonWild}/${universeTotal}`}
-    >
+    <>
+      <div className="remaining-cards-overlay__head">
+        <div className="remaining-cards-overlay__title">
+          Remaining cards — {remainingNonWild}/{universeTotal}
+        </div>
+        <button
+          type="button"
+          className="action-btn"
+          onClick={onClose}
+          aria-label="Close remaining cards"
+        >
+          Close
+        </button>
+      </div>
       <div className="remaining-cards__grid">
         {DISTRICT_ORDER.map((tag) => {
           const entries = (universe.locations[tag] ?? []).map((u) => ({
@@ -141,7 +177,7 @@ export function RemainingCardsPanel() {
           }))}
         />
       </div>
-    </Panel>
+    </>
   );
 }
 
@@ -236,8 +272,6 @@ function countByKey(
   const industries = new Map<string, number>();
   for (const card of deck) {
     if (card.kind === "LOCATION") {
-      // Skip cities that aren't in the district map defensively — they
-      // wouldn't show up in any group anyway.
       if (!cityToDistrict.has(card.cityName)) continue;
       locations.set(card.cityName, (locations.get(card.cityName) ?? 0) + 1);
     } else if (card.kind === "INDUSTRY") {

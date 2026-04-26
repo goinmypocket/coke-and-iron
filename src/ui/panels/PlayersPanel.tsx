@@ -15,6 +15,7 @@
 // browser zoom and panel resize, with no overflow possible (containment
 // is enforced by SVG semantics, not by `overflow: hidden`).
 // =============================================================================
+import type { CSSProperties, ReactNode } from "react";
 import { stepToLevel } from "../../engine";
 import type {
   IndustryName,
@@ -28,6 +29,7 @@ import {
 } from "../industryIcons";
 import { CoalIcon } from "../icons/CoalIcon";
 import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
+import { HandSizeIcon } from "../icons/HandSizeIcon";
 import { IronIcon } from "../icons/IronIcon";
 import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
@@ -38,13 +40,24 @@ import { SIDE_COL_W, TileSideColumn } from "../tiles/TileSideColumn";
 import { useWizard } from "../wizards/WizardProvider";
 
 // Mat geometry in viewBox units (same scale as TILE on the board).
-const ROW_H = TILE;                                    // 40
-const COST_W = 14;                                     // money + coal + iron column
-const SIDE_W = SIDE_COL_W;                             // 17.14
-const COL_W = COST_W + TILE + SIDE_W;                  // ~71
+// ROW_H is intentionally a bit taller than TILE so the side-column
+// VP / income / link badges have vertical breathing room and read
+// clearly. The TileFace itself is centred vertically inside the
+// row's extra padding (ROW_PAD top + bottom).
+const ROW_H = TILE + 12;                               // 52
+const ROW_PAD = (ROW_H - TILE) / 2;                    // 6
+// Cost column (left) mirrors the side column (right) — same width so
+// the row reads symmetrically. Cost glyph size is capped so a
+// 4-glyph stack (money + 2 coal + 1 iron is the worst common case)
+// still fits inside ROW_H without overflowing.
+const SIDE_W = SIDE_COL_W;
+const COST_W = SIDE_W;
+const COL_W = COST_W + TILE + SIDE_W;
 const LABEL_BAND = 14;                                 // industry icon + name strip
-const COST_ICON = COST_W * 0.95;                       // cost-column icon size
-const COL_SEPARATOR = "#1a1a1a";
+// Physical gap between adjacent industry columns. Replaces the old
+// separator line — visually separating industries via whitespace
+// reads cleaner than a hairline rule.
+const COL_GAP = 10;
 
 interface IndustryColumnSpec {
   industry: IndustryName;
@@ -74,12 +87,14 @@ const MAX_VISIBLE_LEVELS = INDUSTRY_COLUMNS.reduce((m, c) => {
   return Math.max(m, visible);
 }, 0);
 
-// Total horizontal extent of the mat: every column is COL_W; double
-// columns count twice.
-const MAT_W = INDUSTRY_COLUMNS.reduce(
-  (sum, c) => sum + (c.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W),
-  0,
-);
+// Total horizontal extent of the mat: every column is COL_W (double
+// columns count twice), plus one COL_GAP between every adjacent pair
+// of industries.
+const MAT_W =
+  INDUSTRY_COLUMNS.reduce(
+    (sum, c) => sum + (c.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W),
+    0,
+  ) + COL_GAP * (INDUSTRY_COLUMNS.length - 1);
 const MAT_H = MAX_VISIBLE_LEVELS * ROW_H + LABEL_BAND;
 
 export function PlayersPanel() {
@@ -108,6 +123,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
       vp: p.vp,
       incomeStep: p.incomeStep,
       linkSupply: p.linkSupply,
+      handSize: p.hand.length,
       isActive: activeId === seatId,
       stacks: p.mat.stacks,
       era: s.era,
@@ -144,6 +160,7 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
         vp={view.vp}
         incomeStep={view.incomeStep}
         linkSupply={view.linkSupply}
+        handSize={view.handSize}
         era={view.era}
         pawnColor={view.pawnColor}
       />
@@ -160,11 +177,18 @@ function PlayerSubPanel({ seatId }: { seatId: PlayerId }) {
   );
 }
 
+/** Pixel size shared by every glyph in the seat-stats row so all five
+ *  cells line up vertically. Picked to match the income / VP icons'
+ *  native baseline (16) and large enough for the MoneyCoin number to
+ *  stay legible. */
+const STAT_ICON_SIZE = 16;
+
 function SeatStats({
   money,
   vp,
   incomeStep,
   linkSupply,
+  handSize,
   era,
   pawnColor,
 }: {
@@ -172,27 +196,57 @@ function SeatStats({
   vp: number;
   incomeStep: number;
   linkSupply: number;
+  handSize: number;
   era: "CANAL" | "RAIL";
   pawnColor: string;
 }) {
+  // Single declarative list of stats — order is rendered order. Adding
+  // or reordering a stat means editing one entry; the row spacing is
+  // handled by .seat-stats { justify-content: space-between }.
+  const stats: { key: string; title: string; node: ReactNode }[] = [
+    {
+      key: "money",
+      title: "Money",
+      node: <MoneyCoin amount={money} size={STAT_ICON_SIZE} />,
+    },
+    {
+      key: "vp",
+      title: "Victory points",
+      node: <VictoryPointsIcon amount={vp} size={STAT_ICON_SIZE} />,
+    },
+    {
+      key: "income",
+      title: "Current income level",
+      node: (
+        <CurrentIncomeIcon
+          amount={stepToLevel(incomeStep)}
+          size={STAT_ICON_SIZE}
+        />
+      ),
+    },
+    {
+      key: "hand",
+      title: "Cards in hand",
+      node: <HandSizeIcon amount={handSize} size={STAT_ICON_SIZE} />,
+    },
+    {
+      key: "links",
+      title: `${era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`,
+      node: (
+        <span className="seat-stats__link">
+          <LinkTileIcon era={era} color={pawnColor} size={STAT_ICON_SIZE * 0.75} />
+          ×{linkSupply}
+        </span>
+      ),
+    },
+  ];
   return (
     <div className="seat-stats">
-      <span title="Money">
-        <MoneyCoin amount={money} size={13} />
-      </span>
-      <span title="Victory points">
-        <VictoryPointsIcon amount={vp} size={14} />
-      </span>
-      <span title="Current income level">
-        <CurrentIncomeIcon amount={stepToLevel(incomeStep)} size={14} />
-      </span>
-      <span
-        className="seat-stats__link"
-        title={`${era === "CANAL" ? "Canal" : "Rail"} link tiles remaining`}
-      >
-        <LinkTileIcon era={era} color={pawnColor} size={12} />
-        ×{linkSupply}
-      </span>
+      {stats.map((s) => (
+        <span key={s.key} className="seat-stats__item" title={s.title}>
+          {s.node}
+        </span>
+      ))}
     </div>
   );
 }
@@ -215,12 +269,16 @@ function MatSvg({
   onPickIndustry: (ind: IndustryName) => void;
 }) {
   // Walk columns left-to-right, accumulating x offsets. Single columns
-  // advance by COL_W; doubles advance by 2 * COL_W. The label band sits
-  // in the bottom LABEL_BAND units of the viewBox.
+  // advance by COL_W; doubles advance by 2 * COL_W. Adjacent columns
+  // are separated by COL_GAP units of empty space — no separator line,
+  // just whitespace. The label band sits in the bottom LABEL_BAND
+  // units of the viewBox.
   let x = 0;
   const columns: { x: number; w: number; spec: IndustryColumnSpec }[] = [];
-  for (const spec of INDUSTRY_COLUMNS) {
+  for (let i = 0; i < INDUSTRY_COLUMNS.length; i++) {
+    const spec = INDUSTRY_COLUMNS[i]!;
     const w = spec.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W;
+    if (i > 0) x += COL_GAP;
     columns.push({ x, w, spec });
     x += w;
   }
@@ -229,19 +287,15 @@ function MatSvg({
       className="mat-svg"
       viewBox={`0 0 ${MAT_W} ${MAT_H}`}
       preserveAspectRatio="xMidYMid meet"
+      // MAT_W is the SVG's viewBox width. Pass it to CSS as a custom
+      // property so .mat-svg can size the rendered SVG to (MAT_W / 900)
+      // × --board-edge — that ratio is the only way mat tiles render
+      // at the same on-screen px size as board tiles (board viewBox =
+      // 900). Adding column gaps grew MAT_W; this var keeps parity.
+      style={{ "--mat-w-units": MAT_W } as CSSProperties}
     >
-      {columns.map((col, i) => (
+      {columns.map((col) => (
         <g key={col.spec.industry} transform={`translate(${col.x}, 0)`}>
-          {i > 0 ? (
-            <line
-              x1={0}
-              y1={0}
-              x2={0}
-              y2={MAX_VISIBLE_LEVELS * ROW_H}
-              stroke={COL_SEPARATOR}
-              strokeWidth={0.6}
-            />
-          ) : null}
           <IndustryColumnSvg
             spec={col.spec}
             stack={stacks[col.spec.industry]}
@@ -421,7 +475,10 @@ function MatLevelRowSvg({
       {spec ? (
         <>
           <CostStack spec={spec} />
-          <g transform={`translate(${COST_W}, 0)`}>
+          {/* Tile face is square (TILE × TILE) and centred vertically
+           *  inside the taller row, so the row's extra padding sits
+           *  above and below the tile. */}
+          <g transform={`translate(${COST_W}, ${ROW_PAD})`}>
             <TileFace
               spec={spec}
               ownerColor={pawnColor}
@@ -430,8 +487,11 @@ function MatLevelRowSvg({
               stackCount={count}
             />
           </g>
+          {/* Side column uses the FULL row height (not just TILE) so
+           *  the VP / income / link badges have the extra vertical
+           *  room and render bigger / more legibly. */}
           <g transform={`translate(${COST_W + TILE}, 0)`}>
-            <TileSideColumn spec={spec} />
+            <TileSideColumn spec={spec} height={ROW_H} />
           </g>
         </>
       ) : null}
@@ -450,38 +510,65 @@ function MatLevelRowSvg({
   );
 }
 
+/** Worst-case cube count any tile spec needs (2 coal + 1 iron for the
+ *  level-VIII iron-heavy specs). The cube glyph picks ONE size that
+ *  fits this worst case so a tile that needs only one cube still
+ *  renders the cube at the same size as a tile that needs two — the
+ *  cube reads as a stable "unit of cost" across all rows. */
+const COST_MAX_CUBES = 3;
+/** Money coin renders larger than a cube (it carries the readable cost
+ *  number); expressed as a multiple of `COST_CUBE` so the proportion
+ *  is constant across rows. */
+const COST_MONEY_SCALE = 1.5;
+
+/** Constant cube edge in viewBox units, derived from worst-case
+ *  packing inside (ROW_H - 2) tall and (COST_W - 1) wide. */
+const COST_CUBE = (() => {
+  const fitH = ROW_H - 2;
+  const fitW = COST_W - 1;
+  const equivCubes = COST_MONEY_SCALE + COST_MAX_CUBES;
+  return Math.min(fitH / equivCubes, fitW / COST_MONEY_SCALE);
+})();
+const COST_MONEY_SIZE = COST_CUBE * COST_MONEY_SCALE;
+
 function CostStack({ spec }: { spec: IndustryTileSpec }) {
   // Vertical stack centred in COST_W: money on top, then coal cubes,
-  // then iron cubes. Total height is ROW_H; items are evenly spaced.
+  // then iron cubes. Cube and money sizes are constants (see above) so
+  // a tile needing 1 cube renders that cube at the same size as one
+  // needing 2 — the worst-case spec sets the unit and everyone else
+  // gets extra vertical breathing room.
   const items: { kind: "money" | "coal" | "iron" }[] = [{ kind: "money" }];
   for (let i = 0; i < spec.coalCost; i++) items.push({ kind: "coal" });
   for (let i = 0; i < spec.ironCost; i++) items.push({ kind: "iron" });
   const n = items.length;
-  // Pack inside ROW_H with even gaps. Each glyph is COST_ICON tall.
-  const totalGlyph = n * COST_ICON;
-  const gap = n > 1 ? Math.max(0, (ROW_H - totalGlyph) / (n + 1)) : 0;
-  const startY =
-    n === 1 ? (ROW_H - COST_ICON) / 2 : gap;
+  // Pack top-to-bottom with even gaps. Glyph total = money + (n-1)
+  // cubes; whatever vertical space is left becomes (n+1) equal gaps so
+  // the stack stays vertically centred even for short stacks.
+  const totalGlyph = COST_MONEY_SIZE + (n - 1) * COST_CUBE;
+  const gap = Math.max(0, (ROW_H - totalGlyph) / (n + 1));
+  let runningY = gap;
   return (
     <g>
       {items.map((item, i) => {
-        const cy = startY + i * (COST_ICON + gap);
-        const cx = (COST_W - COST_ICON) / 2;
+        const sz = item.kind === "money" ? COST_MONEY_SIZE : COST_CUBE;
+        const cx = (COST_W - sz) / 2;
+        const cy = runningY;
+        runningY += sz + gap;
         if (item.kind === "money") {
           return (
             <MoneyCoin
               key={i}
               amount={spec.costMoney}
-              size={COST_ICON}
+              size={sz}
               x={cx}
               y={cy}
             />
           );
         }
         if (item.kind === "coal") {
-          return <CoalIcon key={i} size={COST_ICON} x={cx} y={cy} />;
+          return <CoalIcon key={i} size={sz} x={cx} y={cy} />;
         }
-        return <IronIcon key={i} size={COST_ICON} x={cx} y={cy} />;
+        return <IronIcon key={i} size={sz} x={cx} y={cy} />;
       })}
     </g>
   );

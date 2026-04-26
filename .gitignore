@@ -33,3 +33,6 @@ Thumbs.db
 
 # Claude Code — keep shared settings.json committed; ignore per-user local
 .claude/settings.local.json
+
+# Host autosaves and game saves (per-machine state)
+saves/

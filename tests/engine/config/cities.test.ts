@@ -8,13 +8,13 @@ import {
 } from "../../../src/engine/config/cities";
 
 describe("cities config", () => {
-  it("loads district cities from the bundled cities.json", () => {
+  it("loads district cities from the bundled board.json", () => {
     const districts = extractDistrictCities(DEFAULT_CITIES_CONFIG);
     expect(districts.length).toBeGreaterThan(15);
     expect(districts.some((c) => c.name === "Birmingham")).toBe(true);
   });
 
-  it("Birmingham has four slots starting with a Cotton/Manufacturer combo (§2.3 / cities.json)", () => {
+  it("Birmingham has four slots starting with a Cotton/Manufacturer combo (§2.3 / board.json)", () => {
     const districts = extractDistrictCities(DEFAULT_CITIES_CONFIG);
     const birmingham = districts.find((c) => c.name === "Birmingham");
     expect(birmingham).toBeDefined();
@@ -40,7 +40,7 @@ describe("cities config", () => {
   });
 
   it("a raw 'ANY' slot maps to an empty acceptList (§2.3)", () => {
-    // Synthetic config — bundled cities.json no longer ships any
+    // Synthetic config — bundled board.json no longer ships any
     // wildcard slots, but the loader contract still has to honour
     // "ANY" → empty acceptList for any future config that uses it.
     const cfg = parseCitiesConfig({
@@ -61,6 +61,7 @@ describe("cities config", () => {
         "POTTERY",
       ],
       marketPlace: { position: [0, 0] },
+      roundTracker: { position: [0, 0] },
       merchantBag: {
         "2": { any: 0, cotton: 0, empty: 0, manufacturer: 0, pottery: 0 },
         "3": { any: 0, cotton: 0, empty: 0, manufacturer: 0, pottery: 0 },
@@ -129,6 +130,7 @@ describe("cities config", () => {
         cities: [],
         industryNames: [],
         marketPlace: { position: [0, 0] },
+        roundTracker: { position: [0, 0] },
         merchantBag: {},
         merchantCities: [],
       }),

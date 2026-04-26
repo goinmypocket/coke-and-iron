@@ -1,5 +1,5 @@
 import { z } from "zod";
-import citiesJsonRaw from "../../../config/cities.json";
+import boardJsonRaw from "../../../config/board.json";
 import type {
   DistrictCity,
   DistrictTag,
@@ -90,6 +90,11 @@ export const CitiesConfigSchema = z.object({
   marketPlace: z.object({
     position: PositionSchema,
   }),
+  // §11.2 widget anchors. roundTracker covers the era + round + per-seat
+  // money-spent box pinned to the corner of the board canvas.
+  roundTracker: z.object({
+    position: PositionSchema,
+  }),
   merchantBag: MerchantBagSchema,
   merchantCities: z.array(MerchantCityRawSchema),
 });
@@ -101,7 +106,18 @@ export function parseCitiesConfig(raw: unknown): CitiesConfig {
 }
 
 export const DEFAULT_CITIES_CONFIG: CitiesConfig =
-  parseCitiesConfig(citiesJsonRaw);
+  parseCitiesConfig(boardJsonRaw);
+
+/** Widget anchor positions extracted from the board config. Both
+ *  default to the values in config/board.json; the engine surfaces
+ *  them on GameState so BoardPanel doesn't have to know about config. */
+export function extractMarketPlacePosition(config: CitiesConfig): Position {
+  return config.marketPlace.position;
+}
+
+export function extractRoundTrackerPosition(config: CitiesConfig): Position {
+  return config.roundTracker.position;
+}
 
 function rawSlotToSlotSpec(
   raw: "ANY" | IndustryName | readonly IndustryName[],

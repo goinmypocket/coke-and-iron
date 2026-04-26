@@ -1,0 +1,10 @@
+Now plan the network layer. Here's what I have in mind:
+
+For now design the game to be hosted locally with some method for friends to join remotely by connecting to my local machine. Keep in mind that I might want to host it on a server later.
+At the start of the game, there should be an option to choose the player count.
+The game log with all the actions so far / current state should be in a save file which can be loaded while starting the game.
+The player after connecting gets to choose their name and colors. 
+Think of a way to ensure that the game can be played from a saved state and the save files should preferable be loaded on the server.
+Essentially I would like to pause the game and restart again without having the server running.
+Think of whatever else is required for me to play with some remote friends.
+Give me a document - a .md file detailing the steps required from my end to make this happen.

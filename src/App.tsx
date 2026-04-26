@@ -1,10 +1,7 @@
-import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
-import { Engine } from "./engine/Engine";
-import { LoopbackTransport } from "./network/LoopbackTransport";
-import { NetworkAdapter } from "./network/NetworkAdapter";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
-import { ContextBar } from "./ui/affordances/ContextBar";
+import { useNetworkClient } from "./ui/hooks/useNetworkClient";
+import { LobbyScreen } from "./ui/lobby/LobbyScreen";
 import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
 import { EraRoundBanner } from "./ui/overlays/EraRoundBanner";
@@ -13,46 +10,40 @@ import { SellMerchantPickerOverlay } from "./ui/overlays/SellMerchantPickerOverl
 import { ShortfallOverlay } from "./ui/overlays/ShortfallOverlay";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { BoardPanel } from "./ui/panels/BoardPanel";
-import { GameStatePanel } from "./ui/panels/GameStatePanel";
 import { HandPanel } from "./ui/panels/HandPanel";
 import { PlayersPanel } from "./ui/panels/PlayersPanel";
-import { PlayerStatePanel } from "./ui/panels/PlayerStatePanel";
-import { RecentActionsPanel } from "./ui/panels/RecentActionsPanel";
-import { RemainingCardsPanel } from "./ui/panels/RemainingCardsPanel";
 import { WizardProvider } from "./ui/wizards/WizardProvider";
 
 export function App() {
-  const [engine, setEngine] = useState<Engine | null>(null);
+  const net = useNetworkClient();
 
-  useEffect(() => {
-    const e = new Engine({ seed: 1, playerCount: 2 });
-    const transport = new LoopbackTransport();
-    new NetworkAdapter(e, transport);
-    setEngine(e);
-  }, []);
+  if (net.mode !== "playing" || !net.engine) {
+    return (
+      <>
+        <LobbyScreen
+          status={net.status}
+          clientId={net.clientId}
+          lobby={net.lobby}
+          onClaim={net.claimSeat}
+          onRelease={net.releaseSeat}
+          onLock={net.lockLobby}
+          onStart={net.startGame}
+        />
+        <Toaster position="bottom-center" duration={3000} />
+      </>
+    );
+  }
 
-  if (!engine) return <div>Game loading…</div>;
-
-  // Single vertical stack. Each panel sits at its natural (rem-based,
-  // fixed) width; the order below is the on-screen render order from
-  // top to bottom. On viewports too narrow for the default board edge
-  // (--board-edge in app.css), the whole stack scales down via the
-  // narrow-viewport media query so the board still fits horizontally.
   return (
-    <EngineProvider engine={engine}>
+    <EngineProvider engine={net.engine} mySeatId={net.mySeatId}>
       <WizardProvider>
         <div className="app-shell">
           <PromptStrip />
-          <ContextBar />
+          <ActionsPanel />
+          <HandPanel />
           <div className="game-stack">
             <BoardPanel />
-            <ActionsPanel />
-            <HandPanel />
             <PlayersPanel />
-            <GameStatePanel />
-            <PlayerStatePanel />
-            <RemainingCardsPanel />
-            <RecentActionsPanel />
           </div>
         </div>
         <ShortfallOverlay />

@@ -7,7 +7,12 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 const EDITOR_FILES = {
-  cities: "config/cities.json",
+  // Historical key name "cities" — the on-disk file moved to
+  // config/board.json (which now also carries marketPlace and
+  // roundTracker positions). The editor still talks to the same
+  // /__editor/load?file=cities endpoint to avoid bundling a UI rev
+  // with the rename.
+  cities: "config/board.json",
   links: "config/links.json",
 } as const;
 type EditorFileKey = keyof typeof EDITOR_FILES;
@@ -82,7 +87,20 @@ function editorApiPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), editorApiPlugin()],
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      // Forward the WebSocket endpoint to the host process running on
+      // its own port (default 8787). In production the same client
+      // bundle is served by the host directly, so location.host is the
+      // host port and this proxy is bypassed.
+      "/ws": {
+        target: "ws://localhost:8787",
+        ws: true,
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     rollupOptions: {
       input: {

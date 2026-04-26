@@ -3,11 +3,15 @@ import {
   CityBanners,
   cityBodyDims,
   DistrictCityShape,
+  Markets,
   MerchantCityShape,
+  TurnOrderWidget,
+  type TurnOrderPlayer,
 } from "../ui/panels/BoardPanel";
 import type {
   DistrictCity as EngineDistrictCity,
   IndustryName as EngineIndustryName,
+  Market as EngineMarket,
   MerchantBonus as EngineMerchantBonus,
   MerchantCity as EngineMerchantCity,
   MerchantTileAccept,
@@ -26,8 +30,6 @@ import {
   type Position,
 } from "./types";
 
-const MARKET_W = 60;
-const MARKET_H = 60;
 const EMPTY_OCCUPIED: ReadonlySet<string> = new Set<string>();
 const EMPTY_MERCHANT_SLOT_MAP: ReadonlyMap<
   number,
@@ -108,7 +110,7 @@ export function BoardEditor({
 
   const applyPosition = useCallback(
     (
-      kind: "city" | "merchant" | "market",
+      kind: "city" | "merchant" | "market" | "roundTracker",
       name: string | null,
       pos: Position,
     ) => {
@@ -131,6 +133,11 @@ export function BoardEditor({
           ...cities,
           marketPlace: { ...cities.marketPlace, position: pos },
         });
+      } else if (kind === "roundTracker") {
+        onUpdateCities({
+          ...cities,
+          roundTracker: { ...cities.roundTracker, position: pos },
+        });
       }
     },
     [cities, onUpdateCities],
@@ -138,7 +145,7 @@ export function BoardEditor({
 
   const startDrag = useCallback(
     (
-      kind: "city" | "merchant" | "market",
+      kind: "city" | "merchant" | "market" | "roundTracker",
       name: string | null,
       pointerId: number,
       target: Element,
@@ -352,14 +359,47 @@ export function BoardEditor({
         merchantCities={engineMerchantCities}
       />
 
-      <MarketShape
-        position={cities.marketPlace.position}
+      {/* Coal/Iron market widget rendered with the actual game
+       * component so the editor shows the live look. The wrapper
+       * <g> captures pointerdown to start a drag — the children
+       * keep their normal pointer events for hover/feedback only. */}
+      <DraggableHandle
+        cursor={mode === "cities" || mode === "merchants" ? "grab" : "default"}
         onPointerDown={(e) => {
           if (mode === "cities" || mode === "merchants") {
             startDrag("market", null, e.pointerId, e.currentTarget);
           }
         }}
-      />
+      >
+        <Markets
+          coal={EDITOR_PREVIEW_COAL}
+          iron={EDITOR_PREVIEW_IRON}
+          coalGlow={false}
+          ironGlow={false}
+          position={cities.marketPlace.position}
+        />
+      </DraggableHandle>
+
+      {/* Round tracker (era + round + per-seat money) — same trick:
+       * render with the live game component, drag via the wrapper. */}
+      <DraggableHandle
+        cursor={mode === "cities" || mode === "merchants" ? "grab" : "default"}
+        onPointerDown={(e) => {
+          if (mode === "cities" || mode === "merchants") {
+            startDrag("roundTracker", null, e.pointerId, e.currentTarget);
+          }
+        }}
+      >
+        <TurnOrderWidget
+          era="CANAL"
+          round={1}
+          playerCount={EDITOR_PREVIEW_PLAYERS.length}
+          turnOrder={EDITOR_PREVIEW_TURN_ORDER}
+          currentPlayerIndex={0}
+          players={EDITOR_PREVIEW_PLAYERS}
+          position={cities.roundTracker.position}
+        />
+      </DraggableHandle>
 
       {linkEra && pendingLinkStart ? (
         <PendingLinkHint name={pendingLinkStart} />
@@ -367,6 +407,58 @@ export function BoardEditor({
     </svg>
   );
 }
+
+/** Small wrapper that turns its children into a drag handle. The
+ *  pointerdown fires on the wrapping <g>, but the children render
+ *  through to the real widget components untouched. */
+function DraggableHandle({
+  cursor,
+  onPointerDown,
+  children,
+}: {
+  cursor: string;
+  onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <g
+      style={{ cursor }}
+      onPointerDown={onPointerDown}
+      className="editor-widget-handle"
+    >
+      {children}
+    </g>
+  );
+}
+
+// =============================================================================
+// Editor preview fixtures — minimal data shapes that the live Markets and
+// TurnOrderWidget components need to render. The actual market values, round
+// number, and player names are irrelevant for layout/positioning work; the
+// editor just needs the widgets to LOOK right.
+// =============================================================================
+
+const EDITOR_PREVIEW_COAL: EngineMarket = {
+  resource: "COAL",
+  tiers: [1, 2, 3, 4, 5, 6, 7],
+  filled: [1, 2, 2, 2, 2, 2, 2],
+  overflowPrice: 8,
+};
+
+const EDITOR_PREVIEW_IRON: EngineMarket = {
+  resource: "IRON",
+  tiers: [1, 2, 3, 4, 5],
+  filled: [0, 2, 2, 2, 2],
+  overflowPrice: 6,
+};
+
+const EDITOR_PREVIEW_PLAYERS: readonly TurnOrderPlayer[] = [
+  { id: 0, displayName: "Player 1", pawnColor: "red", spentThisRound: 0 },
+  { id: 1, displayName: "Player 2", pawnColor: "yellow", spentThisRound: 0 },
+  { id: 2, displayName: "Player 3", pawnColor: "green", spentThisRound: 0 },
+  { id: 3, displayName: "Player 4", pawnColor: "blue", spentThisRound: 0 },
+];
+const EDITOR_PREVIEW_TURN_ORDER: readonly number[] = [0, 1, 2, 3];
 
 function rawCityToDistrict(c: CityRaw): EngineDistrictCity {
   return {
@@ -573,43 +665,6 @@ function LinesLayer({
   );
 }
 
-function MarketShape({
-  position,
-  onPointerDown,
-}: {
-  position: Position;
-  onPointerDown: (e: React.PointerEvent<SVGGElement>) => void;
-}) {
-  const [x, y] = position;
-  return (
-    <g
-      className="editor-market"
-      transform={`translate(${x - MARKET_W / 2}, ${y - MARKET_H / 2})`}
-      onPointerDown={onPointerDown}
-      style={{ cursor: "pointer" }}
-    >
-      <rect
-        x={0}
-        y={0}
-        width={MARKET_W}
-        height={MARKET_H}
-        rx={4}
-        fill="#d8cfa8"
-        stroke="#7d6a3a"
-        strokeWidth={1.2}
-        strokeDasharray="3 3"
-      />
-      <text
-        x={MARKET_W / 2}
-        y={MARKET_H / 2 + 4}
-        textAnchor="middle"
-        className="editor-market__label"
-      >
-        Market
-      </text>
-    </g>
-  );
-}
 
 function PendingLinkHint({ name }: { name: string }) {
   return (

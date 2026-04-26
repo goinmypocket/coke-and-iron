@@ -1,5 +1,10 @@
 // =============================================================================
-// §11.9 Recent actions — newest-first scrolling list of dispatched intents.
+// §11.9 Recent actions — modal overlay showing a newest-first scrolling list
+// of dispatched intents.
+//
+// Replaces the always-on RecentActionsPanel: the user toggles it from a
+// "Log" button in the ActionsPanel controls row, and dismisses it via the
+// backdrop / close button / ESC key (mirrors RemainingCardsOverlay).
 //
 // Each row resolves the intent against the GAME STATE AT TIME OF DISPATCH so
 // it can show what the active intent log alone doesn't carry: which card was
@@ -16,7 +21,7 @@
 // reading the full sentence.
 // =============================================================================
 
-import { Fragment, useMemo, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, type ReactNode } from "react";
 import {
   initialState,
   reduce,
@@ -24,6 +29,7 @@ import {
   type Card,
   type CoalSource,
   type DistrictTag,
+  type Era,
   type GameState,
   type IndustryName,
   type Intent,
@@ -33,7 +39,6 @@ import {
 } from "../../engine";
 import { useEngine, useIntentLogVersion } from "../hooks/useEngine";
 import { DISTRICT_FILL, INDUSTRY_LABEL } from "../industryIcons";
-import { Panel } from "../layout/Panel";
 
 const MAX_ENTRIES = 200;
 
@@ -57,6 +62,12 @@ interface ResolvedSellOrder extends ResolvedTile {
 
 interface IntentDetail {
   readonly intent: Intent;
+  /** Era / round captured at the moment of dispatch — used to insert
+   *  section gaps between successive rounds in the rendered list, and
+   *  a themed divider on era flips. Both come from the pre-reduce
+   *  state snapshot. */
+  readonly era: Era;
+  readonly round: number;
   /** Card(s) discarded from hand for this dispatch. SCOUT discards 3;
    *  BUILD/NETWORK/DEVELOP/SELL/LOAN/PASS discard 1; END_TURN/noop/
    *  RESOLVE_SHORTFALL discard none. */
@@ -91,7 +102,16 @@ function buildDetailedLog(
   let state = initialState(config, bundle);
   const out: IntentDetail[] = [];
   for (const intent of log) {
-    out.push(describeIntent(intent, state));
+    // Era / round are taken pre-reduce: an END_TURN that flips the
+    // round still belongs to the round it ends, and an END_TURN that
+    // closes the canal era still belongs to canal. The divider then
+    // appears BETWEEN this entry and the next one (which carries the
+    // new round/era), which reads naturally in the newest-first view.
+    out.push({
+      ...describeIntent(intent, state),
+      era: state.era,
+      round: state.round,
+    });
     const r = reduce(state, intent);
     if (!r.ok) break;
     state = r.state;
@@ -99,7 +119,10 @@ function buildDetailedLog(
   return out;
 }
 
-function describeIntent(intent: Intent, state: GameState): IntentDetail {
+function describeIntent(
+  intent: Intent,
+  state: GameState,
+): Omit<IntentDetail, "era" | "round"> {
   if (intent.type === "noop" || intent.type === "END_TURN") {
     return { intent, cardsConsumed: [] };
   }
@@ -113,7 +136,7 @@ function describeIntent(intent: Intent, state: GameState): IntentDetail {
       const top = stack.length > 0 ? stack[0] : undefined;
       const level =
         top !== undefined ? state.tileCatalogue[top]?.level : undefined;
-      const detail: IntentDetail = {
+      const detail: Omit<IntentDetail, "era" | "round"> = {
         intent,
         cardsConsumed: card ? [card] : [],
         coalSourceLabels: intent.coalSources.map((s) =>
@@ -131,7 +154,7 @@ function describeIntent(intent: Intent, state: GameState): IntentDetail {
       const second = intent.secondLink
         ? state.lines[intent.secondLink.lineIndex]?.endpoints
         : undefined;
-      let detail: IntentDetail = {
+      let detail: Omit<IntentDetail, "era" | "round"> = {
         intent,
         cardsConsumed: card ? [card] : [],
         networkCoalLabels: intent.coalSources.map((s) =>
@@ -253,7 +276,40 @@ function brewerySourceLabel(tileId: string, state: GameState): string {
 // Component
 // -----------------------------------------------------------------------------
 
-export function RecentActionsPanel() {
+export function RecentActionsOverlay({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  // ESC dismisses — same affordance as RemainingCardsOverlay so the
+  // two modals behave identically.
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="overlay-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="recent-actions-overlay" role="dialog" aria-modal="true">
+        <RecentActionsBody onClose={onClose} />
+      </div>
+    </div>
+  );
+}
+
+function RecentActionsBody({ onClose }: { onClose: () => void }) {
   const engine = useEngine();
   useIntentLogVersion();
   const log = engine.getIntentLog();
@@ -276,22 +332,60 @@ export function RecentActionsPanel() {
   const view = detailedLog.slice(-MAX_ENTRIES).slice().reverse();
 
   return (
-    <Panel id="recent_actions" title="Recent actions">
+    <>
+      <div className="recent-actions-overlay__head">
+        <div className="recent-actions-overlay__title">Recent actions</div>
+        <button
+          type="button"
+          className="action-btn"
+          onClick={onClose}
+          aria-label="Close recent actions"
+        >
+          Close
+        </button>
+      </div>
       {view.length === 0 ? (
         <div className="recent-actions__empty">No actions yet.</div>
       ) : (
         <ol className="recent-actions">
-          {view.map((entry, i) => (
-            <li
-              key={detailedLog.length - i}
-              className="recent-actions__row"
-            >
-              <Row entry={entry} state={state} cityDistrict={cityDistrict} />
-            </li>
-          ))}
+          {view.map((entry, i) => {
+            // Insert a section divider BETWEEN entries when era or
+            // round differs from the newer (i-1) neighbour. The view
+            // is newest-first, so the divider visually separates the
+            // newer block (above) from the older block (below) and
+            // labels the boundary itself — "Round N" for round
+            // transitions, "Rail era begins" for the canal→rail flip.
+            const newer = i > 0 ? view[i - 1] : null;
+            let divider: ReactNode = null;
+            if (newer) {
+              if (newer.era !== entry.era) {
+                divider = (
+                  <li className="recent-actions__divider recent-actions__divider--era">
+                    {newer.era === "RAIL"
+                      ? "Rail era begins"
+                      : "Canal era begins"}
+                  </li>
+                );
+              } else if (newer.round !== entry.round) {
+                divider = (
+                  <li className="recent-actions__divider">
+                    Round {newer.round}
+                  </li>
+                );
+              }
+            }
+            return (
+              <Fragment key={detailedLog.length - i}>
+                {divider}
+                <li className="recent-actions__row">
+                  <Row entry={entry} state={state} cityDistrict={cityDistrict} />
+                </li>
+              </Fragment>
+            );
+          })}
         </ol>
       )}
-    </Panel>
+    </>
   );
 }
 

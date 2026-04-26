@@ -28,15 +28,19 @@ spec-owned and not touched by build code.
 
 `config/` is partly build-owned: the in-game UI / board editors
 persist their changes back into `config/ui.json` and parts of
-`config/cities.json` (board positions and slot edits). The
-remaining seed values — `config/cards.json`, `config/links.json`,
+`config/board.json` (board positions and slot edits, plus the
+on-canvas widget anchors `marketPlace.position` and
+`roundTracker.position`). The remaining seed values —
+`config/cards.json`, `config/links.json`,
 `config/industry_tiles.json`, and the spec-defined fields of
-`config/cities.json` — are spec-owned; don't edit them outside an
+`config/board.json` — are spec-owned; don't edit them outside an
 explicit task. (Note: the layout used to be configured via
 `config/layout.json`; it's now hard-coded in
 `src/ui/layout/GameLayout.tsx` + CSS template areas. The spec at
 `docs/game-spec.md` still references the old approach in §10/§11
-and should be updated in a future spec pass.)
+and should be updated in a future spec pass. Likewise it still
+calls the board file `config/cities.json` — same content, new
+name.)
 
 ## Target platform
 

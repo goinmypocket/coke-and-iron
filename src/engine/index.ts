@@ -1,6 +1,6 @@
 export { Engine } from "./Engine";
 export { initialState } from "./initialState";
-export type { EngineConfigBundle } from "./initialState";
+export type { EngineConfigBundle, SeatIdentity } from "./initialState";
 export {
   advanceSteps,
   levelToHighestStep,

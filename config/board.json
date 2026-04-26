@@ -1,5 +1,5 @@
 {
-	"_comment": "City definitions. 'slots' is an array — each entry is either a single industry name (only that industry can build there) or an array of industry names (any listed industry may build, i.e. a combo slot). 'ANY' means wildcard. 'position' is the [x, y] centre of the city on the 900×900 board canvas. Edited via the dev tool at /editor.html (run `npm run editor`); positions snap to multiples of 5.",
+	"_comment": "Board layout — districts, merchants, and the on-canvas widgets (markets + round tracker). 'slots' is an array — each entry is either a single industry name (only that industry can build there) or an array of industry names (any listed industry may build, i.e. a combo slot). 'ANY' means wildcard. 'position' is the [x, y] centre on the 900×900 board canvas. 'marketPlace.position' anchors the coal/iron market widget; 'roundTracker.position' anchors the era + round + per-player money widget. Edited via the dev tool at /editor.html (run `npm run editor`); positions snap to multiples of 5.",
 	"cities": [
 		{
 			"district": "purple",
@@ -144,8 +144,8 @@
 			"district": "red",
 			"name": "Cannock",
 			"position": [
-				415,
-				390
+				425,
+				380
 			],
 			"slots": [
 				[
@@ -159,8 +159,8 @@
 			"district": "red",
 			"name": "Stafford",
 			"position": [
-				305,
-				300
+				365,
+				290
 			],
 			"slots": [
 				[
@@ -174,8 +174,8 @@
 			"district": "red",
 			"name": "Burton-on-Trent",
 			"position": [
-				565,
-				340
+				550,
+				315
 			],
 			"slots": [
 				[
@@ -193,8 +193,14 @@
 				495
 			],
 			"slots": [
-				"COAL_MINE",
-				"MANUFACTURER"
+				[
+					"IRON_WORKS",
+					"MANUFACTURER"
+				],
+				[
+					"MANUFACTURER",
+					"BREWERY"
+				]
 			]
 		},
 		{
@@ -219,8 +225,8 @@
 			"district": "blue",
 			"name": "Stone",
 			"position": [
-				295,
-				180
+				335,
+				190
 			],
 			"slots": [
 				[
@@ -237,8 +243,8 @@
 			"district": "blue",
 			"name": "Stoke-on-Trent",
 			"position": [
-				340,
-				50
+				350,
+				65
 			],
 			"slots": [
 				[
@@ -292,8 +298,8 @@
 			"district": "teal",
 			"name": "Derby",
 			"position": [
-				655,
-				215
+				660,
+				200
 			],
 			"slots": [
 				[
@@ -311,8 +317,8 @@
 			"district": "teal",
 			"name": "Belper",
 			"position": [
-				680,
-				60
+				665,
+				45
 			],
 			"slots": [
 				[
@@ -328,8 +334,8 @@
 			"farmBrewery": true,
 			"name": "Farm Brewery 1",
 			"position": [
-				275,
-				385
+				280,
+				375
 			],
 			"slots": [
 				"BREWERY"
@@ -340,8 +346,8 @@
 			"farmBrewery": true,
 			"name": "Farm Brewery 2",
 			"position": [
-				150,
-				675
+				130,
+				680
 			],
 			"slots": [
 				"BREWERY"
@@ -358,8 +364,14 @@
 	],
 	"marketPlace": {
 		"position": [
+			810,
+			385
+		]
+	},
+	"roundTracker": {
+		"position": [
 			800,
-			340
+			810
 		]
 	},
 	"merchantBag": {
@@ -459,8 +471,8 @@
 			"linkPoints": 2,
 			"name": "Warrington",
 			"position": [
-				175,
-				85
+				190,
+				45
 			],
 			"slots": 2
 		}

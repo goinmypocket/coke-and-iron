@@ -1,5 +1,6 @@
 // =============================================================================
-// §11.1 Income Tracker — vertical ladder of income LEVELS, level 20 at top.
+// §11.1 Income Tracker — vertical ladder of income LEVELS, level 20 at top,
+// negative-income levels at the bottom.
 //
 // Each row represents one income level. Within the row sits one cell per
 // raw step that belongs to that level (1 / 2 / 3 cells). Each seat's
@@ -11,6 +12,10 @@
 // that range all stack into the single compressed cell — the engine
 // still tracks the raw step, so the Game State and Player Info panels
 // continue to display the precise level / step numbers.
+//
+// Negative income levels (1 step each, levels 0 down to -10) render as
+// individual rows below the positive ladder so a Loan that pushes a
+// player into the red is visible.
 //
 // The ladder renders as a chrome-less `<IncomeLadder>` component;
 // the board panel embeds it next to the board so the two share a

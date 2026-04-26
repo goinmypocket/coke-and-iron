@@ -21,7 +21,10 @@ import { CoalIcon } from "../icons/CoalIcon";
 import { DevelopIcon } from "../icons/DevelopIcon";
 import { IncomeGainedIcon } from "../icons/IncomeGainedIcon";
 import { IronIcon } from "../icons/IronIcon";
-import { LinkPointsIcon } from "../icons/LinkPointsIcon";
+import {
+  LinkPointsIcon,
+  linkPointsIconWidth,
+} from "../icons/LinkPointsIcon";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { INDUSTRY_ICON } from "../industryIcons";
 
@@ -269,9 +272,11 @@ function CornerLevel({ level }: { level: number }) {
   );
 }
 
-/** Cascade of N link icons starting at (x, y). When alignRight, x is
- *  the right edge and icons march leftward; otherwise x is the left
- *  edge. */
+/** N pointy-top hexagons joined edge-to-edge. When `alignRight`, the
+ *  strip's right edge sits at `x`; otherwise its left edge does.
+ *  Delegates to the shared LinkPointsIcon so the flipped tile face,
+ *  the mat side column, and the merchant badges all render link
+ *  points with identical geometry. */
 function LinkCascade({
   count,
   x,
@@ -284,16 +289,10 @@ function LinkCascade({
   alignRight?: boolean;
 }) {
   if (count <= 0) return null;
-  // Same hex size as VP / income on the same tile face — the cascade
-  // overlap absorbs the extra width.
   const size = HEX_ICON_SIZE;
-  const step = size - 2;
-  const tokens: JSX.Element[] = [];
-  for (let i = 0; i < count; i++) {
-    const ix = alignRight ? x - size - i * step : x + i * step;
-    tokens.push(<LinkPointsIcon key={i} x={ix} y={y} size={size} />);
-  }
-  return <g>{tokens}</g>;
+  const stripW = linkPointsIconWidth(count, size);
+  const left = alignRight ? x - stripW : x;
+  return <LinkPointsIcon x={left} y={y} size={size} count={count} />;
 }
 
 function CenterIcon({

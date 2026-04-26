@@ -42,6 +42,10 @@ import { CoalIcon } from "../icons/CoalIcon";
 import { DevelopIcon } from "../icons/DevelopIcon";
 import { IncomeGainedIcon } from "../icons/IncomeGainedIcon";
 import { IronIcon } from "../icons/IronIcon";
+import {
+  LinkPointsIcon,
+  linkPointsIconWidth,
+} from "../icons/LinkPointsIcon";
 import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
 import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
@@ -108,6 +112,8 @@ export function BoardPanel() {
     tileCatalogue: s.tileCatalogue,
     coalMarket: s.coalMarket,
     ironMarket: s.ironMarket,
+    marketPlacePosition: s.marketPlacePosition,
+    roundTrackerPosition: s.roundTrackerPosition,
     players: s.players,
   }), shallowEqual);
 
@@ -119,6 +125,18 @@ export function BoardPanel() {
 
   const cityByName = useMemo(
     () => indexCities(view.districtCities, view.merchantCities),
+    [view.districtCities, view.merchantCities],
+  );
+
+  // Axis-aligned bounding box per city, used by Lines to drop link
+  // tokens at the midpoint of the segment that lies OUTSIDE both
+  // cities' bounding boxes (so the canal/rail token never sits on top
+  // of slots or the city name banner). Approximate — width follows
+  // the body, height is inflated to cover the banner that hangs
+  // below district cities and the bonus/name/link badges that hang
+  // below merchants.
+  const cityBBoxes = useMemo(
+    () => buildCityBBoxes(view.districtCities, view.merchantCities),
     [view.districtCities, view.merchantCities],
   );
 
@@ -218,6 +236,7 @@ export function BoardPanel() {
           lines={view.lines}
           era={view.era}
           cityByName={cityByName}
+          cityBBoxes={cityBBoxes}
           developedLineOwners={developedLineOwners}
           pawnColorById={pawnColorById}
           linesClickable={linesClickable}
@@ -284,17 +303,20 @@ export function BoardPanel() {
           iron={view.ironMarket}
           coalGlow={coalGlow}
           ironGlow={ironGlow}
+          position={view.marketPlacePosition}
         />
         <CityBanners
           districtCities={view.districtCities}
           merchantCities={view.merchantCities}
         />
         <TurnOrderWidget
+          era={view.era}
           round={view.round}
           playerCount={view.playerCount}
           turnOrder={view.turnOrder}
           currentPlayerIndex={view.currentPlayerIndex}
           players={view.players}
+          position={view.roundTrackerPosition}
         />
         </svg>
       </div>
@@ -310,6 +332,86 @@ function indexCities(
   for (const c of districts) m.set(c.name, c.position);
   for (const c of merchants) m.set(c.name, c.position);
   return m;
+}
+
+interface CityBBox {
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+}
+
+/** Build axis-aligned bounding boxes (in board viewBox units) covering
+ *  the visible footprint of every city — slot row + everything that
+ *  hangs below it (the name banner for districts; bonus / name /
+ *  link badges for merchants). Used by Lines so link tokens sit in
+ *  the OUTSIDE portion of each line. */
+function buildCityBBoxes(
+  districts: readonly DistrictCity[],
+  merchants: readonly MerchantCity[],
+): ReadonlyMap<string, CityBBox> {
+  const m = new Map<string, CityBBox>();
+  // District: body centred on position; banner hangs 4u below body
+  // (height CITY_BANNER_HEIGHT). Width tracks body, ignoring the
+  // narrow case where a long name balloons banner width past body —
+  // the user accepted approximation here.
+  for (const c of districts) {
+    const [w, h] = cityBodyDims(c.slots.length);
+    const [cx, cy] = c.position;
+    m.set(c.name, {
+      minX: cx - w / 2,
+      maxX: cx + w / 2,
+      minY: cy - h / 2,
+      maxY: cy + h / 2 + 4 + CITY_BANNER_HEIGHT,
+    });
+  }
+  // Merchant: cluster centred horizontally on position; vertical
+  // content runs from the slot-row top (-totalH/2 in local frame)
+  // down to the bottom of the link-points badge below the name.
+  for (const c of merchants) {
+    const slotCount = Math.max(c.slotCount, 1);
+    const clusterW = slotCount * TILE;
+    const totalH = TILE + BEER_BOX + 2;
+    // Local frame: slot-row top at 0, bonus badge at TILE+BEER_BOX+14,
+    // name banner ~18 below that, link badge ~16 below the name. The
+    // badge half-extent is MERCHANT_BADGE_SIZE / 2 below its centre.
+    const localBonusY = TILE + BEER_BOX + 14;
+    const localNameY = localBonusY + 18;
+    const localLinkY = localNameY + 16;
+    const localBottom = localLinkY + MERCHANT_BADGE_SIZE / 2;
+    const [cx, cy] = c.position;
+    m.set(c.name, {
+      minX: cx - clusterW / 2,
+      maxX: cx + clusterW / 2,
+      minY: cy - totalH / 2,
+      maxY: cy - totalH / 2 + localBottom,
+    });
+  }
+  return m;
+}
+
+/** Distance from `(px, py)` along unit vector `(ux, uy)` to the first
+ *  rect boundary it hits, assuming the point starts inside the rect.
+ *  Returns 0 if the point is on the boundary; Infinity if the ray is
+ *  parallel to both axes (impossible for a unit vector). */
+function rayRectExitDistance(
+  px: number,
+  py: number,
+  ux: number,
+  uy: number,
+  rect: CityBBox,
+): number {
+  const tx = ux > 1e-9
+    ? (rect.maxX - px) / ux
+    : ux < -1e-9
+      ? (rect.minX - px) / ux
+      : Infinity;
+  const ty = uy > 1e-9
+    ? (rect.maxY - py) / uy
+    : uy < -1e-9
+      ? (rect.minY - py) / uy
+      : Infinity;
+  return Math.max(0, Math.min(tx, ty));
 }
 
 export function DistrictCityShape({
@@ -717,101 +819,20 @@ function BonusBadge({
   );
 }
 
-/** N pointy-top link-point hexagons sharing vertical edges so they
- *  read as a single connected merchant indicator with one outer
- *  border. Per-hex content (golden bar with filled circular ends) is
- *  the same as LinkPointsIcon. Centred at (0, 0). */
+/** Merchant link-points badge — N pointy-top hexes joined edge-to-edge,
+ *  centred on (0, 0). Delegates to the shared LinkPointsIcon so the
+ *  merchant badges and the tile-face / mat link cascades all share
+ *  geometry (one source of truth). */
 function LinkPointsBadge({ count }: { count: number }) {
   if (count <= 0) return null;
-  // Internal coord frame: 16 units tall (one hex + 1u top/bottom
-  // margin); per-hex centre-to-centre distance is r√3 horizontally.
-  const r = 7;
-  const halfHexW = (r * Math.sqrt(3)) / 2; // ≈ 6.062
-  const dx = halfHexW * 2; // ≈ 12.124
-  const cy = 8;
-  const yTop = cy - r;
-  const yMidTop = cy - r / 2;
-  const yMidBot = cy + r / 2;
-  const yBot = cy + r;
-  const sideMargin = 16 - dx; // ≈ 3.876
-  const innerW = sideMargin + dx * count;
-  const innerH = 16;
-  const cxs: number[] = [];
-  for (let i = 0; i < count; i++) {
-    cxs.push(sideMargin / 2 + halfHexW + i * dx);
-  }
-  // Walk the outer outline clockwise: top edge zig-zag → right side →
-  // bottom zig-zag in reverse → left side. Yields 4*count + 2 verts.
-  const outline: string[] = [];
-  for (let i = 0; i < count; i++) {
-    outline.push(`${cxs[i]!.toFixed(2)},${yTop.toFixed(2)}`);
-    outline.push(`${(cxs[i]! + halfHexW).toFixed(2)},${yMidTop.toFixed(2)}`);
-  }
-  outline.push(
-    `${(cxs[count - 1]! + halfHexW).toFixed(2)},${yMidBot.toFixed(2)}`,
-  );
-  for (let i = count - 1; i >= 0; i--) {
-    outline.push(`${cxs[i]!.toFixed(2)},${yBot.toFixed(2)}`);
-    if (i > 0) {
-      outline.push(
-        `${(cxs[i - 1]! + halfHexW).toFixed(2)},${yMidBot.toFixed(2)}`,
-      );
-    }
-  }
-  outline.push(`${(cxs[0]! - halfHexW).toFixed(2)},${yMidBot.toFixed(2)}`);
-  outline.push(`${(cxs[0]! - halfHexW).toFixed(2)},${yMidTop.toFixed(2)}`);
-
-  const pxPerUnit = MERCHANT_BADGE_SIZE / 16;
-  const widthPx = innerW * pxPerUnit;
-  const heightPx = MERCHANT_BADGE_SIZE;
-  const innerHalfW = 3.5;
-  const innerR = 1.9;
-
+  const widthPx = linkPointsIconWidth(count, MERCHANT_BADGE_SIZE);
   return (
-    <svg
+    <LinkPointsIcon
+      count={count}
+      size={MERCHANT_BADGE_SIZE}
       x={-widthPx / 2}
-      y={-heightPx / 2}
-      width={widthPx}
-      height={heightPx}
-      viewBox={`0 0 ${innerW.toFixed(2)} ${innerH}`}
-      aria-label={`${count} link points`}
-    >
-      <polygon
-        points={outline.join(" ")}
-        fill="#0a0a0a"
-        stroke="#c89020"
-        strokeWidth={1.1}
-        strokeLinejoin="round"
-      />
-      {/* Faint divider between adjacent hex cells. */}
-      {Array.from({ length: count - 1 }).map((_, i) => (
-        <line
-          key={i}
-          x1={cxs[i]! + halfHexW}
-          y1={yMidTop}
-          x2={cxs[i]! + halfHexW}
-          y2={yMidBot}
-          stroke="#c89020"
-          strokeWidth={0.45}
-          opacity={0.45}
-        />
-      ))}
-      {/* Per-hex link glyph: horizontal golden bar + filled ends. */}
-      {cxs.map((cx, i) => (
-        <g key={i}>
-          <line
-            x1={cx - innerHalfW}
-            y1={cy}
-            x2={cx + innerHalfW}
-            y2={cy}
-            stroke="#c89020"
-            strokeWidth={1.6}
-          />
-          <circle cx={cx - innerHalfW} cy={cy} r={innerR} fill="#c89020" />
-          <circle cx={cx + innerHalfW} cy={cy} r={innerR} fill="#c89020" />
-        </g>
-      ))}
-    </svg>
+      y={-MERCHANT_BADGE_SIZE / 2}
+    />
   );
 }
 
@@ -849,6 +870,7 @@ export function Lines({
   lines,
   era,
   cityByName,
+  cityBBoxes,
   developedLineOwners,
   pawnColorById,
   linesClickable,
@@ -858,6 +880,7 @@ export function Lines({
   lines: readonly Line[];
   era: Era;
   cityByName: ReadonlyMap<string, readonly [number, number]>;
+  cityBBoxes: ReadonlyMap<string, CityBBox>;
   developedLineOwners: ReadonlyMap<number, number>;
   pawnColorById: ReadonlyMap<number, string>;
   linesClickable: boolean;
@@ -891,15 +914,44 @@ export function Lines({
           : "board-line";
 
         if (points.length === 2) {
-          const mx = (points[0]![0] + points[1]![0]) / 2;
-          const my = (points[0]![1] + points[1]![1]) / 2;
+          // Place the link token at the midpoint of the OUTSIDE part
+          // of the line — the segment that lies between the two
+          // cities' bounding boxes. Falls back to the geometric
+          // midpoint if the cities overlap or one bbox is missing.
+          const p0 = points[0]!;
+          const p1 = points[1]!;
+          const dx = p1[0] - p0[0];
+          const dy = p1[1] - p0[1];
+          const len = Math.hypot(dx, dy);
+          const ux = len > 0 ? dx / len : 1;
+          const uy = len > 0 ? dy / len : 0;
+          const bbox0 = cityBBoxes.get(line.endpoints[0]!);
+          const bbox1 = cityBBoxes.get(line.endpoints[1]!);
+          const exit0 = bbox0
+            ? rayRectExitDistance(p0[0], p0[1], ux, uy, bbox0)
+            : 0;
+          // Distance from p1 going BACK along the line until it leaves
+          // c1's bbox; the line first ENTERS c1's bbox at len - exit1.
+          const exit1 = bbox1
+            ? rayRectExitDistance(p1[0], p1[1], -ux, -uy, bbox1)
+            : 0;
+          const tStart = exit0;
+          const tEnd = len - exit1;
+          let mx: number;
+          let my: number;
+          if (tStart < tEnd) {
+            const tMid = (tStart + tEnd) / 2;
+            mx = p0[0] + ux * tMid;
+            my = p0[1] + uy * tMid;
+          } else {
+            // Cities overlap or are touching — geometric midpoint.
+            mx = (p0[0] + p1[0]) / 2;
+            my = (p0[1] + p1[1]) / 2;
+          }
           // Tile rotation aligns with the line direction. Atan2 gives
           // an angle in [-90°, 90°] when we normalise to the upper
           // half plane so the boat / train always reads "right-side up".
-          let lineAngle = (Math.atan2(
-            points[1]![1] - points[0]![1],
-            points[1]![0] - points[0]![0],
-          ) * 180) / Math.PI;
+          let lineAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
           if (lineAngle > 90) lineAngle -= 180;
           if (lineAngle < -90) lineAngle += 180;
           return (
@@ -1071,16 +1123,20 @@ function BuiltTiles({
   );
 }
 
-function Markets({
+export function Markets({
   coal,
   iron,
   coalGlow,
   ironGlow,
+  position,
 }: {
   coal: Market;
   iron: Market;
   coalGlow: boolean;
   ironGlow: boolean;
+  /** Centre of the widget on the 900×900 board canvas, sourced from
+   *  config/board.json so the editor can reposition it. */
+  position: readonly [number, number];
 }) {
   // §2.11.3 widget. Whole-widget glow when either market is an active
   // pick target. Two columns side by side; each column is a stack of
@@ -1088,14 +1144,14 @@ function Markets({
   // (aligned to the same y baseline across both columns so the icons
   // sit symmetrically along the bottom). No header text, no
   // Buy/Sell summary, no cube-count line.
-  const widgetW = 112;
+  const widgetW = 156;
   // Widget height accommodates the taller coal column (8 rows) plus
   // the icon and even padding top + bottom.
-  const innerPadX = 8;
-  const innerPadY = 8;
-  const ICON = 20;
-  const ROW_H = 13;
-  const ROW_GAP = 5;
+  const innerPadX = 11;
+  const innerPadY = 11;
+  const ICON = 28;
+  const ROW_H = 18;
+  const ROW_GAP = 7;
   const coalRows = coal.tiers.length + 1;
   const ironRows = iron.tiers.length + 1;
   const widgetH = innerPadY + coalRows * ROW_H + ROW_GAP + ICON + innerPadY;
@@ -1108,12 +1164,18 @@ function Markets({
   const coalTopY = bottomOfRows - coalRows * ROW_H;
   const ironTopY = bottomOfRows - ironRows * ROW_H;
   const anyGlow = coalGlow || ironGlow;
+  // Translate so `position` ends up at the widget's CENTRE — matches
+  // the convention used for cities (`position` is the centre on the
+  // canvas) and means the editor can drag the widget around without
+  // reasoning about rectangle corners.
+  const tx = position[0] - widgetW / 2;
+  const ty = position[1] - widgetH / 2;
   return (
     <g
       className={
         "board-markets" + (anyGlow ? " board-markets--active" : "")
       }
-      transform={`translate(${CANVAS - widgetW - 8}, ${CANVAS - widgetH - 8})`}
+      transform={`translate(${tx}, ${ty})`}
     >
       <rect
         x={0}
@@ -1176,13 +1238,13 @@ function MarketColumn({
   glow: boolean;
 }) {
   const tiers = market.tiers;
-  const cubeSize = 9;
-  const cubeGap = 4;
-  const coinSize = 10;
+  const cubeSize = 13;
+  const cubeGap = 5;
+  const coinSize = 14;
   // Row content layout: coin + spacer + cube + gap + cube. Centred
   // inside the column so a column with fewer rows still aligns to
   // the same horizontal axis.
-  const coinSpacer = 4;
+  const coinSpacer = 5;
   const rowContentW = coinSize + coinSpacer + cubeSize * 2 + cubeGap;
   const rowStartX = x + (colW - rowContentW) / 2;
   const coinCx = rowStartX + coinSize / 2;
@@ -1220,8 +1282,8 @@ function MarketColumn({
             {row.isOverflow ? (
               <text
                 x={coinCx + coinSize / 2 + 0.5}
-                y={rowY + 2}
-                fontSize={4}
+                y={rowY + 3}
+                fontSize={6}
                 fontWeight={700}
                 fill="var(--muted)"
                 style={{ pointerEvents: "none" }}
@@ -1423,7 +1485,7 @@ function CityBanner({
 // MoneyCoin). The active seat row gets a soft highlight strip.
 // =============================================================================
 
-interface TurnOrderPlayer {
+export interface TurnOrderPlayer {
   readonly id: number;
   readonly displayName: string;
   readonly pawnColor: string;
@@ -1438,26 +1500,39 @@ const LAST_ROUND_BY_PLAYER_COUNT: Readonly<Record<number, number>> = {
   4: 8,
 };
 
-function TurnOrderWidget({
+export function TurnOrderWidget({
+  era,
   round,
   playerCount,
   turnOrder,
   currentPlayerIndex,
   players,
+  position,
 }: {
+  era: Era;
   round: number;
   playerCount: number;
   turnOrder: readonly number[];
   currentPlayerIndex: number;
   players: readonly TurnOrderPlayer[];
+  /** Centre of the widget on the 900×900 board canvas (from
+   *  config/board.json roundTracker.position). */
+  position: readonly [number, number];
 }) {
-  const W = 150;
-  const ROW_H = 20;
-  const HEADER_H = 24;
+  const W = 168;
+  // Tall enough to host a clearly-readable coin (size 24) plus name
+  // text without crowding.
+  const ROW_H = 30;
+  // Two header lines now: era on top, "Round k/n" beneath. The era line
+  // is the canonical source for the current era now that GameStatePanel
+  // is gone.
+  const HEADER_H = 38;
   const H = HEADER_H + turnOrder.length * ROW_H + 4;
-  const X = CANVAS - W - 14;
-  const Y = 14;
+  // Centre the box on `position`, mirroring city/merchant convention.
+  const X = position[0] - W / 2;
+  const Y = position[1] - H / 2;
   const totalRounds = LAST_ROUND_BY_PLAYER_COUNT[playerCount] ?? round;
+  const eraLabel = era === "CANAL" ? "Canal Era" : "Rail Era";
   const playerById = new Map(players.map((p) => [p.id, p]));
   return (
     <g
@@ -1477,11 +1552,21 @@ function TurnOrderWidget({
       />
       <text
         x={W / 2}
-        y={16}
+        y={15}
         textAnchor="middle"
         fontSize={11}
         fontWeight={700}
         fill="#1a1a1a"
+      >
+        {eraLabel}
+      </text>
+      <text
+        x={W / 2}
+        y={30}
+        textAnchor="middle"
+        fontSize={10}
+        fontWeight={600}
+        fill="var(--muted)"
       >
         Round {round}/{totalRounds}
       </text>
@@ -1498,8 +1583,8 @@ function TurnOrderWidget({
         if (!p) return null;
         const rowTop = HEADER_H + i * ROW_H;
         const isActive = i === currentPlayerIndex;
-        const SWATCH = 10;
-        const COIN = 11;
+        const SWATCH = 14;
+        const COIN = 24;
         return (
           <g key={seatId} transform={`translate(0, ${rowTop})`}>
             {isActive ? (
@@ -1521,9 +1606,9 @@ function TurnOrderWidget({
               strokeWidth={0.5}
             />
             <text
-              x={20}
+              x={22}
               y={ROW_H / 2 + 3.5}
-              fontSize={10}
+              fontSize={11}
               fontWeight={600}
               fill="#1a1a1a"
             >

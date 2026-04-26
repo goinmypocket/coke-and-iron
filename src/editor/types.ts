@@ -1,4 +1,4 @@
-// Mirror of the on-disk shape of config/cities.json and config/links.json.
+// Mirror of the on-disk shape of config/board.json and config/links.json.
 // The editor parses JSON straight into these types and serializes them
 // back unchanged on save, so any unknown fields like "_comment" round-trip.
 
@@ -74,6 +74,8 @@ export interface CitiesConfigRaw {
   cities: CityRaw[];
   industryNames: IndustryName[];
   marketPlace: { position: Position };
+  /** §11.2 — anchor for the era + round + per-seat money widget. */
+  roundTracker: { position: Position };
   merchantBag: unknown;
   merchantCities: MerchantCityRaw[];
 }

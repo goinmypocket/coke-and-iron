@@ -21,7 +21,9 @@ import {
   extractCatalogue,
   extractDistrictCities,
   extractLines,
+  extractMarketPlacePosition,
   extractMerchantCities,
+  extractRoundTrackerPosition,
   type CardsConfig,
   type CitiesConfig,
   type LinksConfig,
@@ -41,21 +43,34 @@ import type {
   MerchantCity,
   MerchantSlot,
   MerchantTileAccept,
+  PawnColor,
   Player,
   PlayerCount,
   PlayerId,
   WildReserve,
 } from "./types";
 
+/** Per-seat identity overrides for setup. Lobby-supplied at host time;
+ * the host writes these into the save file so reload restores the same
+ * names + colours. */
+export interface SeatIdentity {
+  readonly displayName: string;
+  readonly pawnColor: PawnColor;
+}
+
 /**
  * Config bundle injected into setup. Each field is optional; unspecified
  * entries fall back to the bundled default loaded from config/*.json.
+ *
+ * `seats[i]` overrides player i's auto-assigned `Player N` name and
+ * default-palette colour. Length must match playerCount when present.
  */
 export interface EngineConfigBundle {
   readonly tiles?: TilesConfig;
   readonly cards?: CardsConfig;
   readonly cities?: CitiesConfig;
   readonly links?: LinksConfig;
+  readonly seats?: readonly SeatIdentity[];
 }
 
 const DEFAULT_PAWN_COLORS = ["red", "yellow", "green", "blue"] as const;
@@ -114,10 +129,16 @@ export function initialState(
   );
 
   // --- Per-seat players (§3.2) ---
+  if (bundle.seats && bundle.seats.length !== config.playerCount) {
+    throw new Error(
+      `bundle.seats has ${bundle.seats.length} entries; expected ${config.playerCount}`,
+    );
+  }
   const players: Player[] = buildPlayers(
     config.playerCount,
     tileCatalogue,
     hands,
+    bundle.seats,
   );
 
   // --- Random seating order (§3.3) ---
@@ -134,6 +155,8 @@ export function initialState(
     merchantCities,
     lines,
     tileCatalogue,
+    marketPlacePosition: extractMarketPlacePosition(citiesConfig),
+    roundTrackerPosition: extractRoundTrackerPosition(citiesConfig),
 
     rng,
 
@@ -194,11 +217,12 @@ function buildPlayers(
   playerCount: PlayerCount,
   catalogue: readonly IndustryTileSpec[],
   hands: Card[][],
+  seats: readonly SeatIdentity[] | undefined,
 ): Player[] {
   return Array.from({ length: playerCount }, (_, i): Player => ({
     id: i,
-    displayName: `Player ${i + 1}`,
-    pawnColor: DEFAULT_PAWN_COLORS[i] ?? "red",
+    displayName: seats?.[i]?.displayName ?? `Player ${i + 1}`,
+    pawnColor: seats?.[i]?.pawnColor ?? DEFAULT_PAWN_COLORS[i] ?? "red",
     money: 17,
     vp: 0,
     incomeStep: 10,

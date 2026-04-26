@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Cotton mill industry icon: brick multi-storey factory with a red
-       pitched roof, arched central door, grid of tall lit windows, and
-       subtle brick pattern. No chimney (brewery/iron contrast). -->
+  <!-- Cotton mill industry icon: brick multi-storey factory with a
+       silver/grey pitched roof, arched central door, grid of tall lit
+       windows, and subtle brick pattern. No chimney (brewery/iron
+       contrast). -->
 
   <defs>
     <linearGradient id="brick" x1="0" y1="0" x2="0" y2="1">
@@ -10,8 +11,8 @@
       <stop offset="1" stop-color="#8A8070"/>
     </linearGradient>
     <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#A04848"/>
-      <stop offset="1" stop-color="#5A2828"/>
+      <stop offset="0" stop-color="#C8CCD0"/>
+      <stop offset="1" stop-color="#6E7378"/>
     </linearGradient>
     <linearGradient id="window" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#EACF72"/>
@@ -24,13 +25,13 @@
 
   <!-- Roof: pitched, double pitched shape -->
   <polygon points="10,40 118,40 104,18 24,18"
-           fill="url(#roof)" stroke="#2A1410" stroke-width="2"/>
+           fill="url(#roof)" stroke="#2A2A2A" stroke-width="2"/>
   <!-- Ridge highlight -->
-  <line x1="24" y1="18" x2="104" y2="18" stroke="#C86868" stroke-width="1.5"/>
+  <line x1="24" y1="18" x2="104" y2="18" stroke="#E8ECEF" stroke-width="1.5"/>
   <!-- Eaves line -->
-  <line x1="10" y1="40" x2="118" y2="40" stroke="#3A1C1C" stroke-width="2"/>
+  <line x1="10" y1="40" x2="118" y2="40" stroke="#2A2A2A" stroke-width="2"/>
   <!-- Roof tile rows -->
-  <g stroke="#7A2828" stroke-width="0.8" opacity="0.55">
+  <g stroke="#4A4F54" stroke-width="0.8" opacity="0.55">
     <line x1="12" y1="27" x2="116" y2="27"/>
     <line x1="12" y1="34" x2="116" y2="34"/>
   </g>
