@@ -12,6 +12,10 @@
 //     mirror stays in sync without re-forwarding.
 //   - On INTENT_REJECTED of our own optimistic dispatch, undo the local
 //     apply and surface a toast.
+//   - Persist the per-seat reconnect token in localStorage and replay it
+//     via RESUME on every fresh WebSocket open. Lets a player who
+//     refreshed / migrated devices walk back into the same seat without
+//     anyone clicking anything.
 //
 // The hook returns one of three "modes": 'connecting' | 'lobby' | 'playing'.
 // Callers render different React trees per mode.
@@ -76,6 +80,37 @@ function defaultUrl(): string {
   return `${proto}//${window.location.host}/ws`;
 }
 
+/** localStorage key for the per-host seat token. Different host URLs
+ * mean different games (and different tokens), so we key by host —
+ * a player who hosts AND joins someone else's game from the same
+ * browser keeps both tokens. */
+function seatTokenKey(url: string): string {
+  return `bb-seat-token:${url}`;
+}
+
+function readSavedToken(url: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(seatTokenKey(url));
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedToken(url: string, token: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (token === null) {
+      window.localStorage.removeItem(seatTokenKey(url));
+    } else {
+      window.localStorage.setItem(seatTokenKey(url), token);
+    }
+  } catch {
+    // localStorage can be disabled in private mode / strict cookie
+    // settings — degrade silently to "no auto-resume".
+  }
+}
+
 export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [clientId, setClientId] = useState<string | null>(null);
@@ -97,12 +132,25 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
       onWelcome: (id, _inLobby) => {
         clientIdRef.current = id;
         setClientId(id);
+        // If we have a saved seat token, ask the host to transfer the
+        // seat to this fresh clientId. The host will reply with
+        // RESUMED + a fresh snapshot on success or ERROR on a stale
+        // token (in which case we drop the token and fall through to
+        // the regular lobby flow).
+        const saved = readSavedToken(url);
+        if (saved) ws.resume(saved);
       },
       onLobbyState: (next) => {
         setLobby(next);
       },
       onSavesList: (list) => setAvailableSaves(list),
       onSnapshot: (msg) => onSnapshot(msg),
+      onResumed: (seatId) => {
+        // Quiet success — UI just gets a fresh LOBBY_STATE / SNAPSHOT
+        // shortly after. We keep the seat id around so debugging tools
+        // can read it; React state updates already flow via lobby/seats.
+        void seatId;
+      },
       onIntentAccepted: (intent, originator) => {
         // Originator already applied locally — skip to avoid double-apply.
         if (originator === clientIdRef.current) return;
@@ -123,12 +171,24 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
         });
       },
       onPaused: setPausedState,
-      onError: (msg) => toast.error(msg),
+      onError: (msg) => {
+        // A stale/garbage seat token ends up here. Drop it so we don't
+        // keep retrying on every reconnect — the user can re-claim
+        // their seat from the lobby like a fresh player.
+        if (msg.includes("seat token")) {
+          writeSavedToken(url, null);
+        }
+        toast.error(msg);
+      },
     });
     wsRef.current = ws;
 
     function onSnapshot(msg: Extract<ServerMessage, { type: "SNAPSHOT" }>) {
-      const { playing, seats: snapshotSeats } = msg;
+      const { playing, seats: snapshotSeats, seatToken } = msg;
+      // Persist (or refresh) the seat token whenever the server
+      // includes one — same-device refresh, host restart, mid-game
+      // reconnect all flow through here.
+      if (seatToken) writeSavedToken(url, seatToken);
       const fresh = new Engine(
         {
           seed: playing.seed,
