@@ -36,6 +36,10 @@ import type {
 import type { EngineConfigBundle } from "../engine/initialState";
 import type { PlayerView } from "../engine/view";
 import { projectForSpectator } from "../engine/view";
+import { buildEvent, type ObservableEvent } from "./eventLog";
+import type { S2CState } from "./protocol";
+
+type StateCause = S2CState["cause"];
 
 /** Subset of the `Engine` interface that the UI actually uses. Keeping
  *  this narrow means we don't have to mock parts of the engine that
@@ -70,6 +74,11 @@ export class ClientEngine implements ClientEngineLike {
    *  for setup parameters. No seed (the real one stays server-side). */
   private readonly initialConfig: EngineConfig;
   private readonly initialBundle: EngineConfigBundle;
+  /** Public history of dispatched intents, computed locally from the
+   *  STATE pre/post diffs the host streams. Same content for every
+   *  client (no private information leaks in) — and rebuilt from
+   *  scratch on each SNAPSHOT-cause STATE so reconnects start clean. */
+  private recentEvents: ObservableEvent[] = [];
 
   constructor(
     initialView: PlayerView,
@@ -88,12 +97,39 @@ export class ClientEngine implements ClientEngineLike {
   /** Replace the held view (and the canUndo flag) with a fresh one
    *  from the host. Notifies every subscriber synchronously, the same
    *  contract the real Engine offers. Called by useNetworkClient on
-   *  every STATE / SNAPSHOT message. */
-  applyView = (view: PlayerView, canUndoNow: boolean): void => {
+   *  every STATE / SNAPSHOT message.
+   *
+   *  The `cause` discriminates how to evolve the local recent-events
+   *  log: `intent` appends a derived ObservableEvent, `undo` pops the
+   *  last entry, and `snapshot` resets the log (a fresh snapshot means
+   *  we just joined or someone reloaded a save — the prior chain we
+   *  held no longer applies). */
+  applyView = (
+    view: PlayerView,
+    canUndoNow: boolean,
+    cause: StateCause,
+  ): void => {
+    const prev = this.view;
+    if (cause.kind === "intent") {
+      this.recentEvents = [
+        ...this.recentEvents,
+        buildEvent(prev, view, cause.intent),
+      ];
+    } else if (cause.kind === "undo") {
+      this.recentEvents = this.recentEvents.slice(0, -1);
+    } else {
+      // snapshot — fresh authoritative state with no prior chain.
+      this.recentEvents = [];
+    }
     this.view = view;
     this.canUndoNow = canUndoNow;
     for (const cb of this.subs) cb();
   };
+
+  /** The locally-derived public history of dispatched intents. Same
+   *  on every client; safe to render directly. Empty until the first
+   *  intent-cause STATE arrives. */
+  getRecentEvents = (): readonly ObservableEvent[] => this.recentEvents;
 
   // ---------------------------------------------------------------------------
   // Engine compat surface

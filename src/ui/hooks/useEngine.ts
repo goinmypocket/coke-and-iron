@@ -1,5 +1,7 @@
 import { useContext, useSyncExternalStore } from "react";
 import type { Engine } from "../../engine/Engine";
+import type { ClientEngine } from "../../network/ClientEngine";
+import type { ObservableEvent } from "../../network/eventLog";
 import { EngineContext } from "./EngineProvider";
 
 /**
@@ -37,4 +39,30 @@ export function useIntentLogVersion(): number {
     engine.subscribe,
     () => engine.getIntentLog().length,
   );
+}
+
+/** Stable empty array reused across snapshot calls when the engine does
+ *  not expose `getRecentEvents` (e.g., the headless Engine in tests).
+ *  useSyncExternalStore requires reference stability between calls when
+ *  nothing changed. */
+const EMPTY_EVENTS: readonly ObservableEvent[] = Object.freeze([]);
+
+/**
+ * Subscribes to the engine and returns the recent observable-event log,
+ * the public history each client computes from its own STATE stream.
+ * Falls back to an empty array on engine implementations that don't
+ * carry the log (the headless Engine class — tests, editor previews).
+ *
+ * The returned array is the engine's internal reference; ClientEngine
+ * replaces it with a fresh array on every change, so React's referential
+ * equality check fires the re-render at the right time.
+ */
+export function useRecentEvents(): readonly ObservableEvent[] {
+  const engine = useEngine();
+  return useSyncExternalStore(engine.subscribe, () => {
+    const probe = engine as unknown as Partial<ClientEngine>;
+    return typeof probe.getRecentEvents === "function"
+      ? probe.getRecentEvents()
+      : EMPTY_EVENTS;
+  });
 }

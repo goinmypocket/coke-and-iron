@@ -141,7 +141,7 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
       },
       onSavesList: (list) => setAvailableSaves(list),
       onSnapshot: (msg) => onSnapshot(msg),
-      onState: (view, paused, _allowUndo, canUndoNow, _cause) => {
+      onState: (view, paused, _allowUndo, canUndoNow, cause) => {
         // Per-recipient redacted state update. The engine is built
         // lazily on the first STATE so we don't need a separate
         // snapshot path — the host emits STATE { kind: "snapshot" }
@@ -153,7 +153,10 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
           });
           setEngine(engineRef.current as unknown as Engine);
         } else {
-          engineRef.current.applyView(view, canUndoNow);
+          // The cause drives how the local recent-actions log evolves
+          // (append on intent, pop on undo, reset on snapshot) — see
+          // ClientEngine.applyView for the rules.
+          engineRef.current.applyView(view, canUndoNow, cause);
         }
         setPausedState(paused);
       },
