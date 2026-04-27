@@ -312,6 +312,12 @@ function routeMessage(
     case "LIST_SAVES":
       game.handleListSaves(clientId);
       return;
+    case "UNDO":
+      game.handleUndo(clientId);
+      return;
+    case "RESUME":
+      game.handleResume(clientId, msg.seatToken);
+      return;
   }
 }
 

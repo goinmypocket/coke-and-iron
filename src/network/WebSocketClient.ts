@@ -20,6 +20,7 @@ import {
   type ServerMessage,
 } from "./protocol";
 import type { Intent } from "../engine/types";
+import type { PlayerView } from "../engine/view";
 
 export type ConnectionStatus =
   | "connecting"
@@ -32,8 +33,22 @@ export interface WebSocketClientHandlers {
   onWelcome?: (clientId: string, inLobby: boolean) => void;
   onLobbyState?: (lobby: LobbyState) => void;
   onSnapshot?: (msg: Extract<ServerMessage, { type: "SNAPSHOT" }>) => void;
+  /** Per-recipient state update — the view here is already filtered
+   * for this connection's seat. Includes the cause (intent / undo /
+   * snapshot) so the UI can drive notifications and the recent-actions
+   * overlay. */
+  onState?: (
+    view: PlayerView,
+    paused: boolean,
+    allowUndo: boolean,
+    cause: Extract<ServerMessage, { type: "STATE" }>["cause"],
+  ) => void;
+  /** Legacy mirror-engine path — fires when the host accepts an
+   * intent and broadcasts it for replay. Will be removed once the
+   * client cuts over to onState. */
   onIntentAccepted?: (intent: Intent, originator: string) => void;
   onIntentRejected?: (reason: string, intent: Intent) => void;
+  onResumed?: (seatId: number) => void;
   onPaused?: (paused: boolean) => void;
   onSavesList?: (saves: readonly SaveSummary[]) => void;
   onError?: (message: string) => void;
@@ -110,6 +125,18 @@ export class WebSocketClient {
 
   listSaves = (): void => {
     this.send({ type: "LIST_SAVES" });
+  };
+
+  /** Active-seat-only. Roll back the most recent intent in the
+   * current turn (server-side replay). */
+  undo = (): void => {
+    this.send({ type: "UNDO" });
+  };
+
+  /** Reconnect with a saved seat token so the host transfers the
+   * seat to this connection. Send immediately after WELCOME. */
+  resume = (seatToken: string): void => {
+    this.send({ type: "RESUME", seatToken });
   };
 
   private send(msg: ClientMessage): void {
@@ -192,11 +219,22 @@ export class WebSocketClient {
       case "SNAPSHOT":
         this.handlers.onSnapshot?.(msg);
         return;
+      case "STATE":
+        this.handlers.onState?.(
+          msg.playing.view,
+          msg.playing.paused,
+          msg.playing.allowUndo,
+          msg.cause,
+        );
+        return;
       case "INTENT_ACCEPTED":
         this.handlers.onIntentAccepted?.(msg.intent, msg.originator);
         return;
       case "INTENT_REJECTED":
         this.handlers.onIntentRejected?.(msg.reason, msg.intent);
+        return;
+      case "RESUMED":
+        this.handlers.onResumed?.(msg.seatId);
         return;
       case "PAUSED":
         this.handlers.onPaused?.(msg.paused);

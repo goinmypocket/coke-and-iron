@@ -137,6 +137,103 @@ describe("HostGame — lobby + game flow", () => {
     expect(err?.message).toMatch(/only the host/i);
   });
 
+  it("issues seat tokens at game start and allows reclaim via RESUME", () => {
+    const host = new HostGame({
+      seed: 5,
+      playerCount: 2,
+      autoEndTurn: false,
+      allowUndo: true,
+      bundle: {},
+      autosavePath: `${process.cwd()}/saves/__test__.json`,
+      debounceMs: 50_000,
+    });
+    const a = attach(host, "client-a");
+    attach(host, "client-b");
+    host.handleClaimSeat("client-a", 0, "Alice", "red");
+    host.handleClaimSeat("client-b", 1, "Bob", "yellow");
+    host.handleStartGame("client-a");
+
+    const snap = lastOfType(a, "SNAPSHOT");
+    expect(snap?.seatToken).toBeTruthy();
+    const tokenForA = snap!.seatToken!;
+    // The token also lives on the host so a fresh connection can
+    // resume by presenting it.
+    expect(host.getSeatToken(0)).toBe(tokenForA);
+
+    // Simulate Alice's connection dropping and a brand-new connection
+    // ("client-a2") arriving with her token. The seat should transfer.
+    host.detachConnection("client-a");
+    const a2 = attach(host, "client-a2");
+    host.handleResume("client-a2", tokenForA);
+
+    const resumed = lastOfType(a2, "RESUMED");
+    expect(resumed?.seatId).toBe(0);
+    // Now client-a2 can act on seat 0.
+    const activeSeat =
+      host["engine"]?.getState().turnOrder[
+        host["engine"]?.getState().currentPlayerIndex ?? 0
+      ];
+    if (activeSeat === 0) {
+      host.handleIntent("client-a2", {
+        type: "PASS",
+        playerId: 0,
+        cardIndex: 0,
+      });
+      expect(lastOfType(a2, "INTENT_REJECTED")).toBeUndefined();
+    }
+  });
+
+  it("rejects RESUME when the token doesn't match any seat", () => {
+    const host = new HostGame({
+      seed: 1,
+      playerCount: 2,
+      autoEndTurn: false,
+      allowUndo: true,
+      bundle: {},
+      autosavePath: `${process.cwd()}/saves/__test__.json`,
+      debounceMs: 50_000,
+    });
+    const a = attach(host, "client-a");
+    host.handleResume("client-a", "garbage-token");
+    expect(lastOfType(a, "ERROR")?.message).toMatch(/not recognised/);
+  });
+
+  it("emits a per-recipient redacted STATE on accepted intents", () => {
+    const host = new HostGame({
+      seed: 5,
+      playerCount: 2,
+      autoEndTurn: false,
+      allowUndo: true,
+      bundle: {},
+      autosavePath: `${process.cwd()}/saves/__test__.json`,
+      debounceMs: 50_000,
+    });
+    const a = attach(host, "client-a");
+    const b = attach(host, "client-b");
+    host.handleClaimSeat("client-a", 0, "Alice", "red");
+    host.handleClaimSeat("client-b", 1, "Bob", "yellow");
+    host.handleStartGame("client-a");
+
+    const stateA = lastOfType(a, "STATE");
+    const stateB = lastOfType(b, "STATE");
+    expect(stateA).toBeTruthy();
+    expect(stateB).toBeTruthy();
+
+    // Each client sees their own hand, the other's redacted.
+    const aView = stateA!.playing.view;
+    const bView = stateB!.playing.view;
+    expect(aView.viewerSeatId).toBe(0);
+    expect(bView.viewerSeatId).toBe(1);
+    expect(aView.players[0]?.hand.length).toBeGreaterThan(0);
+    expect(aView.players[1]?.hand).toEqual([]); // redacted
+    expect(bView.players[0]?.hand).toEqual([]); // redacted
+    expect(bView.players[1]?.hand.length).toBeGreaterThan(0);
+
+    // drawDeck count is public, contents aren't on the wire.
+    expect(aView.drawDeckCount).toBeGreaterThan(0);
+    expect((aView as unknown as { drawDeck?: unknown }).drawDeck).toBeUndefined();
+  });
+
   it("rejects intents from non-seat-holders", () => {
     const host = new HostGame({
       seed: 5,

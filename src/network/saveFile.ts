@@ -30,7 +30,7 @@ import {
 } from "../engine";
 import type { Intent, PlayerCount } from "../engine/types";
 
-export const SAVE_VERSION = 1 as const;
+export const SAVE_VERSION = 2 as const;
 
 /** A bundle with every field populated. Saves always store this shape. */
 export interface ResolvedBundle {
@@ -52,6 +52,11 @@ export interface SaveFile {
   readonly bundle: ResolvedBundle;
   /** Opaque to the schema — validated by replay through the engine. */
   readonly intentLog: readonly Intent[];
+  /** Per-seat reconnect tokens. seatTokens[seatId] is the token any
+   *  client that owns that seat presents in C2S RESUME. Persisted so
+   *  the host can be Ctrl-C'd and resumed without invalidating the
+   *  players' bookmarks. */
+  readonly seatTokens: readonly string[];
 }
 
 const SeatIdentitySchema = z.object({
@@ -77,6 +82,7 @@ const SaveFileSchema = z.object({
     seats: z.array(SeatIdentitySchema),
   }),
   intentLog: z.array(z.unknown()),
+  seatTokens: z.array(z.string()),
 });
 
 /** Fill in defaults for any unspecified bundle field. Saves always store
@@ -103,6 +109,7 @@ export interface BuildSaveArgs {
   readonly allowUndo: boolean;
   readonly bundle: ResolvedBundle;
   readonly intentLog: readonly Intent[];
+  readonly seatTokens: readonly string[];
 }
 
 export function buildSaveFile(args: BuildSaveArgs): SaveFile {
@@ -116,6 +123,7 @@ export function buildSaveFile(args: BuildSaveArgs): SaveFile {
     allowUndo: args.allowUndo,
     bundle: args.bundle,
     intentLog: args.intentLog,
+    seatTokens: args.seatTokens,
   };
 }
 
@@ -143,15 +151,29 @@ export function parseSaveFile(json: string): SaveFile {
   } catch (err) {
     throw new SaveFileError("save file is not valid JSON", err);
   }
-  // Accept missing autoEndTurn/allowUndo for forward-leniency.
+  // Accept missing autoEndTurn/allowUndo/seatTokens for
+  // forward-leniency. Pre-v2 saves predate seat tokens; we synthesise
+  // an empty array so resuming such a save just means everyone
+  // re-claims by name from the lobby (the existing fromSave flow).
   const withDefaults =
     typeof raw === "object" && raw !== null
       ? {
           autoEndTurn: false,
           allowUndo: true,
+          seatTokens: [] as string[],
+          version: SAVE_VERSION,
           ...(raw as Record<string, unknown>),
         }
       : raw;
+  // If we just defaulted seatTokens to [] but the original save was
+  // version 1, also rewrite version so the schema accepts it.
+  if (
+    typeof withDefaults === "object" &&
+    withDefaults !== null &&
+    (withDefaults as { version?: unknown }).version === 1
+  ) {
+    (withDefaults as Record<string, unknown>).version = SAVE_VERSION;
+  }
   const parsed = SaveFileSchema.safeParse(withDefaults);
   if (!parsed.success) {
     throw new SaveFileError(

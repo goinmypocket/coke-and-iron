@@ -4,22 +4,28 @@
 // Owns:
 //   - LobbyState (pre-game) + Engine (during game)
 //   - The set of connected clients and their assigned clientIds
+//   - One reconnect token per seat, persisted in the save file so a
+//     player who refreshed / changed devices can re-claim by token
 //   - The autosave path; debounced disk writes after every accepted intent
 //
-// Every mutation that should reach the wire goes through `broadcast()` — the
-// caller owns no transport-specific logic. Connection bookkeeping is the
-// only thing the surrounding server file deals with.
+// On any state change (intent accepted, undo, paused, lobby reshape) the
+// host broadcasts a per-recipient STATE / LOBBY_STATE — every client gets
+// the *redacted* PlayerView for its own seat. Clients never receive
+// another seat's hand contents or the deck on the wire.
 // =============================================================================
+import { randomUUID } from "node:crypto";
 import {
   Engine,
+  projectFor,
   type EngineConfigBundle,
   type SeatIdentity,
 } from "../src/engine";
-import type { Intent, PlayerCount } from "../src/engine/types";
+import type { Intent, PlayerCount, PlayerId } from "../src/engine/types";
 import {
   LOBBY_COLORS,
   PROTOCOL_VERSION,
   type LobbyState,
+  type PlayingEnvelope,
   type SaveSummary as ProtocolSaveSummary,
   type ServerMessage,
 } from "../src/network/protocol";
@@ -87,6 +93,10 @@ export class HostGame {
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   private loadedIntents: readonly Intent[] | null;
+  /** seatTokens[seatId] is the token any client owning that seat
+   * presents in C2S RESUME. Populated either from a loaded save or
+   * minted fresh in handleStartGame. */
+  private seatTokens: string[];
 
   constructor(opts: HostGameOptions) {
     this.seed = opts.loadFrom?.seed ?? opts.seed;
@@ -98,6 +108,9 @@ export class HostGame {
     this.autosaveFile = opts.autosavePath ?? autosavePath();
     this.debounceMs = opts.debounceMs ?? 1000;
     this.loadedIntents = opts.loadFrom?.intentLog ?? null;
+    this.seatTokens = opts.loadFrom?.seatTokens
+      ? [...opts.loadFrom.seatTokens]
+      : [];
 
     // Lobby seed: the first connecting client becomes the host. We use a
     // temporary placeholder until then.
@@ -131,9 +144,13 @@ export class HostGame {
     if (inLobby) {
       send({ type: "LOBBY_STATE", lobby: this.lobby });
     } else {
-      // Mid-game join — push a snapshot so the client can rebuild its
-      // mirror engine from scratch.
-      send(this.makeSnapshotMessage());
+      // Mid-game join. We currently send the legacy SNAPSHOT (carrying
+      // seed + intentLog) so the existing mirror-engine client keeps
+      // working. The redacted view is computed alongside as a
+      // STATE { kind: "snapshot" } broadcast so the view-only path
+      // can read it once we cut over.
+      send(this.makeLegacySnapshot(clientId));
+      send(this.makeStateForClient(clientId, { kind: "snapshot" }));
       if (this.paused) send({ type: "PAUSED", paused: true });
     }
   }
@@ -370,8 +387,25 @@ export class HostGame {
         }
       }
     }
-    const snap = this.makeSnapshotMessage();
-    for (const c of this.connections.values()) c.send(snap);
+    // Mint reconnect tokens once at game-start time. Resuming a save
+    // keeps its existing tokens so a player's bookmarked URL still
+    // works after a host restart.
+    if (this.seatTokens.length === 0) {
+      this.seatTokens = this.lobby.seats.map(() => randomUUID());
+    } else if (this.seatTokens.length !== this.lobby.seats.length) {
+      // Save's seatTokens length disagrees with the lobby — pad/truncate
+      // and warn. Should only happen after we hand-edit a save.
+      while (this.seatTokens.length < this.lobby.seats.length) {
+        this.seatTokens.push(randomUUID());
+      }
+      this.seatTokens.length = this.lobby.seats.length;
+    }
+    // Legacy SNAPSHOT for mirror-engine clients + STATE for the
+    // view-only path. Dual emission goes away with the cutover.
+    for (const c of this.connections.values()) {
+      c.send(this.makeLegacySnapshot(c.clientId));
+      c.send(this.makeStateForClient(c.clientId, { kind: "snapshot" }));
+    }
     this.scheduleAutosave();
     return { ok: true };
   }
@@ -411,13 +445,90 @@ export class HostGame {
       sender?.send({ type: "INTENT_REJECTED", reason: result.reason, intent });
       return;
     }
-    const broadcast: ServerMessage = {
-      type: "INTENT_ACCEPTED",
-      intent,
-      originator: clientId,
-    };
-    for (const c of this.connections.values()) c.send(broadcast);
+    // Legacy mirror-engine clients still depend on INTENT_ACCEPTED.
+    // Emit both for now; the view-only path can drop it once the
+    // client cutover lands.
+    for (const c of this.connections.values()) {
+      c.send({ type: "INTENT_ACCEPTED", intent, originator: clientId });
+    }
+    this.broadcastState({ kind: "intent", intent, originator: clientId });
     this.scheduleAutosave();
+  }
+
+  /** Active-seat-only. Roll back the last intent in the current turn.
+   * The client can no longer do this locally (no seed available) so
+   * we run the replay-based undo on the authoritative engine and
+   * broadcast the resulting state to everyone. */
+  handleUndo(clientId: string): void {
+    if (this.engine === null) {
+      this.errorTo(clientId, "game not started yet");
+      return;
+    }
+    if (this.paused) {
+      this.errorTo(clientId, "game is paused");
+      return;
+    }
+    const activeSeatId =
+      this.engine.getState().turnOrder[
+        this.engine.getState().currentPlayerIndex
+      ];
+    if (activeSeatId === undefined) {
+      this.errorTo(clientId, "no active seat");
+      return;
+    }
+    const seat = this.lobby.seats.find((s) => s.id === activeSeatId);
+    if (!seat || seat.claimedBy !== clientId) {
+      this.errorTo(clientId, "only the active seat may undo");
+      return;
+    }
+    const undone = this.engine.undo();
+    if (!undone) {
+      this.errorTo(clientId, "nothing to undo");
+      return;
+    }
+    this.broadcastState({ kind: "undo" });
+    this.scheduleAutosave();
+  }
+
+  /** A reconnecting client presents a seat token; if it matches we
+   * point that seat at the new clientId and push a fresh snapshot.
+   * Spectators (no token) just get the spectator snapshot the
+   * attachConnection path already sent — calling RESUME without a
+   * matching token is a soft error. */
+  handleResume(clientId: string, token: string): void {
+    const seatId = this.seatTokens.findIndex((t) => t === token);
+    if (seatId < 0) {
+      this.errorTo(clientId, "seat token not recognised");
+      return;
+    }
+    // Transfer seat ownership to the new connection. Pre-game and
+    // mid-game both work the same way — the seat's name/colour stay
+    // put.
+    const seats = this.lobby.seats.map((s) =>
+      s.id === seatId ? { ...s, claimedBy: clientId } : s,
+    );
+    this.lobby = { ...this.lobby, seats };
+
+    const c = this.connections.get(clientId);
+    c?.send({ type: "RESUMED", seatId });
+
+    if (this.engine === null) {
+      // Pre-game: refreshed lobby for everyone (claimedBy moved).
+      this.broadcastLobby();
+    } else {
+      // In-game: the resumer needs a fresh snapshot — they may have
+      // had a stale view from before they reconnected. Use the legacy
+      // SNAPSHOT (full state) so the mirror-engine client can rebuild
+      // and emit a STATE alongside for the view-only path. Other
+      // clients get a STATE { kind: "snapshot" } so their lobby seat
+      // mapping refreshes.
+      c?.send(this.makeLegacySnapshot(clientId));
+      c?.send(this.makeStateForClient(clientId, { kind: "snapshot" }));
+      for (const conn of this.connections.values()) {
+        if (conn.clientId === clientId) continue;
+        conn.send(this.makeStateForClient(conn.clientId, { kind: "snapshot" }));
+      }
+    }
   }
 
   handleSetPaused(clientId: string, paused: boolean): void {
@@ -432,6 +543,14 @@ export class HostGame {
     this.paused = paused;
     for (const c of this.connections.values())
       c.send({ type: "PAUSED", paused });
+  }
+
+  /** Look up a seat's reconnect token. Used by the lobby host's UI
+   * (host setup row) to display tokens it can copy/share with a
+   * player who lost theirs. Returns undefined for unknown seat ids
+   * or when the game hasn't started yet. */
+  getSeatToken(seatId: PlayerId): string | undefined {
+    return this.seatTokens[seatId];
   }
 
   // ---------------------------------------------------------------------------
@@ -453,6 +572,7 @@ export class HostGame {
       allowUndo: this.allowUndo,
       bundle: this.bundle,
       intentLog: this.engine.getIntentLog(),
+      seatTokens: this.seatTokens,
     });
   }
 
@@ -478,10 +598,17 @@ export class HostGame {
       c.send({ type: "LOBBY_STATE", lobby: this.lobby });
   }
 
-  private makeSnapshotMessage(): ServerMessage {
+  /** Build the legacy seed-bearing SNAPSHOT for mirror-engine clients.
+   *  Removed once the view-only path is live on every client. The
+   *  seat-token field (new) IS populated even on the legacy path —
+   *  the client stores it to localStorage either way for the resume
+   *  flow. */
+  private makeLegacySnapshot(clientId?: string): ServerMessage {
     if (!this.engine || !this.bundle) {
       throw new Error("snapshot requested before game start");
     }
+    const seatId =
+      clientId !== undefined ? this.seatIdForClient(clientId) : -1;
     return {
       type: "SNAPSHOT",
       playing: {
@@ -494,6 +621,50 @@ export class HostGame {
         paused: this.paused,
       },
       seats: this.lobby.seats,
+      seatToken: seatId >= 0 ? (this.seatTokens[seatId] ?? null) : null,
+    };
+  }
+
+  /** Send a per-recipient STATE update to every connected client. */
+  private broadcastState(
+    cause:
+      | { kind: "intent"; intent: Intent; originator: string }
+      | { kind: "undo" }
+      | { kind: "snapshot" },
+  ): void {
+    for (const c of this.connections.values()) {
+      c.send(this.makeStateForClient(c.clientId, cause));
+    }
+  }
+
+  private seatIdForClient(clientId: string): PlayerId | -1 {
+    const seat = this.lobby.seats.find((s) => s.claimedBy === clientId);
+    return seat ? (seat.id as PlayerId) : -1;
+  }
+
+  private envelopeFor(viewerSeatId: PlayerId | -1): PlayingEnvelope {
+    if (!this.engine) {
+      throw new Error("envelopeFor called before game start");
+    }
+    return {
+      view: projectFor(this.engine.getState(), viewerSeatId),
+      paused: this.paused,
+      allowUndo: this.allowUndo,
+    };
+  }
+
+  private makeStateForClient(
+    clientId: string,
+    cause:
+      | { kind: "intent"; intent: Intent; originator: string }
+      | { kind: "undo" }
+      | { kind: "snapshot" },
+  ): ServerMessage {
+    const seatId = this.seatIdForClient(clientId);
+    return {
+      type: "STATE",
+      playing: this.envelopeFor(seatId),
+      cause,
     };
   }
 

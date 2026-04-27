@@ -36,6 +36,7 @@ describe("save file roundtrip", () => {
       allowUndo: true,
       bundle,
       intentLog: original.getIntentLog(),
+      seatTokens: ["t-a", "t-b", "t-c"],
     });
 
     const json = serializeSave(save);
@@ -73,6 +74,7 @@ describe("save file roundtrip", () => {
       allowUndo: true,
       bundle,
       intentLog: [],
+      seatTokens: ["t-alice", "t-bob"],
     });
     const parsed = parseSaveFile(serializeSave(save));
     const engine = new Engine(
