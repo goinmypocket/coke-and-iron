@@ -11,11 +11,11 @@
 //     receives the PlayerView projected for *its* seat). Failed dispatches
 //     come back as { type:"INTENT_REJECTED", reason } to the sender only.
 //
-// Privacy boundary: the wire never carries another seat's hand contents
-// or the deck. Each STATE message is filtered through `projectFor` so
-// that other players' hands appear as length-only `handSize` fields and
-// the deck/removed pile collapse to plain integer counts. Every
-// connected client gets the version of the view it's allowed to see.
+// Privacy boundary: the wire never carries another seat's hand contents,
+// the deck order, or the seed. Each STATE / SNAPSHOT message is filtered
+// through `projectFor`; redacted slots arrive as HIDDEN-card placeholders
+// or plain integer counts. Every connected client gets the version of
+// the view it's allowed to see — and only that.
 //
 // Reconnect: on game start the host issues one `seatToken` per seat
 // (random UUID, persisted in the save). Clients store it in
@@ -26,7 +26,6 @@
 // =============================================================================
 import type { Intent, PlayerCount } from "../engine/types";
 import type { PlayerView } from "../engine/view";
-import type { ResolvedBundle } from "./saveFile";
 
 export type { PlayerCount };
 export type { PlayerView };
@@ -69,29 +68,18 @@ export interface LobbyState {
   readonly hostId: string;
 }
 
-/** Subset of lobby info pushed to every client on connect, plus updates.
- *  Legacy v1 envelope — still used by SNAPSHOT during the cutover so
- *  current clients keep working. v2 (PlayingEnvelope, below) ships the
- *  same information as a redacted PlayerView and is what the new
- *  STATE / RESUMED paths use. Both will coexist until the client-side
- *  switch lands; then this can be deleted. */
-export interface PlayingState {
-  readonly seed: number;
-  readonly playerCount: PlayerCount;
-  readonly autoEndTurn: boolean;
-  readonly allowUndo: boolean;
-  readonly bundle: ResolvedBundle;
-  readonly intentLog: readonly Intent[];
-  readonly paused: boolean;
-}
-
 /** Per-recipient game-state envelope. The view itself is the entire
  * snapshot — no seed, no intent log. paused / allowUndo travel
- * alongside because they're session-level (not per-state) settings. */
+ * alongside because they're session-level (not per-state) settings.
+ * canUndoNow is the server's authoritative answer to "may the
+ * recipient currently dispatch UNDO?" — it folds in allowUndo, the
+ * recipient's seat ownership, and whether the active turn has at
+ * least one intent to roll back. */
 export interface PlayingEnvelope {
   readonly view: PlayerView;
   readonly paused: boolean;
   readonly allowUndo: boolean;
+  readonly canUndoNow: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -114,10 +102,10 @@ export interface S2CLobbyState {
 
 export interface S2CSnapshot {
   readonly type: "SNAPSHOT";
-  /** Legacy: the full PlayingState (seed + intentLog + bundle). Kept
-   *  during the cutover; will be removed once the client switches to
-   *  the redacted view path. */
-  readonly playing: PlayingState;
+  /** Per-recipient redacted view. The seed and intent log never
+   *  leave the host; the client receives a fully-formed snapshot of
+   *  the public state plus its own private hand. */
+  readonly playing: PlayingEnvelope;
   /** Echo of the lobby's resolved seat identities for the UI to render
    * names + colours during play. */
   readonly seats: LobbyState["seats"];
@@ -125,15 +113,6 @@ export interface S2CSnapshot {
    * The client persists this to localStorage and replays it via RESUME
    * on the next WebSocket open. null for spectators. */
   readonly seatToken: string | null;
-}
-
-/** Legacy intent broadcast — kept during the cutover so the existing
- *  mirror-engine clients still advance. Will be replaced by S2CState
- *  once the client adopts the view-only path. */
-export interface S2CIntentAccepted {
-  readonly type: "INTENT_ACCEPTED";
-  readonly intent: Intent;
-  readonly originator: string;
 }
 
 /** Sent to every connected client after each accepted intent (or
@@ -197,7 +176,6 @@ export type ServerMessage =
   | S2CLobbyState
   | S2CSnapshot
   | S2CState
-  | S2CIntentAccepted
   | S2CIntentRejected
   | S2CResumed
   | S2CPaused
@@ -321,7 +299,6 @@ export function parseServerMessage(raw: string): ServerMessage | null {
       case "LOBBY_STATE":
       case "SNAPSHOT":
       case "STATE":
-      case "INTENT_ACCEPTED":
       case "INTENT_REJECTED":
       case "RESUMED":
       case "PAUSED":

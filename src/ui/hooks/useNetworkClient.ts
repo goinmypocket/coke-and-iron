@@ -3,15 +3,14 @@
 //
 // Responsibilities:
 //   - Open / reconnect a single WebSocketClient to the host.
-//   - Maintain LobbyState during the lobby phase; expose claim/release/lock/
-//     start methods.
-//   - On SNAPSHOT, build a mirror Engine from the snapshot's seed + bundle +
-//     intentLog. Patch its dispatch via networkifyEngine so UI dispatches
-//     also send to the host.
-//   - On INTENT_ACCEPTED from another client, apply via applyRemote so the
-//     mirror stays in sync without re-forwarding.
-//   - On INTENT_REJECTED of our own optimistic dispatch, undo the local
-//     apply and surface a toast.
+//   - Maintain LobbyState during the lobby phase; expose claim / release /
+//     lock / start / setPlayerCount / loadSave / newGame methods.
+//   - On the first SNAPSHOT or STATE, build a ClientEngine wrapping the
+//     redacted PlayerView. From then on every STATE message just calls
+//     `applyView` to swap the held view in place — there's no client-side
+//     reducer; the host is the single source of truth.
+//   - On INTENT_REJECTED, surface a toast (the local view is already
+//     consistent because we never optimistically applied).
 //   - Persist the per-seat reconnect token in localStorage and replay it
 //     via RESUME on every fresh WebSocket open. Lets a player who
 //     refreshed / migrated devices walk back into the same seat without
@@ -22,16 +21,13 @@
 // =============================================================================
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Engine } from "../../engine/Engine";
+import type { Engine } from "../../engine/Engine";
 import type { Intent } from "../../engine/types";
+import { ClientEngine } from "../../network/ClientEngine";
 import {
   type ConnectionStatus,
   WebSocketClient,
 } from "../../network/WebSocketClient";
-import {
-  networkifyEngine,
-  type NetworkedEngineHandle,
-} from "../../network/NetworkedEngine";
 import type {
   LobbyColor,
   LobbyState,
@@ -122,7 +118,7 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
     readonly SaveSummary[] | null
   >(null);
 
-  const handleRef = useRef<NetworkedEngineHandle | null>(null);
+  const engineRef = useRef<ClientEngine | null>(null);
   const clientIdRef = useRef<string | null>(null);
   const wsRef = useRef<WebSocketClient | null>(null);
 
@@ -145,30 +141,33 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
       },
       onSavesList: (list) => setAvailableSaves(list),
       onSnapshot: (msg) => onSnapshot(msg),
+      onState: (view, paused, _allowUndo, canUndoNow, _cause) => {
+        // Per-recipient redacted state update. The engine is built
+        // lazily on the first STATE so we don't need a separate
+        // snapshot path — the host emits STATE { kind: "snapshot" }
+        // alongside SNAPSHOT for exactly this reason.
+        if (!engineRef.current) {
+          engineRef.current = new ClientEngine(view, canUndoNow, {
+            sendIntent: (intent) => ws.sendIntent(intent),
+            sendUndo: () => ws.undo(),
+          });
+          setEngine(engineRef.current as unknown as Engine);
+        } else {
+          engineRef.current.applyView(view, canUndoNow);
+        }
+        setPausedState(paused);
+      },
       onResumed: (seatId) => {
         // Quiet success — UI just gets a fresh LOBBY_STATE / SNAPSHOT
         // shortly after. We keep the seat id around so debugging tools
         // can read it; React state updates already flow via lobby/seats.
         void seatId;
       },
-      onIntentAccepted: (intent, originator) => {
-        // Originator already applied locally — skip to avoid double-apply.
-        if (originator === clientIdRef.current) return;
-        const handle = handleRef.current;
-        if (!handle) return;
-        const r = handle.applyRemote(intent);
-        if (!r.ok) {
-          // Divergence — host accepted but mirror rejected. Surface so we
-          // notice rather than silently drift.
-          toast.error(`mirror rejected accepted intent: ${r.reason}`);
-        }
-      },
-      onIntentRejected: (reason, intent) => {
-        const handle = handleRef.current;
-        if (handle) handle.rollbackLastDispatch();
-        toast.error(`Action rejected: ${reason}`, {
-          description: describeIntent(intent),
-        });
+      onIntentRejected: (_reason, intent) => {
+        // No optimistic apply to undo — server is authoritative — so
+        // we just surface the rejection. The local view is already
+        // correct because we never advanced it speculatively.
+        toast.error(`Action rejected: ${describeIntent(intent)}`);
       },
       onPaused: setPausedState,
       onError: (msg) => {
@@ -184,41 +183,25 @@ export function useNetworkClient(url: string = defaultUrl()): UseNetworkClient {
     wsRef.current = ws;
 
     function onSnapshot(msg: Extract<ServerMessage, { type: "SNAPSHOT" }>) {
-      const { playing, seats: snapshotSeats, seatToken } = msg;
+      const { seats: snapshotSeats, seatToken } = msg;
       // Persist (or refresh) the seat token whenever the server
       // includes one — same-device refresh, host restart, mid-game
       // reconnect all flow through here.
       if (seatToken) writeSavedToken(url, seatToken);
-      const fresh = new Engine(
-        {
-          seed: playing.seed,
-          playerCount: playing.playerCount,
-          autoEndTurn: playing.autoEndTurn,
-          allowUndo: playing.allowUndo,
-        },
-        playing.bundle,
-      );
-      // Replay first, THEN patch dispatch — replays should not echo back
-      // to the host.
-      for (const intent of playing.intentLog) {
-        const r = fresh.dispatch(intent);
-        if (!r.ok) {
-          toast.error(`replay diverged: ${r.reason}`);
-          break;
-        }
-      }
-      handleRef.current = networkifyEngine(fresh, (intent) =>
-        ws.sendIntent(intent),
-      );
-      setEngine(fresh);
+      // The legacy SNAPSHOT carries seed + bundle for the
+      // mirror-engine path that we just removed. We ignore those
+      // fields; the per-recipient redacted PlayerView arrives via the
+      // STATE { kind: "snapshot" } that the host emits alongside.
+      // We do still consume the seats list (lobby identities) and
+      // paused flag so the UI knows who's at the table.
       setSeats(snapshotSeats);
-      setPausedState(playing.paused);
+      setPausedState(msg.playing.paused);
     }
 
     return () => {
       ws.destroy();
       wsRef.current = null;
-      handleRef.current = null;
+      engineRef.current = null;
     };
   }, [url]);
 

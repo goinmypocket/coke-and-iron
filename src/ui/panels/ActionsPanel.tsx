@@ -415,6 +415,8 @@ function prettyCard(card: Card | null): string | null {
       return "Wild Location";
     case "WILD_INDUSTRY":
       return "Wild Industry";
+    case "HIDDEN":
+      return null;
   }
 }
 

@@ -144,13 +144,10 @@ export class HostGame {
     if (inLobby) {
       send({ type: "LOBBY_STATE", lobby: this.lobby });
     } else {
-      // Mid-game join. We currently send the legacy SNAPSHOT (carrying
-      // seed + intentLog) so the existing mirror-engine client keeps
-      // working. The redacted view is computed alongside as a
-      // STATE { kind: "snapshot" } broadcast so the view-only path
-      // can read it once we cut over.
-      send(this.makeLegacySnapshot(clientId));
-      send(this.makeStateForClient(clientId, { kind: "snapshot" }));
+      // Mid-game join — push the per-recipient redacted snapshot so
+      // the client builds its ClientEngine from a view that contains
+      // only what its viewer is allowed to see.
+      send(this.makeSnapshotForClient(clientId));
       if (this.paused) send({ type: "PAUSED", paused: true });
     }
   }
@@ -400,11 +397,9 @@ export class HostGame {
       }
       this.seatTokens.length = this.lobby.seats.length;
     }
-    // Legacy SNAPSHOT for mirror-engine clients + STATE for the
-    // view-only path. Dual emission goes away with the cutover.
+    // Per-recipient redacted snapshot for every connected client.
     for (const c of this.connections.values()) {
-      c.send(this.makeLegacySnapshot(c.clientId));
-      c.send(this.makeStateForClient(c.clientId, { kind: "snapshot" }));
+      c.send(this.makeSnapshotForClient(c.clientId));
     }
     this.scheduleAutosave();
     return { ok: true };
@@ -444,12 +439,6 @@ export class HostGame {
       const sender = this.connections.get(clientId);
       sender?.send({ type: "INTENT_REJECTED", reason: result.reason, intent });
       return;
-    }
-    // Legacy mirror-engine clients still depend on INTENT_ACCEPTED.
-    // Emit both for now; the view-only path can drop it once the
-    // client cutover lands.
-    for (const c of this.connections.values()) {
-      c.send({ type: "INTENT_ACCEPTED", intent, originator: clientId });
     }
     this.broadcastState({ kind: "intent", intent, originator: clientId });
     this.scheduleAutosave();
@@ -516,14 +505,11 @@ export class HostGame {
       // Pre-game: refreshed lobby for everyone (claimedBy moved).
       this.broadcastLobby();
     } else {
-      // In-game: the resumer needs a fresh snapshot — they may have
-      // had a stale view from before they reconnected. Use the legacy
-      // SNAPSHOT (full state) so the mirror-engine client can rebuild
-      // and emit a STATE alongside for the view-only path. Other
-      // clients get a STATE { kind: "snapshot" } so their lobby seat
-      // mapping refreshes.
-      c?.send(this.makeLegacySnapshot(clientId));
-      c?.send(this.makeStateForClient(clientId, { kind: "snapshot" }));
+      // In-game: the resumer needs a fresh snapshot with their seat
+      // token so localStorage stays current. Everyone else gets a
+      // STATE { kind: "snapshot" } so their lobby seat mapping
+      // (claimedBy on each LobbySeat) reflects the new clientId.
+      c?.send(this.makeSnapshotForClient(clientId));
       for (const conn of this.connections.values()) {
         if (conn.clientId === clientId) continue;
         conn.send(this.makeStateForClient(conn.clientId, { kind: "snapshot" }));
@@ -598,28 +584,14 @@ export class HostGame {
       c.send({ type: "LOBBY_STATE", lobby: this.lobby });
   }
 
-  /** Build the legacy seed-bearing SNAPSHOT for mirror-engine clients.
-   *  Removed once the view-only path is live on every client. The
-   *  seat-token field (new) IS populated even on the legacy path —
-   *  the client stores it to localStorage either way for the resume
-   *  flow. */
-  private makeLegacySnapshot(clientId?: string): ServerMessage {
-    if (!this.engine || !this.bundle) {
+  private makeSnapshotForClient(clientId: string): ServerMessage {
+    if (!this.engine) {
       throw new Error("snapshot requested before game start");
     }
-    const seatId =
-      clientId !== undefined ? this.seatIdForClient(clientId) : -1;
+    const seatId = this.seatIdForClient(clientId);
     return {
       type: "SNAPSHOT",
-      playing: {
-        seed: this.seed,
-        playerCount: this.playerCount,
-        autoEndTurn: this.autoEndTurn,
-        allowUndo: this.allowUndo,
-        bundle: this.bundle,
-        intentLog: this.engine.getIntentLog(),
-        paused: this.paused,
-      },
+      playing: this.envelopeFor(seatId),
       seats: this.lobby.seats,
       seatToken: seatId >= 0 ? (this.seatTokens[seatId] ?? null) : null,
     };
@@ -646,10 +618,18 @@ export class HostGame {
     if (!this.engine) {
       throw new Error("envelopeFor called before game start");
     }
+    const state = this.engine.getState();
+    const activeSeatId = state.turnOrder[state.currentPlayerIndex] ?? null;
+    const isViewerActive =
+      viewerSeatId !== -1 && activeSeatId === viewerSeatId;
     return {
-      view: projectFor(this.engine.getState(), viewerSeatId),
+      view: projectFor(state, viewerSeatId),
       paused: this.paused,
       allowUndo: this.allowUndo,
+      // Only the active seat may undo, and only when there's something
+      // in this turn's slice of the log. We piggyback on the engine's
+      // own canUndo (which already enforces the turn-boundary rule).
+      canUndoNow: isViewerActive && this.engine.canUndo(),
     };
   }
 

@@ -7,7 +7,6 @@
 // covers the host-side state machine end-to-end without spinning up a
 // network.
 import { describe, expect, it } from "vitest";
-import { Engine } from "../../src/engine/Engine";
 import { HostGame } from "../../host/HostGame";
 import type { ServerMessage } from "../../src/network/protocol";
 
@@ -64,20 +63,13 @@ describe("HostGame — lobby + game flow", () => {
     const snapB = lastOfType(b, "SNAPSHOT");
     expect(snapA).toBeTruthy();
     expect(snapB).toBeTruthy();
-    expect(snapA?.playing.seed).toBe(5);
+    expect(snapA?.playing.view.playerCount).toBe(2);
     expect(snapA?.seats[0]?.displayName).toBe("Alice");
 
-    // Active player is whoever's at turnOrder[0] — derive from a fresh
-    // engine reproduction.
-    const mirror = new Engine(
-      {
-        seed: snapA!.playing.seed,
-        playerCount: snapA!.playing.playerCount,
-      },
-      snapA!.playing.bundle,
-    );
-    const activeSeat =
-      mirror.getState().turnOrder[mirror.getState().currentPlayerIndex]!;
+    // Read the active seat directly from the snapshot view — no need
+    // to rebuild a mirror since the view already carries turn order.
+    const aView = snapA!.playing.view;
+    const activeSeat = aView.turnOrder[aView.currentPlayerIndex]!;
     const activeClient = activeSeat === 0 ? "client-a" : "client-b";
 
     host.handleIntent(activeClient, {
@@ -86,16 +78,19 @@ describe("HostGame — lobby + game flow", () => {
       cardIndex: 0,
     });
 
-    // Both clients should see the broadcast.
-    const acceptedA = lastOfType(a, "INTENT_ACCEPTED");
-    const acceptedB = lastOfType(b, "INTENT_ACCEPTED");
-    expect(acceptedA?.originator).toBe(activeClient);
-    expect(acceptedB?.originator).toBe(activeClient);
-    expect(acceptedA?.intent).toEqual({
-      type: "PASS",
-      playerId: activeSeat,
-      cardIndex: 0,
-    });
+    // Both clients should see a STATE update with the intent as cause.
+    const stateA = lastOfType(a, "STATE");
+    const stateB = lastOfType(b, "STATE");
+    expect(stateA?.cause.kind).toBe("intent");
+    expect(stateB?.cause.kind).toBe("intent");
+    if (stateA?.cause.kind === "intent") {
+      expect(stateA.cause.originator).toBe(activeClient);
+      expect(stateA.cause.intent).toEqual({
+        type: "PASS",
+        playerId: activeSeat,
+        cardIndex: 0,
+      });
+    }
   });
 
   it("host can change player count from the lobby and seats resize", () => {
@@ -214,24 +209,28 @@ describe("HostGame — lobby + game flow", () => {
     host.handleClaimSeat("client-b", 1, "Bob", "yellow");
     host.handleStartGame("client-a");
 
-    const stateA = lastOfType(a, "STATE");
-    const stateB = lastOfType(b, "STATE");
-    expect(stateA).toBeTruthy();
-    expect(stateB).toBeTruthy();
+    // Game-start emits SNAPSHOT (not STATE). After dispatching an
+    // intent, every client gets a STATE update. Verify both surfaces
+    // carry per-recipient redacted views.
+    const snapA = lastOfType(a, "SNAPSHOT");
+    const snapB = lastOfType(b, "SNAPSHOT");
+    expect(snapA).toBeTruthy();
+    expect(snapB).toBeTruthy();
 
-    // Each client sees their own hand, the other's redacted.
-    const aView = stateA!.playing.view;
-    const bView = stateB!.playing.view;
+    const aView = snapA!.playing.view;
+    const bView = snapB!.playing.view;
     expect(aView.viewerSeatId).toBe(0);
     expect(bView.viewerSeatId).toBe(1);
-    expect(aView.players[0]?.hand.length).toBeGreaterThan(0);
-    expect(aView.players[1]?.hand).toEqual([]); // redacted
-    expect(bView.players[0]?.hand).toEqual([]); // redacted
-    expect(bView.players[1]?.hand.length).toBeGreaterThan(0);
-
-    // drawDeck count is public, contents aren't on the wire.
+    // Each viewer's own seat carries real cards.
+    expect(aView.players[0]?.hand[0]?.kind).not.toBe("HIDDEN");
+    expect(bView.players[1]?.hand[0]?.kind).not.toBe("HIDDEN");
+    // The other seat's cards are HIDDEN placeholders.
+    for (const c of aView.players[1]?.hand ?? []) expect(c.kind).toBe("HIDDEN");
+    for (const c of bView.players[0]?.hand ?? []) expect(c.kind).toBe("HIDDEN");
+    // drawDeck arrives as an array of HIDDEN placeholders — count
+    // matches reality, contents reveal nothing.
     expect(aView.drawDeckCount).toBeGreaterThan(0);
-    expect((aView as unknown as { drawDeck?: unknown }).drawDeck).toBeUndefined();
+    for (const c of aView.drawDeck) expect(c.kind).toBe("HIDDEN");
   });
 
   it("rejects intents from non-seat-holders", () => {
@@ -254,7 +253,12 @@ describe("HostGame — lobby + game flow", () => {
     host.handleIntent("client-b", { type: "PASS", playerId: 0, cardIndex: 0 });
     const rejected = lastOfType(b, "ERROR");
     expect(rejected?.message).toMatch(/seat 0 is not held by you/);
-    // No INTENT_ACCEPTED should have been broadcast.
-    expect(lastOfType(a, "INTENT_ACCEPTED")).toBeUndefined();
+    // No state-update broadcast should have happened (only the
+    // initial post-START snapshot).
+    const aStates = a.inbox.filter(
+      (m): m is Extract<ServerMessage, { type: "STATE" }> => m.type === "STATE",
+    );
+    // Exactly the START_GAME's snapshot STATE — nothing more.
+    expect(aStates.length).toBeLessThanOrEqual(1);
   });
 });

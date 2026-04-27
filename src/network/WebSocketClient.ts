@@ -41,12 +41,9 @@ export interface WebSocketClientHandlers {
     view: PlayerView,
     paused: boolean,
     allowUndo: boolean,
+    canUndoNow: boolean,
     cause: Extract<ServerMessage, { type: "STATE" }>["cause"],
   ) => void;
-  /** Legacy mirror-engine path — fires when the host accepts an
-   * intent and broadcasts it for replay. Will be removed once the
-   * client cuts over to onState. */
-  onIntentAccepted?: (intent: Intent, originator: string) => void;
   onIntentRejected?: (reason: string, intent: Intent) => void;
   onResumed?: (seatId: number) => void;
   onPaused?: (paused: boolean) => void;
@@ -224,11 +221,9 @@ export class WebSocketClient {
           msg.playing.view,
           msg.playing.paused,
           msg.playing.allowUndo,
+          msg.playing.canUndoNow,
           msg.cause,
         );
-        return;
-      case "INTENT_ACCEPTED":
-        this.handlers.onIntentAccepted?.(msg.intent, msg.originator);
         return;
       case "INTENT_REJECTED":
         this.handlers.onIntentRejected?.(msg.reason, msg.intent);

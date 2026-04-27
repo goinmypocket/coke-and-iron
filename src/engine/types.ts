@@ -250,11 +250,22 @@ export interface WildIndustryCard {
   readonly kind: "WILD_INDUSTRY";
 }
 
+/** A placeholder for a card whose identity is hidden from the viewer.
+ * Only ever appears in PlayerView projections (the deck, the canal-era
+ * removed pile, and other players' hands). The authoritative engine
+ * never produces or consumes one — its reducers `assertNever` if a
+ * HIDDEN reaches them, which would indicate a redacted view leaked
+ * back into the server-side path. */
+export interface HiddenCard {
+  readonly kind: "HIDDEN";
+}
+
 export type Card =
   | LocationCard
   | IndustryCard
   | WildLocationCard
-  | WildIndustryCard;
+  | WildIndustryCard
+  | HiddenCard;
 
 
 // -----------------------------------------------------------------------------

@@ -16,30 +16,32 @@ describe("PlayerView — projection", () => {
     // myHand is the viewer's actual hand.
     expect(view.myHand).toHaveLength(state.players[1]!.hand.length);
     expect(view.myHand).toEqual(state.players[1]!.hand);
-    // Per-seat: viewer carries hand; everyone else has hand=[] but
-    // handSize matches the real count.
+    // Per-seat: viewer carries hand; everyone else has HIDDEN-card
+    // placeholders so .length still works but no identity leaks.
     for (const p of view.players) {
       expect(p.handSize).toBe(state.players[p.id]!.hand.length);
+      expect(p.hand).toHaveLength(state.players[p.id]!.hand.length);
       if (p.id === 1) {
         expect(p.hand).toEqual(state.players[1]!.hand);
       } else {
-        expect(p.hand).toEqual([]);
+        for (const c of p.hand) {
+          expect(c.kind).toBe("HIDDEN");
+        }
       }
     }
   });
 
-  it("hides the draw deck and removed cards as plain counts", () => {
+  it("hides the draw deck and removed cards as HIDDEN-padded arrays", () => {
     const engine = new Engine({ seed: 7, playerCount: 3 });
     const state = engine.getState();
     const view = projectFor(state, 0);
 
     expect(view.drawDeckCount).toBe(state.drawDeck.length);
     expect(view.removedCardsCount).toBe(state.removedCards.length);
-    // The view shape never exposes the actual contents.
-    expect((view as unknown as { drawDeck?: unknown }).drawDeck).toBeUndefined();
-    expect(
-      (view as unknown as { removedCards?: unknown }).removedCards,
-    ).toBeUndefined();
+    expect(view.drawDeck).toHaveLength(state.drawDeck.length);
+    expect(view.removedCards).toHaveLength(state.removedCards.length);
+    for (const c of view.drawDeck) expect(c.kind).toBe("HIDDEN");
+    for (const c of view.removedCards) expect(c.kind).toBe("HIDDEN");
   });
 
   it("preserves public fields verbatim", () => {
@@ -68,8 +70,9 @@ describe("PlayerView — projection", () => {
     expect(view.viewerSeatId).toBe(-1);
     expect(view.myHand).toEqual([]);
     for (const p of view.players) {
-      expect(p.hand).toEqual([]);
       expect(p.handSize).toBeGreaterThan(0); // they DO have cards, just hidden
+      expect(p.hand).toHaveLength(p.handSize);
+      for (const c of p.hand) expect(c.kind).toBe("HIDDEN");
     }
   });
 
@@ -126,16 +129,16 @@ describe("PlayerView — projection", () => {
           return c.industries.join("/") === sampleDeckCard.industries.join("/");
         return false;
       }).length;
-      // If the deck has 4 of city X and we have 0, "X" should appear at
-      // most as many times in the wire as it does in the public board
-      // surface — which is bounded above by (total - inDeck). The
-      // strongest assertion we can make portably: the wire does NOT
-      // contain a `drawDeck` array.
-      expect(wire.includes('"drawDeck":[')).toBe(false);
-      expect(wire.includes('"removedCards":[')).toBe(false);
-      // And the bound: the count of fingerprint occurrences must be at
-      // most (cards bearing that fingerprint owned by viewer) +
-      // bounded constants for board surfaces.
+      // The wire DOES carry a `drawDeck` array, but every entry is a
+      // HIDDEN placeholder (`{"kind":"HIDDEN"}`). Verify none of them
+      // carry the sample deck card's identifying fingerprint.
+      const deckSection = wire.match(/"drawDeck":\[(.*?)\]/);
+      const removedSection = wire.match(/"removedCards":\[(.*?)\]/);
+      expect(deckSection).not.toBeNull();
+      expect(removedSection).not.toBeNull();
+      // No real card identity appears inside the redacted arrays.
+      expect(deckSection?.[1]?.includes(fingerprint)).toBe(false);
+      expect(removedSection?.[1]?.includes(fingerprint)).toBe(false);
       void inOwnHand;
       void inDeck;
     }

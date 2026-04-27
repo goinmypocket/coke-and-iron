@@ -82,8 +82,10 @@ export function RemainingCardsOverlay({
 function RemainingCardsBody({ onClose }: { onClose: () => void }) {
   const view = useGameState(
     (s) => ({
-      drawDeck: s.drawDeck,
-      removedCards: s.removedCards,
+      // discardPiles are public, so we can derive remaining-by-type
+      // counts as `universe - sum(discards)`. The redacted draw deck
+      // and other players' hands never need to be enumerated by
+      // identity — that's the whole point of the privacy split.
       players: s.players,
       districtCities: s.districtCities,
       playerCount: s.playerCount,
@@ -114,27 +116,39 @@ function RemainingCardsBody({ onClose }: { onClose: () => void }) {
     return n;
   }, [universe]);
 
-  const remainingPool = useMemo(
-    () => [
-      ...view.drawDeck,
-      ...view.removedCards,
-      ...view.players.flatMap((p) => p.hand),
-    ],
-    [view.drawDeck, view.removedCards, view.players],
+  // Cards still "in play" (deck + removed pile + every hand) have
+  // identity = universe minus what's already been discarded. Discard
+  // piles are open on the table so this computation uses zero
+  // private information about other seats.
+  const discardCounts = useMemo(
+    () =>
+      countByKey(
+        view.players.flatMap((p) => p.discardPile),
+        cityToDistrict,
+      ),
+    [view.players, cityToDistrict],
   );
+
+  const counts = useMemo(() => {
+    const locations = new Map<string, number>();
+    const industries = new Map<string, number>();
+    for (const list of Object.values(universe.locations)) {
+      for (const e of list) {
+        locations.set(e.name, e.total - (discardCounts.locations.get(e.name) ?? 0));
+      }
+    }
+    for (const e of universe.industries) {
+      industries.set(e.name, e.total - (discardCounts.industries.get(e.name) ?? 0));
+    }
+    return { locations, industries };
+  }, [universe, discardCounts]);
 
   const remainingNonWild = useMemo(() => {
     let n = 0;
-    for (const c of remainingPool) {
-      if (c.kind === "LOCATION" || c.kind === "INDUSTRY") n++;
-    }
+    for (const v of counts.locations.values()) n += v;
+    for (const v of counts.industries.values()) n += v;
     return n;
-  }, [remainingPool]);
-
-  const counts = useMemo(
-    () => countByKey(remainingPool, cityToDistrict),
-    [remainingPool, cityToDistrict],
-  );
+  }, [counts]);
 
   return (
     <>

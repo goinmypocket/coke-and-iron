@@ -275,6 +275,11 @@ function validateCardAuthorises(
     }
     case "WILD_INDUSTRY":
       return checkNetwork(state, playerId, city.name);
+    case "HIDDEN":
+      // Engine never sees redacted view-side cards — if it does, the
+      // wire surface leaked into authoritative state. Fail loud rather
+      // than silently authorise / reject.
+      throw new Error("HIDDEN card reached engine reducer");
   }
 }
 

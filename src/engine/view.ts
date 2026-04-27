@@ -56,8 +56,9 @@ import type {
 // -----------------------------------------------------------------------------
 
 /** Per-seat fields in a view. The viewer's own seat carries `hand`
- *  populated with their actual cards; every other seat carries
- *  `hand: []` and reports the size via `handSize`.
+ *  populated with their actual cards; every other seat carries an
+ *  array of HIDDEN-card placeholders so that `.length` still reports
+ *  the real count without revealing identities.
  *
  *  Money / VP / income / link supply / mat / discardPile / loansTaken
  *  / spentThisRound are public — the physical board reveals all of
@@ -72,12 +73,15 @@ export interface PlayerInView {
   readonly loansTaken: number;
   readonly spentThisRound: number;
   readonly linkSupply: number;
-  /** The viewer's actual hand for their own seat; `[]` for everyone
-   *  else. UI selectors that need to render cards should branch on
-   *  `id === view.viewerSeatId` (or use `view.myHand` directly). */
+  /** Real cards for the viewer's own seat; HIDDEN-card placeholders
+   *  for every other seat. UI selectors that render card content
+   *  should switch on `card.kind` and treat HIDDEN as "show face
+   *  down" — the array length matches the real hand size either way.
+   *  `view.myHand` is the convenient shortcut for the viewer's hand. */
   readonly hand: readonly Card[];
-  /** The actual hand size — populated for every seat regardless of
-   *  whether `hand` is redacted. Use this when you need a count. */
+  /** Redundant with `hand.length` but always populated; included so
+   *  components that only care about the count don't have to know
+   *  about the redaction model. */
   readonly handSize: number;
   /** Played-and-resolved cards. Public information (the discard pile
    *  is open on the table). */
@@ -110,11 +114,18 @@ export interface PlayerView {
   readonly players: readonly PlayerInView[];
 
   // ---- Shared decks (REDACTED) ----
-  /** drawDeck contents are hidden from every viewer. Only the count
-   *  is public — the physical pile is face-down on the table. */
+  /** Filled with HIDDEN-card placeholders. The contents are NOT real
+   *  cards — only the array length is meaningful — but giving the
+   *  view a stable `Card[]` shape lets selectors that read
+   *  `.drawDeck.length` keep working unchanged. */
+  readonly drawDeck: readonly Card[];
+  /** Canal-era removed cards stay face-down for the rest of the
+   *  game (§3.2). Same redaction model as drawDeck. */
+  readonly removedCards: readonly Card[];
+  /** Convenience integer counts — equal to drawDeck.length /
+   *  removedCards.length but more honest about what the wire carries
+   *  (the array of HIDDENs is just a shape adapter). */
   readonly drawDeckCount: number;
-  /** Canal-era removed cards stay face-down for the rest of the game
-   *  (§3.2). Only the count is observable. */
   readonly removedCardsCount: number;
   readonly wildReserve: WildReserve;
 
@@ -145,6 +156,17 @@ export interface PlayerView {
 // -----------------------------------------------------------------------------
 
 const SPECTATOR: PlayerId | -1 = -1;
+
+/** Singleton placeholder card. Reused across hidden-array slots —
+ *  cards are immutable so aliasing is fine, and it dodges allocating
+ *  thousands of identical objects per snapshot. */
+const HIDDEN_CARD: Card = Object.freeze({ kind: "HIDDEN" }) as Card;
+
+function hiddenArray(n: number): readonly Card[] {
+  if (n <= 0) return [];
+  // Safe to fill with one frozen instance — Card is readonly.
+  return Array.from({ length: n }, () => HIDDEN_CARD);
+}
 
 /** Project the authoritative GameState onto the per-viewer view that
  *  goes over the wire. Pass `viewerSeatId = -1` (or use the
@@ -181,6 +203,8 @@ export function projectFor(
     currentPlayerIndex: state.currentPlayerIndex,
     actionsRemaining: state.actionsRemaining,
     players,
+    drawDeck: hiddenArray(state.drawDeck.length),
+    removedCards: hiddenArray(state.removedCards.length),
     drawDeckCount: state.drawDeck.length,
     removedCardsCount: state.removedCards.length,
     wildReserve: { ...state.wildReserve },
@@ -217,10 +241,11 @@ function projectPlayer(
     loansTaken: p.loansTaken,
     spentThisRound: p.spentThisRound,
     linkSupply: p.linkSupply,
-    // The cards themselves are immutable Card discriminated unions —
-    // no need to deep-clone, but we copy the array so an external
-    // mutation can't grow the receiver's hand by reference.
-    hand: isViewer ? [...p.hand] : [],
+    // The viewer's own seat keeps its actual cards (copied so a
+    // deserialised mutation can't bleed back into engine state).
+    // Other seats get HIDDEN-card placeholders — same array length,
+    // no information leak.
+    hand: isViewer ? [...p.hand] : hiddenArray(p.hand.length),
     handSize: p.hand.length,
     discardPile: p.discardPile,
     mat: p.mat,
