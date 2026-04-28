@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./definition": "./definition.ts"
+    "./definition": "./definition.ts",
+    "./web": "./web/PlatformApp.tsx",
+    "./web/styles.css": "./web/platform-app.css"
   },
   "scripts": {
     "dev": "vite",

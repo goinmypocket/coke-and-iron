@@ -197,7 +197,7 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
   // Lobby — driven by the platform
   // ---------------------------------------------------------------------------
 
-  claimSeat(userId: UserId, seatIndex: number, _opts?: SeatOptions): Result {
+  claimSeat(userId: UserId, seatIndex: number, opts?: SeatOptions): Result {
     if (seatIndex < 0 || seatIndex >= this.maxSlots) {
       return { ok: false, reason: "invalid seat" };
     }
@@ -231,8 +231,14 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
     }
     this.slotToUser.set(seatIndex, userId);
     if (!this.slotIdentities.has(seatIndex)) {
+      // Auto-fill identity from the platform's hint (username) so the
+      // host can start without forcing every player through a manual
+      // identity picker. Players can override later via
+      // SET_SEAT_IDENTITY.
+      const hint = opts?.displayName?.trim();
+      const fallback = `Player ${seatIndex + 1}`;
       this.slotIdentities.set(seatIndex, {
-        displayName: null,
+        displayName: this.uniqueDisplayName(hint && hint.length > 0 ? hint : fallback, seatIndex),
         pawnColor: this.suggestPawnColor(seatIndex),
       });
     }
@@ -606,6 +612,7 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
       paused: this.paused,
       allowUndo: this.allowUndo,
       canUndoNow: isViewerActive && this.engine.canUndo(),
+      viewerPlayerId: viewerSeatId,
     };
   }
 
@@ -653,6 +660,17 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
     }
     for (const c of LOBBY_COLORS) if (!used.has(c)) return c;
     return LOBBY_COLORS[slotIndex % LOBBY_COLORS.length]!;
+  }
+
+  private uniqueDisplayName(candidate: string, ownSlotIndex: number): string {
+    const used = new Set<string>();
+    for (const [k, id] of this.slotIdentities) {
+      if (k !== ownSlotIndex && id.displayName) used.add(id.displayName);
+    }
+    if (!used.has(candidate)) return candidate;
+    let n = 2;
+    while (used.has(`${candidate} (${n})`)) n++;
+    return `${candidate} (${n})`;
   }
 
   private sendTo(userId: UserId, msg: GameServerMessage): void {

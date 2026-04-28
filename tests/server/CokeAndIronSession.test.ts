@@ -37,7 +37,7 @@ describe("CokeAndIronSession lobby", () => {
     expect(s.startGame(other).ok).toBe(false);
   });
 
-  it("requires 2-4 fully-identified seats to start", () => {
+  it("requires 2-4 seats to start", () => {
     const host = asUserId("host");
     const s = makeSession(host);
     // No claims -> error
@@ -45,28 +45,11 @@ describe("CokeAndIronSession lobby", () => {
     expect(r0.ok).toBe(false);
     if (!r0.ok) expect(r0.reason).toMatch(/2.4 players/);
 
-    // Two claims but no identity -> error
-    s.claimSeat(host, 0);
-    s.claimSeat(asUserId("p2"), 1);
+    // Two claims with auto-assigned identity -> startable.
+    s.claimSeat(host, 0, { displayName: "Host" });
+    s.claimSeat(asUserId("p2"), 1, { displayName: "Bob" });
     const r1 = s.startGame(host);
-    expect(r1.ok).toBe(false);
-    if (!r1.ok) expect(r1.reason).toMatch(/needs a name/);
-
-    // Set identity for both -> startable
-    s.handleGameMessage(host, {
-      type: "SET_SEAT_IDENTITY",
-      slotIndex: 0,
-      displayName: "Host",
-      pawnColor: "red",
-    });
-    s.handleGameMessage(asUserId("p2"), {
-      type: "SET_SEAT_IDENTITY",
-      slotIndex: 1,
-      displayName: "Bob",
-      pawnColor: "blue",
-    });
-    const r2 = s.startGame(host);
-    expect(r2.ok).toBe(true);
+    expect(r1.ok).toBe(true);
   });
 
   it("rejects duplicate names and colors", () => {

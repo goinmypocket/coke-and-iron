@@ -80,6 +80,10 @@ export interface PlayingEnvelope {
   readonly paused: boolean;
   readonly allowUndo: boolean;
   readonly canUndoNow: boolean;
+  /** The recipient's seat as an engine PlayerId (0..playerCount-1), or
+   *  -1 for spectators. The session computes this per-recipient so the
+   *  client doesn't have to re-derive it from the seats list. */
+  readonly viewerPlayerId: number;
 }
 
 // -----------------------------------------------------------------------------
