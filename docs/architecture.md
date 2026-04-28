@@ -12,29 +12,21 @@ companion to `docs/network-howto.md` (operator-focused) and
 ```mermaid
 flowchart TB
   subgraph host_proc["Host process (Node) — host/"]
-    HG["HostGame
-    authoritative Engine
-    + lobby state"]
-    SAVE["./saves/*.json
-    autosave + named saves"]
-    WSS["WebSocket server
-    /ws"]
+    HG["HostGame<br/>authoritative Engine<br/>+ lobby state"]
+    SAVE["./saves/*.json<br/>autosave + named saves"]
+    WSS["WebSocket server<br/>/ws"]
     HG <--> SAVE
     HG <--> WSS
   end
   subgraph browser["Each player's browser — src/"]
-    UI["React UI
-    panels / wizard / overlays"]
-    NE["Mirror Engine
-    (NetworkedEngine wrapper)"]
+    UI["React UI<br/>panels / wizard / overlays"]
+    NE["Mirror Engine<br/>(NetworkedEngine wrapper)"]
     WSC["WebSocketClient"]
     UI <--> NE
     NE <--> WSC
   end
-  subgraph engine_pkg["Engine package — src/engine/
-  pure-functional, no React, no I/O"]
-    E["Engine
-    GameState + reduce()"]
+  subgraph engine_pkg["Engine package — src/engine/<br/>pure-functional, no React, no I/O"]
+    E["Engine<br/>GameState + reduce()"]
   end
   WSS <--> WSC
   HG -.uses.-> E
@@ -73,7 +65,7 @@ flowchart LR
   S0 -- "reduce(s, intent_1)" --> S1["GameState_1"]
   S1 -- "reduce(s, intent_2)" --> S2["GameState_2"]
   S2 -- "..." --> SN["GameState_N"]
-  log["intentLog: [intent_1, intent_2, ..., intent_N]"] -.records.-> S0
+  log["intentLog: intent_1, intent_2, ..., intent_N"] -.records.-> S0
   log -.records.-> S1
   log -.records.-> SN
 ```
@@ -125,8 +117,7 @@ forwarded to the host (see §6).
 
 ```mermaid
 flowchart LR
-  click["user click"] --> wizard["WizardProvider
-  (local React state)"]
+  click["user click"] --> wizard["WizardProvider<br/>(local React state)"]
   wizard -- "complete Intent" --> dispatch["engine.dispatch(intent)"]
   dispatch -- ok --> notify["engine notifies subscribers"]
   notify --> rerender["panels re-render"]
@@ -169,17 +160,12 @@ Notable UI pieces:
 
 ```mermaid
 flowchart LR
-  start["npm run host"] --> hg["HostGame
-  pre-game"]
-  hg --> lobbyOk{"Start clicked,
-  all seats claimed?"}
+  start["npm run host"] --> hg["HostGame<br/>pre-game"]
+  hg --> lobbyOk{"Start clicked,<br/>all seats claimed?"}
   lobbyOk -- no --> hg
-  lobbyOk -- yes --> eng["HostGame
-  engine constructed"]
-  eng -- "every accepted intent" --> auto["debounced autosave
-  ./saves/current.json"]
-  eng -- "Ctrl-C" --> flush["synchronous flush
-  + exit"]
+  lobbyOk -- yes --> eng["HostGame<br/>engine constructed"]
+  eng -- "every accepted intent" --> auto["debounced autosave<br/>./saves/current.json"]
+  eng -- "Ctrl-C" --> flush["synchronous flush<br/>+ exit"]
 ```
 
 Saves on disk are full `SaveFile` records: `seed`, `playerCount`,
@@ -253,16 +239,9 @@ process the **same intents in the same order**.
 
 ```mermaid
 flowchart LR
-  auth["Host: Engine
-  (authoritative)"] -- "snapshot
-  on join" --> mirror1["Browser A: Engine
-  (mirror)"]
-  auth -- "snapshot
-  on join" --> mirror2["Browser B: Engine
-  (mirror)"]
-  auth -- "snapshot
-  on join" --> mirror3["Browser C: Engine
-  (mirror)"]
+  auth["Host: Engine<br/>(authoritative)"] -- "snapshot on join" --> mirror1["Browser A: Engine<br/>(mirror)"]
+  auth -- "snapshot on join" --> mirror2["Browser B: Engine<br/>(mirror)"]
+  auth -- "snapshot on join" --> mirror3["Browser C: Engine<br/>(mirror)"]
   mirror1 -- "INTENT" --> auth
   mirror2 -- "INTENT" --> auth
   mirror3 -- "INTENT" --> auth
@@ -351,20 +330,10 @@ references someone else's card.
 
 ```mermaid
 flowchart TB
-  state["GameState (full)
-  in mirror engine"] --> sel{"selector"}
-  sel -->|"my seat
-  (mySeatId)"| myhand["HandPanel cards
-  ActionsPanel chips
-  BoardPanel filters"]
-  sel -->|"public:
-  counts, pawn colours,
-  built tiles, links, etc."| public["BoardPanel tiles
-  PlayersPanel stats
-  RemainingCardsOverlay
-  RecentActionsOverlay"]
-  sel -.->|"NEVER read"| other["other seats'
-  hand contents"]
+  state["GameState (full)<br/>in mirror engine"] --> sel{"selector"}
+  sel -->|"my seat (mySeatId)"| myhand["HandPanel cards<br/>ActionsPanel chips<br/>BoardPanel filters"]
+  sel -->|"public: counts, pawn colours, built tiles, links, etc."| public["BoardPanel tiles<br/>PlayersPanel stats<br/>RemainingCardsOverlay<br/>RecentActionsOverlay"]
+  sel -.->|"NEVER read"| other["other seats'<br/>hand contents"]
   classDef bad fill:#fee,stroke:#900;
   class other bad;
 ```
@@ -404,25 +373,18 @@ The privacy posture, summarised:
 ```mermaid
 flowchart TB
   subgraph host_holds["Host holds (authoritative)"]
-    HSTATE["full GameState
-    + intentLog
-    + autosave"]
+    HSTATE["full GameState<br/>+ intentLog<br/>+ autosave"]
   end
   subgraph wire["Wire (per client)"]
-    SNAP["SNAPSHOT
-    seed + intentLog"]
-    BCAST["INTENT_ACCEPTED
-    broadcasts"]
+    SNAP["SNAPSHOT<br/>seed + intentLog"]
+    BCAST["INTENT_ACCEPTED<br/>broadcasts"]
   end
   subgraph client_mem["Client JS memory"]
-    MIRROR["full GameState
-    (reproduced via replay)"]
+    MIRROR["full GameState<br/>(reproduced via replay)"]
   end
   subgraph client_dom["Client DOM (visible)"]
-    OWN["your hand
-    your wizard chips"]
-    PUB["public info
-    (counts, board, log)"]
+    OWN["your hand<br/>your wizard chips"]
+    PUB["public info<br/>(counts, board, log)"]
   end
   HSTATE --> SNAP --> MIRROR
   HSTATE --> BCAST --> MIRROR
