@@ -1589,14 +1589,29 @@ export function TurnOrderWidget({
         const COIN = 24;
         return (
           <g key={seatId} transform={`translate(0, ${rowTop})`}>
+            {/* Active player gets a strong amber fill, a coloured left
+                rail in their pawn colour, and a bolder outline so they
+                pop out of the list at a glance. */}
             {isActive ? (
-              <rect
-                x={2}
-                y={0}
-                width={W - 4}
-                height={ROW_H}
-                fill="#f3edd8"
-              />
+              <>
+                <rect
+                  x={2}
+                  y={0}
+                  width={W - 4}
+                  height={ROW_H}
+                  fill="#fde68a"
+                  stroke="#b45309"
+                  strokeWidth={1.25}
+                  rx={2}
+                />
+                <rect
+                  x={2}
+                  y={0}
+                  width={4}
+                  height={ROW_H}
+                  fill={p.pawnColor}
+                />
+              </>
             ) : null}
             <rect
               x={6}
@@ -1610,11 +1625,11 @@ export function TurnOrderWidget({
             <text
               x={22}
               y={ROW_H / 2 + 3.5}
-              fontSize={11}
-              fontWeight={600}
-              fill="#1a1a1a"
+              fontSize={isActive ? 12 : 11}
+              fontWeight={isActive ? 800 : 600}
+              fill={isActive ? "#78350f" : "#1a1a1a"}
             >
-              {p.displayName}
+              {isActive ? `▶ ${p.displayName}` : p.displayName}
             </text>
             <MoneyCoin
               amount={p.spentThisRound}
