@@ -5,8 +5,7 @@
   "type": "module",
   "exports": {
     "./definition": "./definition.ts",
-    "./web": "./web/PlatformApp.tsx",
-    "./web/styles.css": "./web/platform-app.css"
+    "./web": "./web/PlatformApp.tsx"
   },
   "scripts": {
     "dev": "vite",
