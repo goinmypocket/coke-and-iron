@@ -18,5 +18,5 @@
     "allowImportingTsExtensions": false,
     "noEmit": true
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "shared", "server", "definition.ts"]
 }
