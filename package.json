@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc -p host/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json"
   },
   "dependencies": {
     "pure-rand": "^7.0.0",

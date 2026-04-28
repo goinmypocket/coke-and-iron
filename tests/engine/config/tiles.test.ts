@@ -3,7 +3,7 @@ import {
   DEFAULT_TILES_CONFIG,
   extractCatalogue,
   parseTilesConfig,
-} from "../../../src/engine/config/tiles";
+} from "../../../engine/config/tiles";
 
 describe("tiles config", () => {
   it("loads the bundled industry_tiles.json with 29 tiles", () => {

@@ -7,8 +7,8 @@
 // covers the host-side state machine end-to-end without spinning up a
 // network.
 import { describe, expect, it } from "vitest";
-import { HostGame } from "../../host/HostGame";
-import type { ServerMessage } from "../../src/network/protocol";
+import { HostGame } from "../../server/HostGame";
+import type { ServerMessage } from "../../shared/protocol";
 
 interface FakeClient {
   readonly id: string;

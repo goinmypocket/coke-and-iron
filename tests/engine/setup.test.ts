@@ -7,7 +7,7 @@ import {
   buildMerchantBag,
   extractCatalogue,
   initialState,
-} from "../../src/engine";
+} from "../../engine";
 
 describe("engine setup (§3)", () => {
   describe("topology", () => {

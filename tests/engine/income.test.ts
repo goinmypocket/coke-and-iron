@@ -8,7 +8,7 @@ import {
   levelToHighestStep,
   moveBackLevels,
   stepToLevel,
-} from "../../src/engine/income";
+} from "../../engine/income";
 
 describe("income ladder (§6.3)", () => {
   describe("stepToLevel band boundaries", () => {

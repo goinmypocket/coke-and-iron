@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Engine } from "../../src/engine/Engine";
+import { Engine } from "../../engine/Engine";
 import {
   buildSaveFile,
   parseSaveFile,
@@ -7,7 +7,7 @@ import {
   serializeSave,
   SaveFileError,
   SAVE_VERSION,
-} from "../../src/network/saveFile";
+} from "../../shared/saveFile";
 
 describe("save file roundtrip", () => {
   function snapshotState(engine: Engine): unknown {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { Engine, initialState } from "../../../src/engine";
-import type { GameState, PlayerId } from "../../../src/engine";
+import { Engine, initialState } from "../../../engine";
+import type { GameState, PlayerId } from "../../../engine";
 
 // ---------- helpers ----------
 

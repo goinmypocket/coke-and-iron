@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { initialState, makeRng, randomInt, shuffle } from "../../src/engine";
+import { initialState, makeRng, randomInt, shuffle } from "../../engine";
 
 describe("seeded RNG", () => {
   it("same seed produces identical shuffle sequence", () => {

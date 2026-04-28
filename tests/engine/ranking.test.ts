@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { initialState, rankSeats } from "../../src/engine";
-import type { GameState } from "../../src/engine";
+import { initialState, rankSeats } from "../../engine";
+import type { GameState } from "../../engine";
 
 function withMutated(
   base: GameState,

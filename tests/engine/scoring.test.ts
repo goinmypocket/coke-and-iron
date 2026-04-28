@@ -1,15 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { initialState } from "../../src/engine";
+import { initialState } from "../../engine";
 import {
   applyScoring,
   scoreFlippedIndustryVp,
   scoreLinkTileVp,
-} from "../../src/engine/scoring";
+} from "../../engine/scoring";
 import type {
   GameState,
   IndustryName,
   PlayerId,
-} from "../../src/engine";
+} from "../../engine";
 
 // ---------- helpers ----------
 

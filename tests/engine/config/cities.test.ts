@@ -5,7 +5,7 @@ import {
   extractDistrictCities,
   extractMerchantCities,
   parseCitiesConfig,
-} from "../../../src/engine/config/cities";
+} from "../../../engine/config/cities";
 
 describe("cities config", () => {
   it("loads district cities from the bundled board.json", () => {

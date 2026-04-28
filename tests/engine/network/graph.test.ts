@@ -1,16 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { initialState } from "../../../src/engine";
+import { initialState } from "../../../engine";
 import {
   buildDistanceMap,
   isConnectedToAnyMerchantCity,
   isInPlayerNetwork,
   isPlayerNetworkEmpty,
-} from "../../../src/engine/network/graph";
+} from "../../../engine/network/graph";
 import type {
   GameState,
   IndustryName,
   PlayerId,
-} from "../../../src/engine";
+} from "../../../engine";
 
 // ---------- test helpers ----------
 

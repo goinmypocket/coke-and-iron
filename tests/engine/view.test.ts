@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { Engine } from "../../src/engine/Engine";
+import { Engine } from "../../engine/Engine";
 import {
   projectFor,
   projectForSpectator,
-} from "../../src/engine/view";
+} from "../../engine/view";
 
 describe("PlayerView — projection", () => {
   it("intact for own seat, redacted for everyone else", () => {

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { initialState } from "../../../src/engine";
-import { consumeBeerFromBrewery } from "../../../src/engine/sources/beer";
+import { initialState } from "../../../engine";
+import { consumeBeerFromBrewery } from "../../../engine/sources/beer";
 import type {
   GameState,
   IndustryName,
   PlayerId,
-} from "../../../src/engine";
+} from "../../../engine";
 
 // ---------- helpers ----------
 

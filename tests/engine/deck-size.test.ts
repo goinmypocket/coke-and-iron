@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialState } from "../../src/engine";
+import { initialState } from "../../engine";
 
 // §4.4 / §13 Rules item 2 — "Rounds per era: 8 / 9 / 10 at 4 / 3 / 2 players."
 //

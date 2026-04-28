@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { initialState } from "../../../src/engine";
+import { initialState } from "../../../engine";
 import {
   buyFromMarket,
   consumeIron,
-} from "../../../src/engine/sources/iron";
-import type { GameState, IronSource, Market } from "../../../src/engine";
+} from "../../../engine/sources/iron";
+import type { GameState, IronSource, Market } from "../../../engine";
 
 function plantTile(
   state: GameState,

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { Engine, initialState } from "../../../src/engine";
+import { Engine, initialState } from "../../../engine";
 import type {
   Card,
   GameState,
   IndustryName,
   PlayerId,
-} from "../../../src/engine";
+} from "../../../engine";
 
 function activeSeatId(state: GameState): PlayerId {
   return state.turnOrder[state.currentPlayerIndex]!;

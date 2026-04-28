@@ -3,7 +3,7 @@ import {
   DEFAULT_CARDS_CONFIG,
   buildDeck,
   parseCardsConfig,
-} from "../../../src/engine/config/cards";
+} from "../../../engine/config/cards";
 
 describe("cards config", () => {
   it("loads the bundled cards.json with the §3.2 starting hand size of 8", () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { initialState } from "../../../src/engine";
-import { moveCubesToMarket } from "../../../src/engine/sources/market-move";
-import type { GameState, IndustryName, Market, PlayerId } from "../../../src/engine";
+import { initialState } from "../../../engine";
+import { moveCubesToMarket } from "../../../engine/sources/market-move";
+import type { GameState, IndustryName, Market, PlayerId } from "../../../engine";
 
 function plantTile(
   state: GameState,

@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { initialState } from "../../../src/engine";
-import { consumeCoal } from "../../../src/engine/sources/coal";
+import { initialState } from "../../../engine";
+import { consumeCoal } from "../../../engine/sources/coal";
 import type {
   CoalSource,
   GameState,
   IndustryName,
   Market,
   PlayerId,
-} from "../../../src/engine";
+} from "../../../engine";
 
 // ---------- helpers ----------
 

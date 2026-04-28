@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripComments } from "../../../src/engine/config/stripComments";
+import { stripComments } from "../../../engine/config/stripComments";
 
 describe("stripComments", () => {
   it("removes _comment from a flat object", () => {

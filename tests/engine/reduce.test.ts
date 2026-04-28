@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { Engine, initialState, reduce } from "../../src/engine";
-import type { PlayerId } from "../../src/engine";
+import { Engine, initialState, reduce } from "../../engine";
+import type { PlayerId } from "../../engine";
 
 /**
  * All §5 actions now have their own test suites under tests/engine/actions/.

@@ -3,7 +3,7 @@ import {
   DEFAULT_LINKS_CONFIG,
   extractLines,
   parseLinksConfig,
-} from "../../../src/engine/config/links";
+} from "../../../engine/config/links";
 
 describe("links config", () => {
   it("loads the bundled links.json", () => {

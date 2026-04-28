@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Engine } from "../../src/engine/Engine";
+import { Engine } from "../../engine/Engine";
 
 describe("Engine — initial state", () => {
   it("seeds top-level GameState fields per §3.2 / §3.4", () => {
