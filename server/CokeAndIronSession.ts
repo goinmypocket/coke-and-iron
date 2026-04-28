@@ -541,12 +541,20 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
         ? this.playerSlotOrder.length
         : this.slotToUser.size;
     const headline = this.headline();
+    // Lobby: every seat is playable. Playing: only the seats the
+    // game actually started with (others can't be added retroactively
+    // — the engine's playerCount is fixed).
+    const playableSeatIndices =
+      this.status === "lobby"
+        ? Array.from({ length: this.maxSlots }, (_, i) => i)
+        : [...this.playerSlotOrder];
     return {
       status: this.status,
       playerCount,
       maxPlayers: this.maxSlots,
       spectatorCount: 0,
       lastActivityAt: this.lastActivityAt,
+      playableSeatIndices,
       ...(headline !== undefined ? { headline } : {}),
     };
   }

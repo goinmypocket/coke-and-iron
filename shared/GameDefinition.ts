@@ -64,4 +64,5 @@ export interface SessionDescription {
   readonly spectatorCount: number;
   readonly lastActivityAt: number;
   readonly headline?: string;
+  readonly playableSeatIndices?: readonly number[];
 }
