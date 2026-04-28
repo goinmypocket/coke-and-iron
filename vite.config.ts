@@ -89,22 +89,14 @@ export default defineConfig({
   plugins: [react(), editorApiPlugin()],
   server: {
     port: 5173,
-    proxy: {
-      // Forward the WebSocket endpoint to the host process running on
-      // its own port (default 8787). In production the same client
-      // bundle is served by the host directly, so location.host is the
-      // host port and this proxy is bypassed.
-      "/ws": {
-        target: "ws://localhost:8787",
-        ws: true,
-        changeOrigin: true,
-      },
-    },
   },
   build: {
     rollupOptions: {
       input: {
-        main: resolve(ROOT, "index.html"),
+        // The board / config editor — standalone dev UI for hand-editing
+        // config/*.json. The game itself runs only inside the In My Pocket
+        // platform now; PlatformApp.tsx is consumed via the platform's
+        // build, not this one.
         editor: resolve(ROOT, "editor.html"),
       },
     },

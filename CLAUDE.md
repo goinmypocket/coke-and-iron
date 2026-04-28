@@ -59,16 +59,21 @@ name.)
 
 ## Standalone host: removed
 
-The repo previously shipped a standalone Node host (`host/server.ts`
-plus `npm run host`). That has been removed. The game now runs only
-via the In My Pocket platform, which loads this module's
-`definition.ts` (export pending) and mounts its `web/App.tsx` inside
-the platform's chrome shell. For local development, run the platform
-(`cd ../in-my-pocket && npm run dev`) with this game registered.
+The game runs only via the In My Pocket platform, which imports this
+module's `definition.ts` and lazy-mounts `web/PlatformApp.tsx`
+inside its chrome shell. For local development:
 
-`npm run dev` in this repo still works — it serves the React bundle
-in standalone-dev mode using a loopback transport for in-browser
-play, useful for iterating on UI without spinning up the platform.
+- **Game UI**: `cd ../in-my-pocket && npm run dev` — the platform's
+  Vite dev server pulls coke-and-iron in via the `file:` link in
+  its package.json and code-splits the rich UI into its own bundle.
+- **Board / config editor**: `npm run editor` in this repo opens the
+  hand-editing UI for `config/*.json` files. Independent of the
+  game runtime.
+
+The previous standalone Node host (`host/server.ts`, `npm run host`),
+the legacy `web/App.tsx` standalone entry, and its supporting
+`web/network/WebSocketClient.ts` / `useNetworkClient.ts` /
+`LobbyScreen.tsx` have been removed.
 
 ## Git workflow
 
