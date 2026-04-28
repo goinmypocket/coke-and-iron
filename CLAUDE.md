@@ -1,7 +1,13 @@
-# Brass Birmingham — digital port to web
+# Coke and Iron — game module for In My Pocket
 
-A TypeScript + React web implementation of Brass Birmingham, built from
-a platform-agnostic spec.
+A TypeScript + React implementation of Brass Birmingham, packaged as a
+**game module** for the In My Pocket multi-game platform. The
+platform owns auth, tables, slots, saves, and the wire transport;
+this module owns the rules, the per-recipient projection, and the UI.
+
+The platform repo is `C:\Games\in-my-pocket\` (sibling). For the
+plug-in contract this module fulfils, read
+`../in-my-pocket/docs/in-my-pocket-game-author-guide.md`.
 
 ## Project layout
 
@@ -15,15 +21,24 @@ a platform-agnostic spec.
 - `docs/roadmap.md` — running list of explicitly-deferred items.
   Read this before starting a fresh session — it's where decisions
   about future work are persisted across compactions.
+- `docs/architecture.md`, `docs/network-layer.md` — current internal
+  architecture references for the engine + wire model. Some content
+  predates the In My Pocket refactor and may be partly out of date;
+  trust the code first when there's a conflict.
 - `assets/industry_icons/` — SVG icons for the six industries. Referenced
   by spec §2.9.2.
 - `config/` — tunable data per spec §9 (cities, cards, links, tiles).
   Loaded by the engine at setup.
-- `src/` — project source (engine, ui, network per the
-  boardgame-platform-ts-web skill's scaffold layout).
-- `tests/` — engine tests.
+- `src/engine/` — pure rules library.
+- `src/network/` — wire types and client-side network layer.
+- `src/ui/` — React UI.
+- `host/` — server-side game session (will be moved into `server/` and
+  refactored into `CokeAndIronSession` against the platform's
+  `GameSession` interface in a follow-up).
+- `tests/` — engine and session tests.
 
-**Do not modify** `docs/` or `assets/` without asking — they're
+**Do not modify** `docs/game-spec.md`, `docs/game-ui-spec.md`,
+`docs/rulebook.pdf`, or `assets/` without asking — they're
 spec-owned and not touched by build code.
 
 `config/` is partly build-owned: the in-game UI / board editors
@@ -42,36 +57,23 @@ and should be updated in a future spec pass. Likewise it still
 calls the board file `config/cities.json` — same content, new
 name.)
 
-## Target platform
+## Standalone host: removed
 
-Web, TypeScript + React, event-sourced engine with swappable networking
-transport. Follow the `boardgame-platform-ts-web` skill for the architecture
-and implementation procedure.
+The repo previously shipped a standalone Node host (`host/server.ts`
+plus `npm run host`). That has been removed. The game now runs only
+via the In My Pocket platform, which loads this module's
+`definition.ts` (export pending) and mounts its `web/App.tsx` inside
+the platform's chrome shell. For local development, run the platform
+(`cd ../in-my-pocket && npm run dev`) with this game registered.
+
+`npm run dev` in this repo still works — it serves the React bundle
+in standalone-dev mode using a loopback transport for in-browser
+play, useful for iterating on UI without spinning up the platform.
 
 ## Git workflow
 
 This project uses git for version control. Claude Code manages commits
 as part of the development flow. Follow these rules.
-
-### Setup (first session only)
-
-If this is a fresh project without git initialised:
-
-1. Check for git: run `git --version` to confirm it's installed.
-2. Initialise if needed: `git init` and set the default branch to `main`.
-3. Ask me for user.name and user.email, then configure them locally for
-   this repo. Do not guess values.
-4. Confirm a `.gitignore` exists that covers at minimum: `node_modules/`,
-   `dist/`, `build/`, `.vite/`, `coverage/`, `*.tsbuildinfo`, `.env`,
-   `.env.*.local`, `.DS_Store`, `Thumbs.db`, `.idea/`, and editor-specific
-   folders.
-5. Make an initial commit of whatever's already in the repo using a
-   conventional-commits message (e.g. `chore: initial project skeleton`).
-6. Ask whether to add a remote. If yes, ask for the URL.
-   - **If the remote is GitHub (or any host where the repo might be
-     created via Claude Code), the repository MUST be created private.**
-     Confirm with me that the repo is private before any push.
-   - Run `git remote add origin <url>`. Do not push.
 
 ### Commit cadence
 
@@ -80,7 +82,6 @@ the end.
 
 Good milestones look like:
 
-- `scaffold: initialise 4-layer project skeleton`
 - `feat(engine): implement §5.1 Build action with tests`
 - `feat(engine): implement §5.2 Network action with tests`
 - `feat(ui): implement Main Board panel`
@@ -128,7 +129,7 @@ or recommend making it public. Specifically:
 
 - If you create the GitHub repo on my behalf (via `gh repo create` or
   similar), use the `--private` flag. Never `--public`. Example:
-  `gh repo create brass-birmingham --private --source=. --remote=origin`.
+  `gh repo create coke-and-iron --private --source=. --remote=origin`.
 - If the repo already exists as public, stop and tell me — do not push
   to it, and do not try to change its visibility autonomously.
 - Do not commit any content that implies or advertises the repo's
