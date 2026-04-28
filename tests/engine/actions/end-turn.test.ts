@@ -222,9 +222,11 @@ describe("§4.3 end-of-round pipeline", () => {
     expect(after.pendingShortfalls).toEqual([{ playerId: 0, owed: 7 }]);
   });
 
-  it("refills hands back to 8 when the deck has enough cards", () => {
+  it("refills the just-ended seat per turn AND any still-short hands at round end", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
-    // Drop each seat's hand to 5 — they should refill to 8 (+3 each).
+    // Drop each seat's hand to 5 / 6. Player 1 ends the round (last seat),
+    // so they refill per-turn to 8 (drew 2). Then runEndOfRound's
+    // refillHands tops up player 0 from 5 to 8 (drew 3). Total 5 drawn.
     let state: GameState = {
       ...base,
       turnOrder: [0, 1],
@@ -245,11 +247,37 @@ describe("§4.3 end-of-round pipeline", () => {
     const after = engine.getState();
     expect(after.players[0]!.hand.length).toBe(8);
     expect(after.players[1]!.hand.length).toBe(8);
-    // Drew 3 + 2 = 5 cards.
     expect(after.drawDeck.length).toBe(beforeDeck - 5);
   });
 
-  it("shrinks hands when deck runs out, by actionsPerRound per seat skipped", () => {
+  it("refills only the just-ended seat when not the last seat in turn order", () => {
+    const base = initialState({ seed: 1, playerCount: 2 });
+    let state: GameState = {
+      ...base,
+      turnOrder: [0, 1],
+      currentPlayerIndex: 0,
+      actionsRemaining: 0,
+    };
+    state = withPlayer(state, 0, (p) => ({
+      ...p,
+      hand: p.hand.slice(0, 5),
+    }));
+    state = withPlayer(state, 1, (p) => ({
+      ...p,
+      hand: p.hand.slice(0, 5),
+    }));
+    const beforeDeck = state.drawDeck.length;
+    const engine = engineFromState(state);
+    engine.dispatch({ type: "END_TURN", playerId: 0 });
+    const after = engine.getState();
+    // Only seat 0 (just ended) refilled; seat 1 still at 5 awaiting its
+    // own turn-end.
+    expect(after.players[0]!.hand.length).toBe(8);
+    expect(after.players[1]!.hand.length).toBe(5);
+    expect(after.drawDeck.length).toBe(beforeDeck - 3);
+  });
+
+  it("shrinks hands at round end when deck is empty (player 0 didn't refill)", () => {
     const base = initialState({ seed: 1, playerCount: 2 });
     // Drain the deck entirely, set hands below 8, end round 2 (2 actions/round).
     let state: GameState = {
@@ -271,7 +299,7 @@ describe("§4.3 end-of-round pipeline", () => {
     const engine = engineFromState(state);
     engine.dispatch({ type: "END_TURN", playerId: 1 });
     const after = engine.getState();
-    // Both seats shrink by 2 (actionsPerRound in round 2+).
+    // Both seats below 8 with empty deck → trim by 2 (actionsPerRound).
     expect(after.players[0]!.hand.length).toBe(6 - 2);
     expect(after.players[1]!.hand.length).toBe(4 - 2);
   });

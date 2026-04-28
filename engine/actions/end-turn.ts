@@ -31,6 +31,11 @@ import type {
   ShortfallEntry,
 } from "../types";
 
+// Per-turn hand refill: as soon as a seat's turn ends, top their hand
+// back up to 8 from the deck so they can plan during the rest of the
+// round. The end-of-round refill still runs; for players whose hand is
+// already full it's a no-op, so this doesn't double-deal.
+
 const DEFAULT_HAND_SIZE = 8;
 const LINK_SUPPLY_PER_ERA = 14; // §2.7
 
@@ -67,17 +72,42 @@ export function reduceEndTurn(
 /**
  * Advance one seat. If past the last seat in turnOrder, run end-of-round.
  * Used by END_TURN and by reduce.ts's auto-advance wrapper.
+ *
+ * Before advancing, refill the just-ended seat's hand back up to 8 from
+ * the deck so the player sees their next-round cards immediately.
  */
 export function runEndOfTurn(state: GameState): GameState {
-  const nextIdx = state.currentPlayerIndex + 1;
-  if (nextIdx < state.turnOrder.length) {
+  const justEndedId = state.turnOrder[state.currentPlayerIndex];
+  let working =
+    justEndedId !== undefined
+      ? refillHandFor(state, justEndedId)
+      : state;
+
+  const nextIdx = working.currentPlayerIndex + 1;
+  if (nextIdx < working.turnOrder.length) {
     return {
-      ...state,
+      ...working,
       currentPlayerIndex: nextIdx,
-      actionsRemaining: actionsForRound(state.round, state.era),
+      actionsRemaining: actionsForRound(working.round, working.era),
     };
   }
-  return runEndOfRound(state);
+  return runEndOfRound(working);
+}
+
+function refillHandFor(state: GameState, playerId: PlayerId): GameState {
+  const idx = state.players.findIndex((p) => p.id === playerId);
+  if (idx === -1) return state;
+  const player = state.players[idx]!;
+  const needed = DEFAULT_HAND_SIZE - player.hand.length;
+  if (needed <= 0) return state;
+  const take = Math.min(needed, state.drawDeck.length);
+  if (take === 0) return state;
+  const drawn = state.drawDeck.slice(0, take);
+  const remainingDeck = state.drawDeck.slice(take);
+  const players = state.players.map((p, i) =>
+    i === idx ? { ...p, hand: [...p.hand, ...drawn] } : p,
+  );
+  return { ...state, players, drawDeck: remainingDeck };
 }
 
 export function actionsForRound(round: number, era: Era): number {
@@ -203,6 +233,10 @@ function refillHands(state: GameState): GameState {
 
   for (const seatId of state.turnOrder) {
     const hand = handsBySeat.get(seatId)!;
+    // Already at full size — refilled during their turn end. Don't
+    // touch (and don't apply the deck-empty trim, since they already
+    // got their cards).
+    if (hand.length >= DEFAULT_HAND_SIZE) continue;
     if (deck.length === 0) {
       const keep = Math.max(0, hand.length - actionsThisRound);
       handsBySeat.set(seatId, hand.slice(0, keep));
