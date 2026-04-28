@@ -25,7 +25,7 @@ export const def: GameDefinition<CokeAndIronSave> = {
     {
       kind: "number",
       key: "seed",
-      label: "Random seed",
+      label: "Random seed (0 = pick one for me)",
       default: 0,
     },
     {
@@ -41,6 +41,18 @@ export const def: GameDefinition<CokeAndIronSave> = {
       default: true,
     },
   ],
+  normalizeOptions(options) {
+    const out = { ...options };
+    if (typeof out["seed"] !== "number" || out["seed"] === 0) {
+      // 0 / missing means "give me a fresh seed". Use a value that fits
+      // in a positive 32-bit int — the engine's seeded RNG handles
+      // anything in that range.
+      out["seed"] = Math.floor(Math.random() * 0x7fffffff) + 1;
+    }
+    if (typeof out["autoEndTurn"] !== "boolean") out["autoEndTurn"] = false;
+    if (typeof out["allowUndo"] !== "boolean") out["allowUndo"] = true;
+    return out;
+  },
   createSession(opts) {
     return createFromOpts(opts);
   },

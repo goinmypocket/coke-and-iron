@@ -82,7 +82,12 @@ type C2SGameMessage =
       slotIndex: number;
       displayName: string;
       pawnColor: LobbyColor;
-    };
+    }
+  /** Re-request the current per-recipient snapshot. The platform's
+   *  game lazy-mount can finish loading after the session has already
+   *  broadcast SNAPSHOT, so the freshly-mounted UI sends this on
+   *  startup to pull state on demand. */
+  | { type: "REQUEST_SNAPSHOT" };
 
 // ---------------------------------------------------------------------------
 // Constructor options
@@ -383,6 +388,15 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
           msg.displayName,
           msg.pawnColor,
         );
+      case "REQUEST_SNAPSHOT": {
+        if (this.status === "lobby") {
+          this.sendTo(userId, this.lobbyMessage());
+        } else if (this.engine) {
+          this.sendTo(userId, this.snapshotFor(userId));
+          if (this.paused) this.sendTo(userId, { type: "PAUSED", paused: true });
+        }
+        return;
+      }
     }
   }
 
@@ -721,6 +735,8 @@ function parseGameMessage(payload: unknown): C2SGameMessage | null {
       return null;
     case "UNDO":
       return { type: "UNDO" };
+    case "REQUEST_SNAPSHOT":
+      return { type: "REQUEST_SNAPSHOT" };
     case "SET_PAUSED":
       if (typeof obj["paused"] === "boolean") {
         return { type: "SET_PAUSED", paused: obj["paused"] };

@@ -48,6 +48,11 @@ export function usePlatformGameSession(
       sendUndo: () => send({ type: "UNDO" }),
     };
 
+    // The lazy-loaded UI may have missed the SNAPSHOT the session
+    // broadcast at start-game time. Ask for a fresh one as soon as
+    // we're subscribed.
+    send({ type: "REQUEST_SNAPSHOT" });
+
     const unsub = ctx.subscribe((payload) => {
       const msg = payload as GameServerMessage;
       switch (msg.type) {

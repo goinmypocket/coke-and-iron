@@ -19,6 +19,7 @@ export interface GameDefinition<Save = unknown> {
   readonly optionsSchema: OptionsSchema;
   createSession(opts: CreateOpts): GameSession<Save>;
   loadSession(blob: Save, opts: LoadOpts): GameSession<Save>;
+  normalizeOptions?(options: Record<string, unknown>): Record<string, unknown>;
 }
 
 export interface GameSession<Save = unknown> {
