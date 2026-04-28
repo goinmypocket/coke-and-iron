@@ -50,7 +50,14 @@ export default function PlatformApp({ ctx }: Props): ReactNode {
   }
 
   return (
-    <EngineProvider engine={session.engine} mySeatId={session.mySeatId}>
+    <EngineProvider
+      engine={session.engine}
+      mySeatId={session.mySeatId}
+      rejection={{
+        text: session.lastRejection,
+        dismiss: session.clearRejection,
+      }}
+    >
       <WizardProvider>
         <div className="app-shell">
           <ViewerBanner />

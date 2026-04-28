@@ -8,19 +8,35 @@ export const EngineContext = createContext<Engine | null>(null);
  * one client never sees another player's cards. */
 export const ViewerSeatContext = createContext<number | null>(null);
 
+/** Most recent server rejection of one of MY intents, formatted for
+ * inline display. `null` when there's nothing to show. The dismiss
+ * callback lets UI clear it on user interaction. */
+interface RejectionValue {
+  readonly text: string | null;
+  dismiss(): void;
+}
+
+const noopRejection: RejectionValue = { text: null, dismiss: () => {} };
+
+export const RejectionContext = createContext<RejectionValue>(noopRejection);
+
 export function EngineProvider({
   engine,
   mySeatId,
+  rejection,
   children,
 }: {
   engine: Engine;
   mySeatId: number | null;
+  rejection?: RejectionValue;
   children: ReactNode;
 }) {
   return (
     <EngineContext.Provider value={engine}>
       <ViewerSeatContext.Provider value={mySeatId}>
-        {children}
+        <RejectionContext.Provider value={rejection ?? noopRejection}>
+          {children}
+        </RejectionContext.Provider>
       </ViewerSeatContext.Provider>
     </EngineContext.Provider>
   );
@@ -28,4 +44,8 @@ export function EngineProvider({
 
 export function useMySeatId(): number | null {
   return useContext(ViewerSeatContext);
+}
+
+export function useRejection(): RejectionValue {
+  return useContext(RejectionContext);
 }

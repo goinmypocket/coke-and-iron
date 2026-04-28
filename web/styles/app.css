@@ -1200,6 +1200,16 @@ body {
   color: #7a1a1a;
   font-weight: 600;
 }
+.actions-banner__chip--dismissable {
+  /* Server-rejection chip: clickable to dismiss. Uses the same red
+   * tint as inline-selection errors so they read as the same kind
+   * of feedback. */
+  cursor: pointer;
+  font-family: inherit;
+}
+.actions-banner__chip--dismissable:hover {
+  background: #fbd1d1;
+}
 .action-btn {
   padding: 0.35rem 0.6rem;
   font: inherit;

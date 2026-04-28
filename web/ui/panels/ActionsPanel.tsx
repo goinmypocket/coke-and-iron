@@ -19,7 +19,7 @@ import type {
   Player,
 } from "../../../engine";
 import { reasonToText } from "../affordances/toast";
-import { useMySeatId } from "../hooks/EngineProvider";
+import { useMySeatId, useRejection } from "../hooks/EngineProvider";
 import { useCanUndo, useEngine } from "../hooks/useEngine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { RecentActionsOverlay } from "../overlays/RecentActionsOverlay";
@@ -35,6 +35,7 @@ export function ActionsPanel() {
   const wizard = useWizard();
   const canUndo = useCanUndo();
   const mySeatId = useMySeatId();
+  const rejection = useRejection();
   const [logOpen, setLogOpen] = useState(false);
   const flags = useGameState((s) => {
     const activePlayerId = s.turnOrder[s.currentPlayerIndex] ?? null;
@@ -239,7 +240,7 @@ export function ActionsPanel() {
             tooltip="Show the recent actions log."
           />
         </div>
-        {chips.length > 0 || issues.length > 0 ? (
+        {chips.length > 0 || issues.length > 0 || rejection.text !== null ? (
           <div className="actions-banner__chips">
             {chips.map((c) => (
               <span key={c.key} className="actions-banner__chip">
@@ -255,6 +256,17 @@ export function ActionsPanel() {
                 ⚠ {label}
               </span>
             ))}
+            {rejection.text !== null ? (
+              <button
+                type="button"
+                className="actions-banner__chip actions-banner__chip--error actions-banner__chip--dismissable"
+                role="alert"
+                onClick={rejection.dismiss}
+                title="Click to dismiss"
+              >
+                ⚠ {rejection.text} ×
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
