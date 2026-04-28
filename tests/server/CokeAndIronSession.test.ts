@@ -1,0 +1,290 @@
+// =============================================================================
+// Session-level tests. Drives CokeAndIronSession through claim → start →
+// intent dispatch → save/load round-trip without a real platform.
+// =============================================================================
+import { describe, expect, it } from "vitest";
+import { asTableId, asUserId, type UserId } from "../../shared/ids";
+import {
+  CokeAndIronSession,
+  createFromOpts,
+  loadFromOpts,
+  type CokeAndIronSave,
+} from "../../server/CokeAndIronSession";
+import type { ServerMessage as GameServerMessage } from "../../shared/protocol";
+
+function makeSession(hostUserId: UserId): CokeAndIronSession {
+  return createFromOpts({
+    tableId: asTableId("table-1"),
+    hostUserId,
+    options: { seed: 42, autoEndTurn: false, allowUndo: true },
+  });
+}
+
+interface Recorder {
+  msgs: GameServerMessage[];
+  send: (m: unknown) => void;
+}
+function makeRecorder(): Recorder {
+  const msgs: GameServerMessage[] = [];
+  return { msgs, send: (m) => msgs.push(m as GameServerMessage) };
+}
+
+describe("CokeAndIronSession lobby", () => {
+  it("only the host can start", () => {
+    const host = asUserId("host");
+    const other = asUserId("other");
+    const s = makeSession(host);
+    expect(s.startGame(other).ok).toBe(false);
+  });
+
+  it("requires 2-4 fully-identified seats to start", () => {
+    const host = asUserId("host");
+    const s = makeSession(host);
+    // No claims -> error
+    const r0 = s.startGame(host);
+    expect(r0.ok).toBe(false);
+    if (!r0.ok) expect(r0.reason).toMatch(/2.4 players/);
+
+    // Two claims but no identity -> error
+    s.claimSeat(host, 0);
+    s.claimSeat(asUserId("p2"), 1);
+    const r1 = s.startGame(host);
+    expect(r1.ok).toBe(false);
+    if (!r1.ok) expect(r1.reason).toMatch(/needs a name/);
+
+    // Set identity for both -> startable
+    s.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Host",
+      pawnColor: "red",
+    });
+    s.handleGameMessage(asUserId("p2"), {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Bob",
+      pawnColor: "blue",
+    });
+    const r2 = s.startGame(host);
+    expect(r2.ok).toBe(true);
+  });
+
+  it("rejects duplicate names and colors", () => {
+    const host = asUserId("host");
+    const s = makeSession(host);
+    s.claimSeat(host, 0);
+    s.claimSeat(asUserId("p2"), 1);
+    const rec = makeRecorder();
+    s.attachConnection(asUserId("p2"), rec.send);
+    s.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Alice",
+      pawnColor: "red",
+    });
+    s.handleGameMessage(asUserId("p2"), {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Alice",
+      pawnColor: "blue",
+    });
+    const errors = rec.msgs.filter((m) => m.type === "ERROR");
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("broadcasts LOBBY_STATE on attach + claim", () => {
+    const host = asUserId("host");
+    const s = makeSession(host);
+    const rec = makeRecorder();
+    s.attachConnection(host, rec.send);
+    expect(rec.msgs[0]?.type).toBe("LOBBY_STATE");
+    s.claimSeat(host, 0);
+    expect(rec.msgs.length).toBeGreaterThanOrEqual(2);
+    const last = rec.msgs[rec.msgs.length - 1]!;
+    expect(last.type).toBe("LOBBY_STATE");
+    if (last.type === "LOBBY_STATE") {
+      expect(last.lobby.seats[0]?.claimedBy).toBe(host);
+    }
+  });
+});
+
+describe("CokeAndIronSession play", () => {
+  it("sends SNAPSHOT on attach when game is in progress", () => {
+    const host = asUserId("host");
+    const p2 = asUserId("p2");
+    const s = makeSession(host);
+    s.claimSeat(host, 0);
+    s.claimSeat(p2, 1);
+    s.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Host",
+      pawnColor: "red",
+    });
+    s.handleGameMessage(p2, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Bob",
+      pawnColor: "blue",
+    });
+    expect(s.startGame(host).ok).toBe(true);
+    const rec = makeRecorder();
+    s.attachConnection(host, rec.send);
+    expect(rec.msgs[0]?.type).toBe("SNAPSHOT");
+  });
+
+  it("rejects intents from a user who doesn't hold the seat", () => {
+    const host = asUserId("host");
+    const p2 = asUserId("p2");
+    const s = makeSession(host);
+    s.claimSeat(host, 0);
+    s.claimSeat(p2, 1);
+    s.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Host",
+      pawnColor: "red",
+    });
+    s.handleGameMessage(p2, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Bob",
+      pawnColor: "blue",
+    });
+    s.startGame(host);
+
+    const rec = makeRecorder();
+    s.attachConnection(p2, rec.send);
+    rec.msgs.length = 0;
+    // p2 holds PlayerId 1 (slot 1), but tries to dispatch as PlayerId 0.
+    s.handleGameMessage(p2, {
+      type: "INTENT",
+      intent: { kind: "PASS", playerId: 0 } as unknown as never,
+    });
+    const err = rec.msgs.find((m) => m.type === "ERROR");
+    expect(err).toBeTruthy();
+  });
+});
+
+describe("CokeAndIronSession persistence", () => {
+  it("serializes a lobby and loads it back into a lobby", () => {
+    const host = asUserId("host");
+    const s1 = makeSession(host);
+    s1.claimSeat(host, 0);
+    s1.claimSeat(asUserId("p2"), 1);
+    s1.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Alice",
+      pawnColor: "red",
+    });
+    const blob: CokeAndIronSave = s1.serialize();
+    expect(blob.status).toBe("lobby");
+    expect(blob.seatIdentities.find((s) => s.slotIndex === 0)?.displayName).toBe(
+      "Alice",
+    );
+
+    const s2 = loadFromOpts(blob, {
+      tableId: asTableId("table-2"),
+      hostUserId: host,
+      options: {},
+    });
+    const rec = makeRecorder();
+    s2.attachConnection(host, rec.send);
+    const lobby = rec.msgs[0];
+    expect(lobby?.type).toBe("LOBBY_STATE");
+    if (lobby?.type === "LOBBY_STATE") {
+      // Identity preserved, claimedBy reset (users must re-claim).
+      expect(lobby.lobby.seats[0]?.displayName).toBe("Alice");
+      expect(lobby.lobby.seats[0]?.claimedBy).toBe(null);
+      expect(lobby.lobby.fromSave).toBe(true);
+    }
+  });
+
+  it("serialize → load → start replays cleanly", () => {
+    const host = asUserId("host");
+    const p2 = asUserId("p2");
+    const s1 = makeSession(host);
+    s1.claimSeat(host, 0);
+    s1.claimSeat(p2, 1);
+    s1.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Alice",
+      pawnColor: "red",
+    });
+    s1.handleGameMessage(p2, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Bob",
+      pawnColor: "blue",
+    });
+    expect(s1.startGame(host).ok).toBe(true);
+    const blob = s1.serialize();
+    expect(blob.status).toBe("playing");
+
+    // Load into new session — players re-claim, host starts.
+    const s2 = loadFromOpts(blob, {
+      tableId: asTableId("table-3"),
+      hostUserId: host,
+      options: {},
+    });
+    s2.claimSeat(host, 0);
+    s2.claimSeat(p2, 1);
+    expect(s2.startGame(host).ok).toBe(true);
+    // describe should report "playing" again
+    expect(s2.describe().status).toBe("playing");
+    expect(s2.describe().playerCount).toBe(2);
+  });
+});
+
+describe("CokeAndIronSession kick + reclaim", () => {
+  it("kicked seat can be reclaimed by another user", () => {
+    const host = asUserId("host");
+    const p2 = asUserId("p2");
+    const p3 = asUserId("p3");
+    const s = makeSession(host);
+    s.claimSeat(host, 0);
+    s.claimSeat(p2, 1);
+    s.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Alice",
+      pawnColor: "red",
+    });
+    s.handleGameMessage(p2, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Bob",
+      pawnColor: "blue",
+    });
+    s.startGame(host);
+
+    expect(s.kickSeat(host, 1).ok).toBe(true);
+    // p3 reclaims slot 1
+    expect(s.claimSeat(p3, 1).ok).toBe(true);
+  });
+
+  it("cannot create a new seat after game has started", () => {
+    const host = asUserId("host");
+    const p2 = asUserId("p2");
+    const s = makeSession(host);
+    s.claimSeat(host, 0);
+    s.claimSeat(p2, 1);
+    s.handleGameMessage(host, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 0,
+      displayName: "Alice",
+      pawnColor: "red",
+    });
+    s.handleGameMessage(p2, {
+      type: "SET_SEAT_IDENTITY",
+      slotIndex: 1,
+      displayName: "Bob",
+      pawnColor: "blue",
+    });
+    s.startGame(host);
+    // slot 2 was never a player; rejecting a mid-game claim there is correct
+    expect(s.claimSeat(asUserId("p3"), 2).ok).toBe(false);
+  });
+});

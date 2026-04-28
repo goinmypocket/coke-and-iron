@@ -1,23 +1,37 @@
 // =============================================================================
 // CokeAndIronSession — the platform-facing GameSession for this game.
 //
-// Status: scaffold. The class implements the platform's GameSession
-// interface so the registry can build it, but the bodies are stubs.
-// Filling them in is the next milestone — most of the logic comes
-// straight from host/HostGame.ts (the previous standalone host's
-// session class), translated from `clientId` to `userId` and from
-// the standalone WS broadcast loop to per-recipient `send` callbacks.
+// Translates the platform's seat / userId / GAME_MSG model into the engine's
+// intent dispatch + per-recipient projection model. Replaces the old
+// HostGame.ts (which targeted the standalone host's clientId / seat-token
+// model). Most logic is the same; the differences are:
+//   - identity is `userId` (long-lived account), not `clientId` (socket).
+//   - seat tokens are gone — the platform's JWT cookie is the reconnect.
+//   - autosave-to-disk is gone — the platform owns persistence.
+//   - lobby ops dispatched by the platform: claimSeat / releaseSeat / kick /
+//     startGame. Game-specific ops (intent, undo, pause, identity) ride
+//     inside GAME_MSG via handleGameMessage.
 //
-// Mapping from HostGame to this class (rough):
-//   - HostGame.handleClientMessage(clientId, msg)
-//       → handleGameMessage(userId, payload) for in-game intents
-//       → claimSeat / releaseSeat / etc. for lobby ops
-//   - HostGame.dispatch(intent) → handleGameMessage internals
-//   - HostGame.broadcastState() → loops connections, projects per
-//     userId, calls each user's send()
-//   - HostGame.serialize() → serialize()
+// See ../in-my-pocket/docs/in-my-pocket-game-author-guide.md for the
+// platform contract.
 // =============================================================================
 
+import {
+  Engine,
+  projectFor,
+  type EngineConfigBundle,
+  type SeatIdentity,
+} from "../engine";
+import type { Intent, PlayerCount, PlayerId } from "../engine/types";
+import {
+  LOBBY_COLORS,
+  PROTOCOL_VERSION,
+  type LobbyColor,
+  type LobbyState,
+  type PlayingEnvelope,
+  type ServerMessage as GameServerMessage,
+} from "../shared/protocol";
+import { resolveBundle, type ResolvedBundle } from "../shared/saveFile";
 import type {
   CreateOpts,
   GameSession,
@@ -28,109 +42,718 @@ import type {
   UserId,
 } from "../shared";
 
-/** Persisted snapshot. Will be filled in to match the existing
- *  SaveFile shape (src/network/saveFile.ts) once HostGame is ported. */
+// ---------------------------------------------------------------------------
+// Persisted shape
+// ---------------------------------------------------------------------------
+
+export const SAVE_SCHEMA_VERSION = 2 as const;
+
 export interface CokeAndIronSave {
-  readonly schemaVersion: 1;
-  readonly tableOptions: Record<string, unknown>;
-  // TODO: bring across { seed, bundle, intentLog, lobby, seatTokens } etc.
+  readonly schemaVersion: typeof SAVE_SCHEMA_VERSION;
+  readonly status: "lobby" | "playing" | "finished";
+  readonly seed: number;
+  readonly playerCount: PlayerCount | null;
+  readonly autoEndTurn: boolean;
+  readonly allowUndo: boolean;
+  readonly bundle: ResolvedBundle | null;
+  readonly intentLog: readonly Intent[];
+  readonly seatIdentities: readonly SavedSeatIdentity[];
+  readonly paused: boolean;
+  readonly createdAt: string;
 }
 
+interface SavedSeatIdentity {
+  /** Platform slot index this identity was claimed under. */
+  readonly slotIndex: number;
+  readonly displayName: string | null;
+  readonly pawnColor: LobbyColor | null;
+}
+
+// ---------------------------------------------------------------------------
+// Game protocol carried inside GAME_MSG
+// ---------------------------------------------------------------------------
+
+type C2SGameMessage =
+  | { type: "INTENT"; intent: Intent }
+  | { type: "UNDO" }
+  | { type: "SET_PAUSED"; paused: boolean }
+  | {
+      type: "SET_SEAT_IDENTITY";
+      slotIndex: number;
+      displayName: string;
+      pawnColor: LobbyColor;
+    };
+
+// ---------------------------------------------------------------------------
+// Constructor options
+// ---------------------------------------------------------------------------
+
+interface SessionOpts {
+  readonly hostUserId: UserId;
+  readonly options: Record<string, unknown>;
+  readonly maxSlots: number;
+}
+
+interface ConstructorOpts extends SessionOpts {
+  readonly load?: CokeAndIronSave;
+}
+
+// ---------------------------------------------------------------------------
+// The session
+// ---------------------------------------------------------------------------
+
 export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
-  // ---- Connection bookkeeping ------------------------------------------
-  /** userId → send callback for the active socket. Cleared on detach. */
+  // ---- Identity -------------------------------------------------------
+  private readonly hostUserId: UserId;
+  private readonly maxSlots: number;
+  private readonly seed: number;
+  private readonly autoEndTurn: boolean;
+  private readonly allowUndo: boolean;
+  private initialBundle: EngineConfigBundle;
+  private readonly createdAt: string;
+
+  // ---- Lobby ----------------------------------------------------------
+  /** Per-platform-slot identity. Slots that aren't claimed have an
+   *  entry only if they came from a save (preserved name/color for
+   *  reclaiming). */
+  private slotIdentities: Map<
+    number,
+    { displayName: string | null; pawnColor: LobbyColor | null }
+  > = new Map();
+  /** Which user holds which slot, pre- and post-start. */
+  private slotToUser: Map<number, UserId> = new Map();
+
+  // ---- Playing -------------------------------------------------------
+  private engine: Engine | null = null;
+  private bundle: ResolvedBundle | null = null;
+  private status: "lobby" | "playing" | "finished" = "lobby";
+  private paused = false;
+  /** Built at startGame. PlayerId k corresponds to platform slot
+   *  `playerSlotOrder[k]`. Empty when not started. */
+  private playerSlotOrder: number[] = [];
+  /** Frozen at startGame for replay. */
+  private loadedIntents: readonly Intent[] | null = null;
+
+  // ---- Connections ---------------------------------------------------
   private readonly connections = new Map<UserId, (msg: unknown) => void>();
 
-  // ---- Session config --------------------------------------------------
-  private readonly tableOptions: Record<string, unknown>;
-  private readonly hostUserId: UserId;
+  private lastActivityAt: number = Date.now();
 
-  // ---- Phase ------------------------------------------------------------
-  private status: "lobby" | "playing" | "finished" = "lobby";
-  private lastActivityAt = Date.now();
+  // ---------------------------------------------------------------------------
+  // Construction
+  // ---------------------------------------------------------------------------
 
-  constructor(opts: CreateOpts | LoadOpts) {
-    this.tableOptions = opts.options;
+  constructor(opts: ConstructorOpts) {
     this.hostUserId = opts.hostUserId;
-    // TODO: build LobbyState, Engine bundle, etc. — port from
-    // host/HostGame.ts constructor.
+    this.maxSlots = opts.maxSlots;
+
+    if (opts.load) {
+      // Hydrating from save — seats are unclaimed; identities are pre-filled.
+      this.seed = opts.load.seed;
+      this.autoEndTurn = opts.load.autoEndTurn;
+      this.allowUndo = opts.load.allowUndo;
+      this.initialBundle = opts.load.bundle ?? {};
+      this.createdAt = opts.load.createdAt;
+      this.loadedIntents = opts.load.intentLog;
+      this.paused = opts.load.paused;
+      for (const seat of opts.load.seatIdentities) {
+        this.slotIdentities.set(seat.slotIndex, {
+          displayName: seat.displayName,
+          pawnColor: seat.pawnColor,
+        });
+      }
+      // Even if the save was in `playing` status, we come back up in
+      // lobby so users can re-claim their seats. Replay happens on
+      // startGame.
+      this.status = "lobby";
+    } else {
+      this.seed = readNumber(opts.options, "seed", 0);
+      this.autoEndTurn = readBoolean(opts.options, "autoEndTurn", false);
+      this.allowUndo = readBoolean(opts.options, "allowUndo", true);
+      this.initialBundle = {};
+      this.createdAt = new Date().toISOString();
+    }
   }
 
-  // ---- Connection lifecycle --------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Connection lifecycle
+  // ---------------------------------------------------------------------------
 
   attachConnection(userId: UserId, send: (msg: unknown) => void): void {
     this.connections.set(userId, send);
-    // TODO: send the per-recipient snapshot. Today's HostGame produces
-    // this via projectFor(state, viewerSeatId); plug that in once the
-    // engine is wired up here.
+    if (this.status === "lobby") {
+      send(this.lobbyMessage());
+    } else if (this.engine) {
+      send(this.snapshotFor(userId));
+      if (this.paused) send({ type: "PAUSED", paused: true });
+    }
   }
 
   detachConnection(userId: UserId): void {
     this.connections.delete(userId);
   }
 
-  // ---- Lobby -----------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Lobby — driven by the platform
+  // ---------------------------------------------------------------------------
 
-  claimSeat(_userId: UserId, _seatIndex: number, _options?: SeatOptions): Result {
-    return { ok: false, reason: "not implemented" };
+  claimSeat(userId: UserId, seatIndex: number, _opts?: SeatOptions): Result {
+    if (seatIndex < 0 || seatIndex >= this.maxSlots) {
+      return { ok: false, reason: "invalid seat" };
+    }
+    if (this.status === "playing" || this.status === "finished") {
+      // Mid-game claim is only legal for a slot that was a player at
+      // game start (kick → reclaim) and that's currently empty.
+      if (!this.playerSlotOrder.includes(seatIndex)) {
+        return {
+          ok: false,
+          reason: "cannot add new seats once the game has started",
+        };
+      }
+      const current = this.slotToUser.get(seatIndex);
+      if (current && current !== userId) {
+        return { ok: false, reason: "seat is taken" };
+      }
+      this.slotToUser.set(seatIndex, userId);
+      this.lastActivityAt = Date.now();
+      this.broadcastSnapshot();
+      return { ok: true };
+    }
+
+    // Lobby phase.
+    const existing = this.slotToUser.get(seatIndex);
+    if (existing && existing !== userId) {
+      return { ok: false, reason: "seat is taken" };
+    }
+    // Release any other slot this user currently holds.
+    for (const [k, u] of this.slotToUser) {
+      if (u === userId && k !== seatIndex) this.slotToUser.delete(k);
+    }
+    this.slotToUser.set(seatIndex, userId);
+    if (!this.slotIdentities.has(seatIndex)) {
+      this.slotIdentities.set(seatIndex, {
+        displayName: null,
+        pawnColor: this.suggestPawnColor(seatIndex),
+      });
+    }
+    this.lastActivityAt = Date.now();
+    this.broadcastLobby();
+    return { ok: true };
   }
 
-  releaseSeat(_userId: UserId, _seatIndex: number): Result {
-    return { ok: false, reason: "not implemented" };
+  releaseSeat(userId: UserId, seatIndex: number): Result {
+    if (this.status === "playing" || this.status === "finished") {
+      // Mid-game leaving doesn't free the seat from the engine — the
+      // user just walks away. The slot stays empty until reclaimed.
+      const holder = this.slotToUser.get(seatIndex);
+      if (holder !== userId) return { ok: false, reason: "not your seat" };
+      this.slotToUser.delete(seatIndex);
+      this.lastActivityAt = Date.now();
+      this.broadcastSnapshot();
+      return { ok: true };
+    }
+    const holder = this.slotToUser.get(seatIndex);
+    if (!holder) return { ok: false, reason: "seat already empty" };
+    if (holder !== userId) return { ok: false, reason: "not your seat" };
+    this.slotToUser.delete(seatIndex);
+    // On a fresh lobby (no save) drop the identity too. On a save-
+    // hydrated lobby keep it so the next player can reclaim.
+    if (this.loadedIntents === null) {
+      this.slotIdentities.delete(seatIndex);
+    }
+    this.lastActivityAt = Date.now();
+    this.broadcastLobby();
+    return { ok: true };
   }
 
-  kickSeat(callerUserId: UserId, _seatIndex: number): Result {
+  kickSeat(callerUserId: UserId, seatIndex: number): Result {
     if (callerUserId !== this.hostUserId) {
       return { ok: false, reason: "only the host can kick" };
     }
-    return { ok: false, reason: "not implemented" };
+    if (!this.slotToUser.has(seatIndex)) {
+      return { ok: false, reason: "seat already empty" };
+    }
+    this.slotToUser.delete(seatIndex);
+    this.lastActivityAt = Date.now();
+    if (this.status === "lobby") this.broadcastLobby();
+    else this.broadcastSnapshot();
+    return { ok: true };
   }
 
   startGame(callerUserId: UserId): Result {
     if (callerUserId !== this.hostUserId) {
       return { ok: false, reason: "only the host can start" };
     }
-    return { ok: false, reason: "not implemented" };
-  }
+    if (this.status !== "lobby") {
+      return { ok: false, reason: "already started" };
+    }
+    const claimed = [...this.slotToUser.keys()].sort((a, b) => a - b);
+    if (claimed.length < 2 || claimed.length > 4) {
+      return {
+        ok: false,
+        reason: `coke and iron requires 2–4 players (have ${claimed.length})`,
+      };
+    }
+    // Every claimed slot must have a fully-set identity.
+    for (const slotIndex of claimed) {
+      const id = this.slotIdentities.get(slotIndex);
+      if (!id || id.displayName === null || id.pawnColor === null) {
+        return {
+          ok: false,
+          reason: `slot ${slotIndex + 1} needs a name and pawn color before starting`,
+        };
+      }
+    }
+    // Disallow duplicate names / colors.
+    const seenName = new Set<string>();
+    const seenColor = new Set<LobbyColor>();
+    for (const slotIndex of claimed) {
+      const id = this.slotIdentities.get(slotIndex)!;
+      if (seenName.has(id.displayName!))
+        return { ok: false, reason: `name "${id.displayName}" used twice` };
+      if (seenColor.has(id.pawnColor!))
+        return { ok: false, reason: `color "${id.pawnColor}" used twice` };
+      seenName.add(id.displayName!);
+      seenColor.add(id.pawnColor!);
+    }
 
-  // ---- Play ------------------------------------------------------------
-
-  handleGameMessage(_userId: UserId, _payload: unknown): void {
-    // TODO: route to intent dispatch via the engine. Validate the
-    // payload, check seat ownership for the acting user, apply if
-    // legal, then re-broadcast to every connection.
+    const playerCount = claimed.length as PlayerCount;
+    const seats: SeatIdentity[] = claimed.map((slotIndex) => {
+      const id = this.slotIdentities.get(slotIndex)!;
+      return { displayName: id.displayName!, pawnColor: id.pawnColor! };
+    });
+    this.bundle = resolveBundle({ ...this.initialBundle, seats }, seats);
+    this.engine = new Engine(
+      {
+        seed: this.seed,
+        playerCount,
+        autoEndTurn: this.autoEndTurn,
+        allowUndo: this.allowUndo,
+      },
+      this.bundle,
+    );
+    if (this.loadedIntents) {
+      for (const intent of this.loadedIntents) {
+        const r = this.engine.dispatch(intent);
+        if (!r.ok) {
+          this.engine = null;
+          this.bundle = null;
+          return {
+            ok: false,
+            reason: `replay diverged: ${r.reason}`,
+          };
+        }
+      }
+      this.loadedIntents = null;
+    }
+    this.playerSlotOrder = claimed;
+    this.status = "playing";
     this.lastActivityAt = Date.now();
+    this.broadcastSnapshot();
+    return { ok: true };
   }
 
-  // ---- Persistence -----------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Game-specific intents
+  // ---------------------------------------------------------------------------
 
-  serialize(): CokeAndIronSave {
-    return {
-      schemaVersion: 1,
-      tableOptions: this.tableOptions,
-    };
-  }
-
-  // ---- Telemetry -------------------------------------------------------
-
-  describe(): SessionDescription {
-    return {
-      status: this.status,
-      playerCount: 0, // TODO: real count from lobby/engine
-      maxPlayers: 4,
-      spectatorCount: 0,
-      lastActivityAt: this.lastActivityAt,
-    };
-  }
-
-  /** Internal helper: broadcast a per-recipient projection. To be used
-   *  once the engine is wired up. */
-  private broadcast(): void {
-    for (const [userId, send] of this.connections) {
-      // TODO: const view = projectFor(state, this.seatIdOf(userId));
-      // send({ type: "STATE", ... view });
-      void userId;
-      void send;
+  handleGameMessage(userId: UserId, payload: unknown): void {
+    const msg = parseGameMessage(payload);
+    if (!msg) {
+      this.errorTo(userId, "bad message");
+      return;
+    }
+    switch (msg.type) {
+      case "INTENT":
+        return this.handleIntent(userId, msg.intent);
+      case "UNDO":
+        return this.handleUndo(userId);
+      case "SET_PAUSED":
+        return this.handleSetPaused(userId, msg.paused);
+      case "SET_SEAT_IDENTITY":
+        return this.handleSetSeatIdentity(
+          userId,
+          msg.slotIndex,
+          msg.displayName,
+          msg.pawnColor,
+        );
     }
   }
+
+  private handleIntent(userId: UserId, intent: Intent): void {
+    if (this.status !== "playing" || !this.engine) {
+      return this.errorTo(userId, "game not started");
+    }
+    if (this.paused) return this.errorTo(userId, "game is paused");
+    const carriedPlayerId = (intent as { playerId?: number }).playerId;
+    if (typeof carriedPlayerId === "number") {
+      const expectedSlot = this.playerSlotOrder[carriedPlayerId];
+      if (expectedSlot === undefined) {
+        return this.errorTo(userId, `invalid playerId ${carriedPlayerId}`);
+      }
+      if (this.slotToUser.get(expectedSlot) !== userId) {
+        return this.errorTo(
+          userId,
+          `seat ${carriedPlayerId} is not held by you`,
+        );
+      }
+    }
+    const result = this.engine.dispatch(intent);
+    if (!result.ok) {
+      this.sendTo(userId, {
+        type: "INTENT_REJECTED",
+        reason: result.reason,
+        intent,
+      });
+      return;
+    }
+    this.lastActivityAt = Date.now();
+    this.broadcastState({ kind: "intent", intent, originator: userId });
+  }
+
+  private handleUndo(userId: UserId): void {
+    if (this.status !== "playing" || !this.engine) {
+      return this.errorTo(userId, "game not started");
+    }
+    if (this.paused) return this.errorTo(userId, "game is paused");
+    const state = this.engine.getState();
+    const activePlayerId = state.turnOrder[state.currentPlayerIndex];
+    if (activePlayerId === undefined) {
+      return this.errorTo(userId, "no active seat");
+    }
+    const expectedSlot = this.playerSlotOrder[activePlayerId];
+    if (expectedSlot === undefined || this.slotToUser.get(expectedSlot) !== userId) {
+      return this.errorTo(userId, "only the active seat may undo");
+    }
+    if (!this.engine.undo()) {
+      return this.errorTo(userId, "nothing to undo");
+    }
+    this.lastActivityAt = Date.now();
+    this.broadcastState({ kind: "undo" });
+  }
+
+  private handleSetPaused(userId: UserId, paused: boolean): void {
+    if (userId !== this.hostUserId) {
+      return this.errorTo(userId, "only the host can pause / resume");
+    }
+    if (this.status !== "playing") {
+      return this.errorTo(userId, "no game in progress");
+    }
+    this.paused = paused;
+    for (const send of this.connections.values()) {
+      send({ type: "PAUSED", paused });
+    }
+  }
+
+  private handleSetSeatIdentity(
+    userId: UserId,
+    slotIndex: number,
+    displayName: string,
+    pawnColor: LobbyColor,
+  ): void {
+    if (this.status !== "lobby") {
+      return this.errorTo(userId, "cannot rename seats once started");
+    }
+    if (this.slotToUser.get(slotIndex) !== userId) {
+      return this.errorTo(userId, "not your seat");
+    }
+    if (!isLobbyColor(pawnColor)) {
+      return this.errorTo(userId, `unknown color ${pawnColor}`);
+    }
+    const trimmed = displayName.trim();
+    if (trimmed.length === 0) return this.errorTo(userId, "name cannot be empty");
+    if (trimmed.length > 40) return this.errorTo(userId, "name too long");
+    // Reject duplicate names/colors against other claimed slots.
+    for (const [other, otherId] of this.slotIdentities) {
+      if (other === slotIndex) continue;
+      if (!this.slotToUser.has(other)) continue;
+      if (otherId.displayName === trimmed)
+        return this.errorTo(userId, `name "${trimmed}" already taken`);
+      if (otherId.pawnColor === pawnColor)
+        return this.errorTo(userId, `color "${pawnColor}" already taken`);
+    }
+    this.slotIdentities.set(slotIndex, {
+      displayName: trimmed,
+      pawnColor,
+    });
+    this.broadcastLobby();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Persistence
+  // ---------------------------------------------------------------------------
+
+  serialize(): CokeAndIronSave {
+    const playerCount =
+      this.engine?.getInitialConfig().playerCount ?? null;
+    const intentLog = this.engine?.getIntentLog() ?? this.loadedIntents ?? [];
+    const seatIdentities: SavedSeatIdentity[] = [];
+    for (const [slotIndex, id] of this.slotIdentities) {
+      seatIdentities.push({
+        slotIndex,
+        displayName: id.displayName,
+        pawnColor: id.pawnColor,
+      });
+    }
+    seatIdentities.sort((a, b) => a.slotIndex - b.slotIndex);
+    return {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      status: this.status,
+      seed: this.seed,
+      playerCount,
+      autoEndTurn: this.autoEndTurn,
+      allowUndo: this.allowUndo,
+      bundle: this.bundle,
+      intentLog: [...intentLog],
+      seatIdentities,
+      paused: this.paused,
+      createdAt: this.createdAt,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Telemetry
+  // ---------------------------------------------------------------------------
+
+  describe(): SessionDescription {
+    const playerCount =
+      this.status === "playing"
+        ? this.playerSlotOrder.length
+        : this.slotToUser.size;
+    const headline = this.headline();
+    return {
+      status: this.status,
+      playerCount,
+      maxPlayers: this.maxSlots,
+      spectatorCount: 0,
+      lastActivityAt: this.lastActivityAt,
+      ...(headline !== undefined ? { headline } : {}),
+    };
+  }
+
+  private headline(): string | undefined {
+    if (this.status === "lobby") return "Waiting in lobby";
+    if (this.status === "finished") return "Game complete";
+    if (!this.engine) return undefined;
+    const s = this.engine.getState();
+    return `Era ${s.era}, round ${s.round}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Broadcast helpers
+  // ---------------------------------------------------------------------------
+
+  private lobbyMessage(): GameServerMessage {
+    return { type: "LOBBY_STATE", lobby: this.buildLobbyState() };
+  }
+
+  private broadcastLobby(): void {
+    const msg = this.lobbyMessage();
+    for (const send of this.connections.values()) send(msg);
+  }
+
+  private snapshotFor(userId: UserId): GameServerMessage {
+    if (!this.engine) {
+      throw new Error("snapshot requested before engine built");
+    }
+    const seatId = this.playerIdForUser(userId);
+    return {
+      type: "SNAPSHOT",
+      playing: this.envelopeFor(seatId),
+      seats: this.buildLobbyState().seats,
+      seatToken: null,
+    };
+  }
+
+  private broadcastSnapshot(): void {
+    if (!this.engine) {
+      // We're in a transitional state (mid-start, or post-kick before
+      // any subsequent message). Re-emit lobby state instead.
+      this.broadcastLobby();
+      return;
+    }
+    for (const [userId, send] of this.connections) {
+      send(this.snapshotFor(userId));
+    }
+  }
+
+  private broadcastState(
+    cause:
+      | { kind: "intent"; intent: Intent; originator: UserId }
+      | { kind: "undo" }
+      | { kind: "snapshot" },
+  ): void {
+    if (!this.engine) return;
+    for (const [userId, send] of this.connections) {
+      const seatId = this.playerIdForUser(userId);
+      send({
+        type: "STATE",
+        playing: this.envelopeFor(seatId),
+        cause,
+      } satisfies GameServerMessage);
+    }
+  }
+
+  private envelopeFor(viewerSeatId: PlayerId | -1): PlayingEnvelope {
+    if (!this.engine) {
+      throw new Error("envelopeFor called before engine built");
+    }
+    const state = this.engine.getState();
+    const activeSeatId = state.turnOrder[state.currentPlayerIndex] ?? null;
+    const isViewerActive = viewerSeatId !== -1 && activeSeatId === viewerSeatId;
+    return {
+      view: projectFor(state, viewerSeatId),
+      paused: this.paused,
+      allowUndo: this.allowUndo,
+      canUndoNow: isViewerActive && this.engine.canUndo(),
+    };
+  }
+
+  private playerIdForUser(userId: UserId): PlayerId | -1 {
+    for (let i = 0; i < this.playerSlotOrder.length; i++) {
+      const slot = this.playerSlotOrder[i]!;
+      if (this.slotToUser.get(slot) === userId) return i as PlayerId;
+    }
+    return -1;
+  }
+
+  private buildLobbyState(): LobbyState {
+    const seats = [];
+    for (let i = 0; i < this.maxSlots; i++) {
+      const id = this.slotIdentities.get(i);
+      const claimedBy = this.slotToUser.get(i) ?? null;
+      seats.push({
+        id: i,
+        displayName: id?.displayName ?? null,
+        pawnColor: id?.pawnColor ?? null,
+        claimedBy,
+      });
+    }
+    // The engine treats playerCount as 2|3|4. In lobby phase before the
+    // host hits start, just report the maxSlots — the wire shape's
+    // playerCount field is informational.
+    const claimedCount = this.slotToUser.size;
+    const lobbyPlayerCount =
+      claimedCount >= 2 && claimedCount <= 4
+        ? (claimedCount as PlayerCount)
+        : (this.maxSlots as PlayerCount);
+    return {
+      playerCount: lobbyPlayerCount,
+      seats,
+      locked: false,
+      fromSave: this.loadedIntents !== null,
+      hostId: this.hostUserId,
+    };
+  }
+
+  private suggestPawnColor(slotIndex: number): LobbyColor {
+    const used = new Set<LobbyColor>();
+    for (const [, id] of this.slotIdentities) {
+      if (id.pawnColor) used.add(id.pawnColor);
+    }
+    for (const c of LOBBY_COLORS) if (!used.has(c)) return c;
+    return LOBBY_COLORS[slotIndex % LOBBY_COLORS.length]!;
+  }
+
+  private sendTo(userId: UserId, msg: GameServerMessage): void {
+    this.connections.get(userId)?.(msg);
+  }
+
+  private errorTo(userId: UserId, message: string): void {
+    this.sendTo(userId, { type: "ERROR", message });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+void PROTOCOL_VERSION; // re-exported elsewhere; kept in import for visibility
+
+function readNumber(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: number,
+): number {
+  const v = obj[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+function readBoolean(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const v = obj[key];
+  return typeof v === "boolean" ? v : fallback;
+}
+
+function isLobbyColor(s: unknown): s is LobbyColor {
+  return typeof s === "string" && (LOBBY_COLORS as readonly string[]).includes(s);
+}
+
+function parseGameMessage(payload: unknown): C2SGameMessage | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  switch (obj["type"]) {
+    case "INTENT":
+      if (obj["intent"] && typeof obj["intent"] === "object") {
+        return { type: "INTENT", intent: obj["intent"] as Intent };
+      }
+      return null;
+    case "UNDO":
+      return { type: "UNDO" };
+    case "SET_PAUSED":
+      if (typeof obj["paused"] === "boolean") {
+        return { type: "SET_PAUSED", paused: obj["paused"] };
+      }
+      return null;
+    case "SET_SEAT_IDENTITY":
+      if (
+        typeof obj["slotIndex"] === "number" &&
+        typeof obj["displayName"] === "string" &&
+        typeof obj["pawnColor"] === "string" &&
+        isLobbyColor(obj["pawnColor"])
+      ) {
+        return {
+          type: "SET_SEAT_IDENTITY",
+          slotIndex: obj["slotIndex"],
+          displayName: obj["displayName"],
+          pawnColor: obj["pawnColor"] as LobbyColor,
+        };
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Entry points used by definition.ts
+// ---------------------------------------------------------------------------
+
+export function buildSession(
+  opts: SessionOpts & { load?: CokeAndIronSave },
+): CokeAndIronSession {
+  return new CokeAndIronSession(opts);
+}
+
+export function createFromOpts(opts: CreateOpts): CokeAndIronSession {
+  return new CokeAndIronSession({
+    hostUserId: opts.hostUserId,
+    options: opts.options,
+    maxSlots: 4,
+  });
+}
+
+export function loadFromOpts(
+  blob: CokeAndIronSave,
+  opts: LoadOpts,
+): CokeAndIronSession {
+  return new CokeAndIronSession({
+    hostUserId: opts.hostUserId,
+    options: opts.options,
+    maxSlots: 4,
+    load: blob,
+  });
 }

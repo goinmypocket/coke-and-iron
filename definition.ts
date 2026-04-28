@@ -9,7 +9,11 @@
 // =============================================================================
 
 import { asGameId, type GameDefinition } from "./shared";
-import { CokeAndIronSession, type CokeAndIronSave } from "./server/CokeAndIronSession";
+import {
+  createFromOpts,
+  loadFromOpts,
+  type CokeAndIronSave,
+} from "./server/CokeAndIronSession";
 
 export const def: GameDefinition<CokeAndIronSave> = {
   id: asGameId("coke-and-iron"),
@@ -38,12 +42,9 @@ export const def: GameDefinition<CokeAndIronSave> = {
     },
   ],
   createSession(opts) {
-    return new CokeAndIronSession(opts);
+    return createFromOpts(opts);
   },
-  loadSession(_blob, opts) {
-    // TODO: hydrate from the saved blob (replay intents through the
-    // engine, restore seat assignments, etc.). For now this just
-    // creates a fresh session — load is wired up but does nothing.
-    return new CokeAndIronSession(opts);
+  loadSession(blob, opts) {
+    return loadFromOpts(blob, opts);
   },
 };
