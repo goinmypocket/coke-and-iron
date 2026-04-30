@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Card, DistrictCity, IndustryName } from "../../../engine";
-import { useMySeatId } from "../hooks/EngineProvider";
+import { useActualSeatId } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { HandSizeIcon } from "../icons/HandSizeIcon";
 import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
@@ -23,23 +23,40 @@ import { useWizard } from "../wizards/WizardProvider";
  */
 export function HandPanel() {
   const wizard = useWizard();
-  const mySeatId = useMySeatId();
+  // Spectators viewing through a player see that player's hand, but must
+  // not be able to act for them. The hand to render is whatever seat the
+  // server projected this view from — read it straight off the view so
+  // the selector stays pure on engine state and never goes stale on a
+  // mid-snapshot mySeatId update.
+  const actualSeatId = useActualSeatId();
   const [deckOpen, setDeckOpen] = useState(false);
   const view = useGameState((s) => {
     const activeId = s.turnOrder[s.currentPlayerIndex] ?? null;
+    // ClientEngine's getState() returns a PlayerView typed as GameState
+    // (see ClientEngine.ts header). PlayerView carries `viewerSeatId`
+    // — the seat the host projected this view from — which is the most
+    // authoritative answer to "whose hand should we render?".
+    const projected = (s as unknown as { viewerSeatId?: number })
+      .viewerSeatId;
+    const viewerSeatId =
+      projected !== undefined && projected >= 0 ? projected : null;
     const me =
-      mySeatId !== null ? s.players.find((p) => p.id === mySeatId) : null;
-    // Remaining-deck count is public information (the draw pile is shared
-    // and visible). Drives the count badge on the deck button beside the
-    // hand cards.
+      viewerSeatId !== null
+        ? s.players.find((p) => p.id === viewerSeatId)
+        : null;
     return {
       hand: me?.hand ?? [],
-      isMyTurn: activeId !== null && activeId === mySeatId,
-      hasSeat: mySeatId !== null,
+      activeId,
+      viewerSeatId,
       drawDeckCount: s.drawDeck.length,
       districtCities: s.districtCities,
     };
   }, shallowEqual);
+  const isMyTurn =
+    view.activeId !== null &&
+    actualSeatId !== null &&
+    view.activeId === actualSeatId &&
+    actualSeatId === view.viewerSeatId;
 
   const cityToDistrict = useMemo(
     () => indexCityDistricts(view.districtCities),
@@ -58,9 +75,9 @@ export function HandPanel() {
             key={i}
             card={card}
             picked={wizard.picked.has(i)}
-            interactive={view.isMyTurn}
+            interactive={isMyTurn}
             cityToDistrict={cityToDistrict}
-            onClick={view.isMyTurn ? () => wizard.pickCard(i) : undefined}
+            onClick={isMyTurn ? () => wizard.pickCard(i) : undefined}
           />
         ))}
       </div>

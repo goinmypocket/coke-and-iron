@@ -53,6 +53,7 @@ export default function PlatformApp({ ctx }: Props): ReactNode {
     <EngineProvider
       engine={session.engine}
       mySeatId={session.mySeatId}
+      actualSeatId={session.actualSeatId}
       rejection={{
         text: session.lastRejection,
         dismiss: session.clearRejection,
@@ -60,7 +61,11 @@ export default function PlatformApp({ ctx }: Props): ReactNode {
     >
       <WizardProvider>
         <div className="app-shell">
-          <ViewerBanner />
+          <ViewerBanner
+            isSpectator={session.isSpectator}
+            viewedSeatId={session.mySeatId}
+            onPickSpectatorView={session.setSpectatorView}
+          />
           <PromptStrip />
           <ActionsPanel />
           <HandPanel />

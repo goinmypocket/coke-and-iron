@@ -5,8 +5,8 @@
 			"district": "purple",
 			"name": "Birmingham",
 			"position": [
-				570,
-				610
+				620,
+				650
 			],
 			"slots": [
 				[
@@ -22,8 +22,8 @@
 			"district": "purple",
 			"name": "Coventry",
 			"position": [
-				720,
-				655
+				795,
+				705
 			],
 			"slots": [
 				"POTTERY",
@@ -41,8 +41,8 @@
 			"district": "purple",
 			"name": "Nuneaton",
 			"position": [
-				735,
-				520
+				785,
+				545
 			],
 			"slots": [
 				[
@@ -59,8 +59,8 @@
 			"district": "purple",
 			"name": "Redditch",
 			"position": [
-				480,
-				705
+				490,
+				735
 			],
 			"slots": [
 				[
@@ -225,8 +225,8 @@
 			"district": "blue",
 			"name": "Stone",
 			"position": [
-				335,
-				190
+				340,
+				175
 			],
 			"slots": [
 				[
@@ -243,8 +243,8 @@
 			"district": "blue",
 			"name": "Stoke-on-Trent",
 			"position": [
-				350,
-				65
+				340,
+				45
 			],
 			"slots": [
 				[
@@ -262,8 +262,8 @@
 			"district": "blue",
 			"name": "Uttoxeter",
 			"position": [
-				490,
-				185
+				500,
+				175
 			],
 			"slots": [
 				[
@@ -280,8 +280,8 @@
 			"district": "blue",
 			"name": "Leek",
 			"position": [
-				500,
-				50
+				490,
+				45
 			],
 			"slots": [
 				[
@@ -298,7 +298,7 @@
 			"district": "teal",
 			"name": "Derby",
 			"position": [
-				660,
+				665,
 				200
 			],
 			"slots": [
@@ -365,13 +365,13 @@
 	"marketPlace": {
 		"position": [
 			810,
-			385
+			390
 		]
 	},
 	"roundTracker": {
 		"position": [
-			800,
-			810
+			125,
+			270
 		]
 	},
 	"merchantBag": {
@@ -410,7 +410,7 @@
 			"linkPoints": 2,
 			"name": "Shrewsbury",
 			"position": [
-				105,
+				70,
 				475
 			],
 			"slots": 1
@@ -441,8 +441,8 @@
 			"linkPoints": 2,
 			"name": "Gloucester",
 			"position": [
-				365,
-				775
+				350,
+				810
 			],
 			"slots": 2
 		},
@@ -457,8 +457,8 @@
 			"linkPoints": 2,
 			"name": "Oxford",
 			"position": [
-				605,
-				760
+				685,
+				810
 			],
 			"slots": 2
 		},

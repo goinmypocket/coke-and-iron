@@ -87,7 +87,12 @@ type C2SGameMessage =
    *  game lazy-mount can finish loading after the session has already
    *  broadcast SNAPSHOT, so the freshly-mounted UI sends this on
    *  startup to pull state on demand. */
-  | { type: "REQUEST_SNAPSHOT" };
+  | { type: "REQUEST_SNAPSHOT" }
+  /** Spectator-only. Pick which player's perspective to render — i.e.
+   *  whose hand the spectator sees. Pass null to drop the override and
+   *  fall back to the redacted spectator view. Ignored for users who
+   *  hold a real seat; the host validates this. */
+  | { type: "SET_SPECTATOR_VIEW"; seatId: PlayerId | null };
 
 // ---------------------------------------------------------------------------
 // Constructor options
@@ -141,6 +146,13 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
 
   // ---- Connections ---------------------------------------------------
   private readonly connections = new Map<UserId, (msg: unknown) => void>();
+  /** Spectators may opt into seeing the game from a specific player's
+   *  perspective (hand visible). Maps userId → chosen PlayerId. Users
+   *  who actually hold a seat ignore this map; their playerIdForUser
+   *  always returns their real seat. Cleared when the seated user
+   *  later releases their seat (so a returning spectator gets the
+   *  default redacted view). */
+  private readonly spectatorViewSeat = new Map<UserId, PlayerId>();
 
   private lastActivityAt: number = Date.now();
 
@@ -220,6 +232,7 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
         return { ok: false, reason: "seat is taken" };
       }
       this.slotToUser.set(seatIndex, userId);
+      this.spectatorViewSeat.delete(userId);
       this.lastActivityAt = Date.now();
       this.broadcastSnapshot();
       return { ok: true };
@@ -235,6 +248,10 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
       if (u === userId && k !== seatIndex) this.slotToUser.delete(k);
     }
     this.slotToUser.set(seatIndex, userId);
+    // A spectator who claims a seat shouldn't have a leftover view
+    // override hanging around — they own a seat now and project from
+    // it directly.
+    this.spectatorViewSeat.delete(userId);
     if (!this.slotIdentities.has(seatIndex)) {
       // Auto-fill identity from the platform's hint (username) so the
       // host can start without forcing every player through a manual
@@ -397,7 +414,36 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
         }
         return;
       }
+      case "SET_SPECTATOR_VIEW":
+        return this.handleSetSpectatorView(userId, msg.seatId);
     }
+  }
+
+  private handleSetSpectatorView(
+    userId: UserId,
+    seatId: PlayerId | null,
+  ): void {
+    if (this.status !== "playing" || !this.engine) {
+      return this.errorTo(userId, "game not started");
+    }
+    // Anyone holding a real seat ignores this — they already see their
+    // own hand and can't use this to peek at someone else's.
+    for (const slot of this.slotToUser.keys()) {
+      if (this.slotToUser.get(slot) === userId) {
+        return this.errorTo(userId, "seated players see their own hand");
+      }
+    }
+    if (seatId === null) {
+      this.spectatorViewSeat.delete(userId);
+    } else {
+      if (seatId < 0 || seatId >= this.playerSlotOrder.length) {
+        return this.errorTo(userId, "invalid spectator view seat");
+      }
+      this.spectatorViewSeat.set(userId, seatId);
+    }
+    // Push a fresh snapshot to just this user — projectFor will now
+    // populate (or hide) their requested player's hand.
+    this.sendTo(userId, this.snapshotFor(userId));
   }
 
   private handleIntent(userId: UserId, intent: Intent): void {
@@ -584,10 +630,12 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
     if (!this.engine) {
       throw new Error("snapshot requested before engine built");
     }
-    const seatId = this.playerIdForUser(userId);
     return {
       type: "SNAPSHOT",
-      playing: this.envelopeFor(seatId),
+      playing: this.envelopeFor(
+        this.playerIdForUser(userId),
+        this.actualSeatFor(userId),
+      ),
       seats: this.buildLobbyState().seats,
       seatToken: null,
     };
@@ -613,35 +661,60 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
   ): void {
     if (!this.engine) return;
     for (const [userId, send] of this.connections) {
-      const seatId = this.playerIdForUser(userId);
       send({
         type: "STATE",
-        playing: this.envelopeFor(seatId),
+        playing: this.envelopeFor(
+          this.playerIdForUser(userId),
+          this.actualSeatFor(userId),
+        ),
         cause,
       } satisfies GameServerMessage);
     }
   }
 
-  private envelopeFor(viewerSeatId: PlayerId | -1): PlayingEnvelope {
+  private envelopeFor(
+    viewerSeatId: PlayerId | -1,
+    actualSeatId: PlayerId | -1,
+  ): PlayingEnvelope {
     if (!this.engine) {
       throw new Error("envelopeFor called before engine built");
     }
     const state = this.engine.getState();
     const activeSeatId = state.turnOrder[state.currentPlayerIndex] ?? null;
-    const isViewerActive = viewerSeatId !== -1 && activeSeatId === viewerSeatId;
+    // canUndo is gated on the user OWNING the active seat — a spectator
+    // peeking through someone's perspective must not be able to roll
+    // back that player's turn.
+    const isOwnerActive = actualSeatId !== -1 && activeSeatId === actualSeatId;
     return {
       view: projectFor(state, viewerSeatId),
       paused: this.paused,
       allowUndo: this.allowUndo,
-      canUndoNow: isViewerActive && this.engine.canUndo(),
+      canUndoNow: isOwnerActive && this.engine.canUndo(),
       viewerPlayerId: viewerSeatId,
+      actualSeatId,
     };
   }
 
-  private playerIdForUser(userId: UserId): PlayerId | -1 {
+  /** Seat the user ACTUALLY owns. -1 for spectators / unseated. Never
+   *  consults the spectator-view override. */
+  private actualSeatFor(userId: UserId): PlayerId | -1 {
     for (let i = 0; i < this.playerSlotOrder.length; i++) {
       const slot = this.playerSlotOrder[i]!;
       if (this.slotToUser.get(slot) === userId) return i as PlayerId;
+    }
+    return -1;
+  }
+
+  /** Seat to PROJECT FROM when rendering a view for this user. Falls
+   *  back to the spectator-view override when the user is unseated, so
+   *  the chosen player's hand appears in their UI. Stale overrides
+   *  (e.g. seat index past the active player count) are ignored. */
+  private playerIdForUser(userId: UserId): PlayerId | -1 {
+    const actual = this.actualSeatFor(userId);
+    if (actual !== -1) return actual;
+    const override = this.spectatorViewSeat.get(userId);
+    if (override !== undefined && override < this.playerSlotOrder.length) {
+      return override;
     }
     return -1;
   }
@@ -765,6 +838,14 @@ function parseGameMessage(payload: unknown): C2SGameMessage | null {
         };
       }
       return null;
+    case "SET_SPECTATOR_VIEW": {
+      const v = obj["seatId"];
+      if (v === null) return { type: "SET_SPECTATOR_VIEW", seatId: null };
+      if (typeof v === "number" && Number.isInteger(v) && v >= 0) {
+        return { type: "SET_SPECTATOR_VIEW", seatId: v as PlayerId };
+      }
+      return null;
+    }
     default:
       return null;
   }

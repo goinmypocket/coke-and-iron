@@ -292,7 +292,9 @@ function CitiesIndex({
       <h2>Cities</h2>
       <p className="editor-help">
         Drag a rectangle to reposition (snaps to multiples of 5). Click
-        a city to edit its name, district, and slots.
+        a city to edit its name, district, and slots.{" "}
+        <strong>Shift+drag</strong> on any city, merchant, or widget to
+        move the whole layout together.
       </p>
       <ul className="editor-list">
         {cities.cities.map((c) => (

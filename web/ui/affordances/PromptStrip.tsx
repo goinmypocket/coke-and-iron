@@ -1,21 +1,67 @@
 // =============================================================================
 // §11.10 Prompt — single line of text above the main board describing
-// what the active wizard expects next. No panel chrome.
+// what the active wizard expects next, OR (when nothing is going on)
+// whose turn it currently is.
 //
-// Read-only derivation from wizard state; never owns state. The message
-// is always one short imperative sentence so the player can glance at
-// it without reading prose.
+// Read-only derivation from wizard + engine state; never owns state.
+// The message is always one short imperative sentence so the player
+// can glance at it without reading prose.
 // =============================================================================
 
+import type { ReactNode } from "react";
+import { useActualSeatId } from "../hooks/EngineProvider";
+import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { useWizard } from "../wizards/WizardProvider";
+
+interface TurnInfo {
+  readonly activeName: string | null;
+  readonly activeColor: string | null;
+  readonly isMyTurn: boolean;
+}
 
 export function PromptStrip() {
   const wizard = useWizard();
-  const text = describePrompt(wizard.state);
-  return <div className="prompt-strip">{text}</div>;
+  const actualSeatId = useActualSeatId();
+  const turn = useGameState(
+    (s) => {
+      const activeId = s.turnOrder[s.currentPlayerIndex] ?? null;
+      const active =
+        activeId !== null ? s.players.find((p) => p.id === activeId) : null;
+      return {
+        activeId,
+        activeName: active?.displayName ?? null,
+        activeColor: active?.pawnColor ?? null,
+      };
+    },
+    shallowEqual,
+  );
+  const info: TurnInfo = {
+    activeName: turn.activeName,
+    activeColor: turn.activeColor,
+    isMyTurn: turn.activeId !== null && turn.activeId === actualSeatId,
+  };
+  return <div className="prompt-strip">{describePrompt(wizard.state, info)}</div>;
 }
 
-function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
+function describePrompt(
+  state: ReturnType<typeof useWizard>["state"],
+  turn: TurnInfo,
+): ReactNode {
+  // When idle and it's not the viewer's turn (also covers spectators,
+  // who never own the active seat), surface whose turn it is here so
+  // the seated-player banner above the board can stay invisible.
+  if (state.phase === "IDLE" && !turn.isMyTurn) {
+    if (turn.activeName === null) return "Waiting…";
+    return (
+      <>
+        Waiting for{" "}
+        <strong style={turn.activeColor ? { color: pawnSwatch(turn.activeColor) } : undefined}>
+          {turn.activeName}
+        </strong>
+        …
+      </>
+    );
+  }
   switch (state.phase) {
     case "IDLE":
       return state.stashedCardIndex === null
@@ -126,5 +172,24 @@ function describePrompt(state: ReturnType<typeof useWizard>["state"]): string {
       if (left === 0) return "Sell merchants — confirming…";
       return `Sell — pick a merchant for ${left} tile${left === 1 ? "" : "s"} in the picker.`;
     }
+  }
+}
+
+function pawnSwatch(color: string | null): string {
+  switch (color) {
+    case "red":
+      return "#c14040";
+    case "yellow":
+      return "#a07a20";
+    case "green":
+      return "#2d6a45";
+    case "blue":
+      return "#2b537a";
+    case "purple":
+      return "#5e3970";
+    case "teal":
+      return "#256a78";
+    default:
+      return "currentColor";
   }
 }

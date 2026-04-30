@@ -108,59 +108,150 @@ export function BoardEditor({
     [],
   );
 
+  // We read the live `cities` from a ref inside drag handlers so the
+  // pointermove closure doesn't race against React state — without this,
+  // a fast drag captures the cities from pointerdown time and overwrites
+  // any concurrent edits made via the side panel.
+  const citiesRef = useRef(cities);
+  citiesRef.current = cities;
+
   const applyPosition = useCallback(
     (
       kind: "city" | "merchant" | "market" | "roundTracker",
       name: string | null,
       pos: Position,
     ) => {
+      const current = citiesRef.current;
       if (kind === "city" && name) {
         onUpdateCities({
-          ...cities,
-          cities: cities.cities.map((c) =>
+          ...current,
+          cities: current.cities.map((c) =>
             c.name === name ? { ...c, position: pos } : c,
           ),
         });
       } else if (kind === "merchant" && name) {
         onUpdateCities({
-          ...cities,
-          merchantCities: cities.merchantCities.map((c) =>
+          ...current,
+          merchantCities: current.merchantCities.map((c) =>
             c.name === name ? { ...c, position: pos } : c,
           ),
         });
       } else if (kind === "market") {
         onUpdateCities({
-          ...cities,
-          marketPlace: { ...cities.marketPlace, position: pos },
+          ...current,
+          marketPlace: { ...current.marketPlace, position: pos },
         });
       } else if (kind === "roundTracker") {
         onUpdateCities({
-          ...cities,
-          roundTracker: { ...cities.roundTracker, position: pos },
+          ...current,
+          roundTracker: { ...current.roundTracker, position: pos },
         });
       }
     },
-    [cities, onUpdateCities],
+    [onUpdateCities],
+  );
+
+  /** Group move: shift every positioned object on the board by the same
+   *  (dx, dy). Used by Shift+drag so a single gesture relocates the
+   *  entire layout. Clamps the delta so the closest-to-edge object
+   *  stays inside the canvas — keeps the whole layout visible. */
+  const applyGroupDelta = useCallback(
+    (
+      origin: {
+        cities: ReadonlyMap<string, Position>;
+        merchants: ReadonlyMap<string, Position>;
+        market: Position;
+        roundTracker: Position;
+      },
+      dx: number,
+      dy: number,
+    ) => {
+      // Find the largest (dx, dy) that keeps every object on canvas.
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      const collect = (p: Position) => {
+        if (p[0] < minX) minX = p[0];
+        if (p[0] > maxX) maxX = p[0];
+        if (p[1] < minY) minY = p[1];
+        if (p[1] > maxY) maxY = p[1];
+      };
+      origin.cities.forEach(collect);
+      origin.merchants.forEach(collect);
+      collect(origin.market);
+      collect(origin.roundTracker);
+      const dxClamped = Math.max(-minX, Math.min(CANVAS - maxX, dx));
+      const dyClamped = Math.max(-minY, Math.min(CANVAS - maxY, dy));
+
+      const current = citiesRef.current;
+      const shift = (p: Position): Position => [
+        snap(p[0] + dxClamped),
+        snap(p[1] + dyClamped),
+      ];
+      onUpdateCities({
+        ...current,
+        cities: current.cities.map((c) => {
+          const orig = origin.cities.get(c.name);
+          return orig ? { ...c, position: shift(orig) } : c;
+        }),
+        merchantCities: current.merchantCities.map((c) => {
+          const orig = origin.merchants.get(c.name);
+          return orig ? { ...c, position: shift(orig) } : c;
+        }),
+        marketPlace: { ...current.marketPlace, position: shift(origin.market) },
+        roundTracker: {
+          ...current.roundTracker,
+          position: shift(origin.roundTracker),
+        },
+      });
+    },
+    [onUpdateCities],
   );
 
   const startDrag = useCallback(
     (
       kind: "city" | "merchant" | "market" | "roundTracker",
       name: string | null,
-      pointerId: number,
-      target: Element,
+      e: React.PointerEvent<Element>,
     ) => {
+      const target = e.currentTarget;
+      const pointerId = e.pointerId;
+      // Where on the canvas the cursor was when the drag began.
+      const grabCanvas = eventToCanvas(e.clientX, e.clientY);
+      if (!grabCanvas) return;
+      // Where the dragged object was when the drag began.
+      const initialPos = readPosition(citiesRef.current, kind, name);
+      if (!initialPos) return;
+
+      // Shift-drag = move the whole layout together. We snapshot every
+      // object's position at gesture-start so the per-frame update is
+      // a single delta apply against the original layout, not a chain
+      // of incremental moves (which accumulate snap rounding).
+      const groupMode = e.shiftKey;
+      const groupOrigin = groupMode
+        ? snapshotLayout(citiesRef.current)
+        : null;
+
       dragMovedRef.current = false;
       target.setPointerCapture(pointerId);
 
-      const onMove = (e: PointerEvent) => {
-        if (e.pointerId !== pointerId) return;
-        const pos = eventToCanvas(e.clientX, e.clientY);
-        if (!pos) return;
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        const cursor = eventToCanvas(ev.clientX, ev.clientY);
+        if (!cursor) return;
         dragMovedRef.current = true;
-        const x = snap(clampToCanvas(pos[0]));
-        const y = snap(clampToCanvas(pos[1]));
-        applyPosition(kind, name, [x, y]);
+        const dx = cursor[0] - grabCanvas[0];
+        const dy = cursor[1] - grabCanvas[1];
+        if (groupOrigin) {
+          applyGroupDelta(groupOrigin, dx, dy);
+        } else {
+          // Cursor stays glued to the spot on the object the user
+          // grabbed. Center = initial center + delta, then snap+clamp.
+          const x = snap(clampToCanvas(initialPos[0] + dx));
+          const y = snap(clampToCanvas(initialPos[1] + dy));
+          applyPosition(kind, name, [x, y]);
+        }
       };
       const onUp = () => {
         target.removeEventListener("pointermove", onMove as EventListener);
@@ -171,7 +262,7 @@ export function BoardEditor({
       target.addEventListener("pointerup", onUp as EventListener);
       target.addEventListener("pointercancel", onUp as EventListener);
     },
-    [eventToCanvas, applyPosition],
+    [eventToCanvas, applyPosition, applyGroupDelta],
   );
 
   const handleCityClick = useCallback(
@@ -290,7 +381,7 @@ export function BoardEditor({
             style={{ cursor: "pointer", opacity: dim }}
             onPointerDown={(e) => {
               if (mode === "cities") {
-                startDrag("city", raw.name, e.pointerId, e.currentTarget);
+                startDrag("city", raw.name, e);
               }
             }}
             onClick={() => handleCityClick(raw.name)}
@@ -332,7 +423,7 @@ export function BoardEditor({
             style={{ cursor: "pointer" }}
             onPointerDown={(e) => {
               if (mode === "merchants") {
-                startDrag("merchant", raw.name, e.pointerId, e.currentTarget);
+                startDrag("merchant", raw.name, e);
               }
             }}
             onClick={() => handleMerchantClick(raw.name)}
@@ -367,7 +458,7 @@ export function BoardEditor({
         cursor={mode === "cities" || mode === "merchants" ? "grab" : "default"}
         onPointerDown={(e) => {
           if (mode === "cities" || mode === "merchants") {
-            startDrag("market", null, e.pointerId, e.currentTarget);
+            startDrag("market", null, e);
           }
         }}
       >
@@ -386,7 +477,7 @@ export function BoardEditor({
         cursor={mode === "cities" || mode === "merchants" ? "grab" : "default"}
         onPointerDown={(e) => {
           if (mode === "cities" || mode === "merchants") {
-            startDrag("roundTracker", null, e.pointerId, e.currentTarget);
+            startDrag("roundTracker", null, e);
           }
         }}
       >
@@ -459,6 +550,47 @@ const EDITOR_PREVIEW_PLAYERS: readonly TurnOrderPlayer[] = [
   { id: 3, displayName: "Player 4", pawnColor: "blue", spentThisRound: 0 },
 ];
 const EDITOR_PREVIEW_TURN_ORDER: readonly number[] = [0, 1, 2, 3];
+
+function readPosition(
+  cfg: CitiesConfigRaw,
+  kind: "city" | "merchant" | "market" | "roundTracker",
+  name: string | null,
+): Position | null {
+  if (kind === "city" && name) {
+    return cfg.cities.find((c) => c.name === name)?.position ?? null;
+  }
+  if (kind === "merchant" && name) {
+    return cfg.merchantCities.find((c) => c.name === name)?.position ?? null;
+  }
+  if (kind === "market") return cfg.marketPlace.position;
+  if (kind === "roundTracker") return cfg.roundTracker.position;
+  return null;
+}
+
+interface LayoutSnapshot {
+  readonly cities: ReadonlyMap<string, Position>;
+  readonly merchants: ReadonlyMap<string, Position>;
+  readonly market: Position;
+  readonly roundTracker: Position;
+}
+
+function snapshotLayout(cfg: CitiesConfigRaw): LayoutSnapshot {
+  const cities = new Map<string, Position>();
+  for (const c of cfg.cities) cities.set(c.name, [c.position[0], c.position[1]]);
+  const merchants = new Map<string, Position>();
+  for (const c of cfg.merchantCities) {
+    merchants.set(c.name, [c.position[0], c.position[1]]);
+  }
+  return {
+    cities,
+    merchants,
+    market: [cfg.marketPlace.position[0], cfg.marketPlace.position[1]],
+    roundTracker: [
+      cfg.roundTracker.position[0],
+      cfg.roundTracker.position[1],
+    ],
+  };
+}
 
 function rawCityToDistrict(c: CityRaw): EngineDistrictCity {
   return {

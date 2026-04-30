@@ -151,6 +151,7 @@ export function BoardPanel() {
   const buildPick =
     wizard.state.phase === "AWAITING_BUILD_INPUTS" ? wizard.state.slot : null;
   const slotsClickable = wizard.state.phase === "AWAITING_BUILD_INPUTS";
+  const buildMode = wizard.state.phase === "AWAITING_BUILD_INPUTS";
   // Slot narrowing: once the player has stashed / picked a card or
   // industry, dim slots the engine wouldn't accept anyway. Card with
   // a LOCATION constraint pins the legal city; industry pin narrows
@@ -223,7 +224,7 @@ export function BoardPanel() {
   );
 
   return (
-    <Panel id="board" title="Board">
+    <Panel id="board" title="Board" hideTitle>
       <div className="board-region">
         <div className="board-region__income">
           <IncomeLadder />
@@ -299,6 +300,12 @@ export function BoardPanel() {
           activeSeatId={activeSeatId}
           sellPickedTileIds={sellPickedTileIds}
           onTileClick={(tileId) => wizard.pickTile(tileId)}
+          buildMode={buildMode}
+          buildCityFilter={buildFilters.cityName}
+          onBuildOverbuildClick={(cityName, slotIndex, industry) => {
+            wizard.pickSlot({ cityName, slotIndex });
+            wizard.pickIndustry(mySeatId!, industry);
+          }}
         />
         <Markets
           coal={view.coalMarket}
@@ -1058,6 +1065,9 @@ function BuiltTiles({
   activeSeatId,
   sellPickedTileIds,
   onTileClick,
+  buildMode,
+  buildCityFilter,
+  onBuildOverbuildClick,
 }: {
   tiles: readonly PlacedIndustryTile[];
   tileCatalogue: readonly IndustryTileSpec[];
@@ -1067,6 +1077,13 @@ function BuiltTiles({
   activeSeatId: number | null;
   sellPickedTileIds: ReadonlySet<string>;
   onTileClick: (tileId: string) => void;
+  buildMode: boolean;
+  buildCityFilter: string | null;
+  onBuildOverbuildClick: (
+    cityName: string,
+    slotIndex: number,
+    industry: IndustryName,
+  ) => void;
 }) {
   const cityByName = useMemo(() => {
     const m = new Map<string, DistrictCity>();
@@ -1084,22 +1101,37 @@ function BuiltTiles({
         const [cityW, cityH] = cityBodyDims(city.slots.length);
         const ox = city.position[0] - cityW / 2 + cellX;
         const oy = city.position[1] - cityH / 2 + cellY;
-        const clickable =
+        const sellClickable =
           sellMode &&
           t.owner === activeSeatId &&
           !t.flipped &&
           SELLABLE_INDUSTRIES.has(spec.industry);
+        // Overbuild affordance: during the BUILD wizard, an existing
+        // tile becomes a click target that picks both its slot AND
+        // its industry in one go. Engine still validates legality —
+        // the click is just a shortcut for the player who's already
+        // looking at the tile they want to overbuild.
+        const overbuildClickable =
+          buildMode &&
+          (buildCityFilter === null || buildCityFilter === t.cityName);
+        const clickable = sellClickable || overbuildClickable;
         const isPicked = sellPickedTileIds.has(t.id);
         const cls = clickable
           ? "board-tile board-tile--clickable"
           : "board-tile";
         const ownerColor = pawnColorById.get(t.owner) ?? "#888888";
+        const onClick = sellClickable
+          ? () => onTileClick(t.id)
+          : overbuildClickable
+            ? () =>
+                onBuildOverbuildClick(t.cityName, t.slotIndex, spec.industry)
+            : undefined;
         return (
           <g
             key={t.id}
             transform={`translate(${ox}, ${oy})`}
             className={cls}
-            onClick={clickable ? () => onTileClick(t.id) : undefined}
+            onClick={onClick}
           >
             <TileFace
               spec={spec}
@@ -1382,10 +1414,16 @@ function SvgMoneyCoin({
 // label.
 // =============================================================================
 
-const CITY_BANNER_HEIGHT = 14;
-const CITY_BANNER_CHAR_W = 5.5;
+// Bumped ~20% (was 14 / 5.5). Drives the rectangle and the text glyphs;
+// labels read clearly at conversational distance even on the darker
+// district fills.
+const CITY_BANNER_HEIGHT = 17;
+const CITY_BANNER_CHAR_W = 6.6;
 const CITY_BANNER_PAD_X = 5;
-const MERCHANT_BANNER_FILL = "#e5d9b4";
+// Merchant banners get a soft light-gray (vs. the sandier district
+// fills); district names render white-on-color, merchant names render
+// black-on-light-gray, both for legibility.
+const MERCHANT_BANNER_FILL = "#d8d8d8";
 
 export function CityBanners({
   districtCities,
@@ -1410,6 +1448,7 @@ export function CityBanners({
             innerW={cityW}
             fill={fill}
             text={c.name}
+            textColor="#fff"
           />
         );
       })}
@@ -1432,6 +1471,7 @@ export function CityBanners({
             innerW={clusterW}
             fill={MERCHANT_BANNER_FILL}
             text={m.name}
+            textColor="#000"
           />
         );
       })}
@@ -1445,12 +1485,16 @@ function CityBanner({
   innerW,
   fill,
   text,
+  textColor,
 }: {
   cx: number;
   topY: number;
   innerW: number;
   fill: string;
   text: string;
+  /** District banners use white text on the dark district fills;
+   *  merchants use black on the light-gray fill. Both are legible. */
+  textColor: string;
 }) {
   const minTextW = text.length * CITY_BANNER_CHAR_W + CITY_BANNER_PAD_X * 2;
   const bannerW = Math.max(innerW, minTextW);
@@ -1469,10 +1513,10 @@ function CityBanner({
       />
       <text
         x={bannerW / 2}
-        y={CITY_BANNER_HEIGHT - 4}
+        y={CITY_BANNER_HEIGHT - 5}
         textAnchor="middle"
         className="board-city__label"
-        style={{ fill: "#000" }}
+        style={{ fill: textColor }}
       >
         {text}
       </text>
@@ -1521,14 +1565,12 @@ export function TurnOrderWidget({
    *  config/board.json roundTracker.position). */
   position: readonly [number, number];
 }) {
-  const W = 168;
-  // Tall enough to host a clearly-readable coin (size 24) plus name
-  // text without crowding.
-  const ROW_H = 30;
-  // Two header lines now: era on top, "Round k/n" beneath. The era line
-  // is the canonical source for the current era now that GameStatePanel
-  // is gone.
-  const HEADER_H = 38;
+  // Bumped wider + taller so the era / round header reads at a glance,
+  // each seat row gets more vertical room, and the turn-coin can render
+  // big enough to be legible without leaning in.
+  const W = 210;
+  const ROW_H = 40;
+  const HEADER_H = 50;
   const H = HEADER_H + turnOrder.length * ROW_H + 4;
   // Centre the box on `position`, mirroring city/merchant convention.
   const X = position[0] - W / 2;
@@ -1554,9 +1596,9 @@ export function TurnOrderWidget({
       />
       <text
         x={W / 2}
-        y={15}
+        y={20}
         textAnchor="middle"
-        fontSize={11}
+        fontSize={15}
         fontWeight={700}
         fill="#1a1a1a"
       >
@@ -1564,9 +1606,9 @@ export function TurnOrderWidget({
       </text>
       <text
         x={W / 2}
-        y={30}
+        y={38}
         textAnchor="middle"
-        fontSize={10}
+        fontSize={13}
         fontWeight={600}
         fill="var(--muted)"
       >
@@ -1585,8 +1627,10 @@ export function TurnOrderWidget({
         if (!p) return null;
         const rowTop = HEADER_H + i * ROW_H;
         const isActive = i === currentPlayerIndex;
-        const SWATCH = 14;
-        const COIN = 24;
+        const SWATCH = 18;
+        // Coin sized to dominate the row — the per-seat money spent
+        // is the most-glanced-at info in the widget.
+        const COIN = 34;
         return (
           <g key={seatId} transform={`translate(0, ${rowTop})`}>
             {/* Active player gets a strong amber fill, a coloured left
@@ -1623,9 +1667,9 @@ export function TurnOrderWidget({
               strokeWidth={0.5}
             />
             <text
-              x={22}
-              y={ROW_H / 2 + 3.5}
-              fontSize={isActive ? 12 : 11}
+              x={28}
+              y={ROW_H / 2 + 4}
+              fontSize={isActive ? 14 : 13}
               fontWeight={isActive ? 800 : 600}
               fill={isActive ? "#78350f" : "#1a1a1a"}
             >

@@ -101,9 +101,13 @@ export class ClientEngine implements ClientEngineLike {
    *
    *  The `cause` discriminates how to evolve the local recent-events
    *  log: `intent` appends a derived ObservableEvent, `undo` pops the
-   *  last entry, and `snapshot` resets the log (a fresh snapshot means
-   *  we just joined or someone reloaded a save — the prior chain we
-   *  held no longer applies). */
+   *  last entry. Snapshots are trickier — the FIRST snapshot we ever
+   *  see wipes any stale prior log (joined fresh / save reloaded /
+   *  spectator-view changed); subsequent snapshots happen on mid-game
+   *  seat events (claim / release / kick) and we MUST keep the log
+   *  intact, otherwise watchers' history evaporates whenever someone
+   *  drops a seat. */
+  private hadFirstView = false;
   applyView = (
     view: PlayerView,
     canUndoNow: boolean,
@@ -117,10 +121,12 @@ export class ClientEngine implements ClientEngineLike {
       ];
     } else if (cause.kind === "undo") {
       this.recentEvents = this.recentEvents.slice(0, -1);
-    } else {
-      // snapshot — fresh authoritative state with no prior chain.
+    } else if (!this.hadFirstView) {
+      // First-ever snapshot for this client. Anything in the log
+      // predates the new authoritative state; drop it.
       this.recentEvents = [];
     }
+    this.hadFirstView = true;
     this.view = view;
     this.canUndoNow = canUndoNow;
     for (const cb of this.subs) cb();

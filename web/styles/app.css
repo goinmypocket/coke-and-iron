@@ -185,6 +185,14 @@ body {
   padding: 0.35rem;
   overflow: hidden;
 }
+/* Header-less panels (Main Board, outer Player Mats container) hug the
+ * inner content tighter — no chrome padding, no inset gap, just a thin
+ * border around whatever sits inside. The board / mat already manage
+ * their own internal spacing; the outer panel exists only as a bounding
+ * box. */
+.panel--no-title > .panel__content {
+  padding: 0;
+}
 
 /* Board panel: holds the rectangular income ladder and the square
  * board side by side. All sizes derive from --board-edge — the panel
@@ -290,18 +298,21 @@ body {
   background: var(--panel-bg);
   border-bottom: 1px solid var(--ink);
 }
-/* Viewer banner — top-of-screen identity strip. Renders the viewer's
- * own pawn-coloured name pill on the left and the current turn status
- * on the right. */
+/* Viewer banner — slim spectator-only picker. Hidden for seated
+ * players; whose-turn lives in PromptStrip and the platform top-nav
+ * already shows the signed-in user's identity. */
 .viewer-banner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.25rem 0.75rem;
+  padding: 0.2rem 0.75rem;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--ink);
   font-size: 0.85rem;
   gap: 0.6rem;
+}
+.viewer-banner__label {
+  color: var(--muted);
+  font-style: italic;
 }
 .viewer-banner--unseated {
   color: var(--muted);
@@ -320,6 +331,33 @@ body {
 }
 .viewer-banner__active {
   font-weight: 600;
+}
+.viewer-banner__spectator-picker {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.viewer-banner__spectator-picker .viewer-banner__chip {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.viewer-banner__spectator-picker .viewer-banner__chip--active {
+  outline: 2px solid var(--warm-gold);
+  outline-offset: 1px;
+}
+.viewer-banner__clear {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--panel-bg);
+  cursor: pointer;
+}
+.viewer-banner__clear:hover {
+  background: var(--soft-tint);
 }
 
 .hand-banner__cards {
@@ -487,7 +525,10 @@ body {
   display: block;
 }
 .board-city__label {
-  font-size: 11px;
+  /* Bumped ~20% from 11 → 13 so city names read clearly at conversational
+   * distance. Banner geometry (CITY_BANNER_HEIGHT / CITY_BANNER_CHAR_W
+   * in BoardPanel.tsx) was bumped in lock-step. */
+  font-size: 13px;
   font-weight: 600;
   fill: var(--ink);
 }
@@ -1266,15 +1307,17 @@ body {
  * gaps) scales down in lock-step until the board fits horizontally.
  * Single knob, uniform shrink — no per-property overrides needed.
  *
- * 50rem viewport at default 16px = 800 CSS px. The default
- * --board-edge (40rem) plus ~10rem of chrome and income strip needs
- * about 50rem of width, so 50rem is the cut-in. Below it, root
- * font shrinks linearly with viewport width: at viewport = 50rem,
- * root = 16px (matches default); at viewport = 25rem (~phone),
- * root = 8px and --board-edge renders at 320 device px. */
-@media (max-width: 50rem) {
+ * Default --board-edge (40rem) + the income ladder (~1.25rem) +
+ * panel chrome / page padding (~1rem) needs about 42–43rem of
+ * horizontal room, so the cut-in is 44rem. Below that, root font
+ * shrinks linearly with viewport width: at 44rem the root is 16px
+ * (matches default); at 25rem (~phone) it's ~9px and --board-edge
+ * renders at ~365 device px — board + income still fit edge-to-edge.
+ * Mat tiles render at the same on-screen px as board tiles because
+ * .mat-svg width is anchored to --board-edge (not its container). */
+@media (max-width: 46rem) {
   html {
-    font-size: calc(100vw / 50);
+    font-size: calc(100vw / 46);
   }
 }
 

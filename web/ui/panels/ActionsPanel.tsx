@@ -19,7 +19,11 @@ import type {
   Player,
 } from "../../../engine";
 import { reasonToText } from "../affordances/toast";
-import { useMySeatId, useRejection } from "../hooks/EngineProvider";
+import {
+  useActualSeatId,
+  useMySeatId,
+  useRejection,
+} from "../hooks/EngineProvider";
 import { useCanUndo, useEngine } from "../hooks/useEngine";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { RecentActionsOverlay } from "../overlays/RecentActionsOverlay";
@@ -35,11 +39,16 @@ export function ActionsPanel() {
   const wizard = useWizard();
   const canUndo = useCanUndo();
   const mySeatId = useMySeatId();
+  // For dispatch eligibility we use the seat the user actually owns —
+  // never the spectator-view override seat. A spectator viewing player
+  // N's hand should NOT be able to click Build for them.
+  const actualSeatId = useActualSeatId();
   const rejection = useRejection();
   const [logOpen, setLogOpen] = useState(false);
   const flags = useGameState((s) => {
     const activePlayerId = s.turnOrder[s.currentPlayerIndex] ?? null;
-    const isMyTurn = mySeatId !== null && activePlayerId === mySeatId;
+    const isMyTurn =
+      actualSeatId !== null && activePlayerId === actualSeatId;
     const baseCanAct =
       s.actionsRemaining > 0 &&
       s.pendingShortfalls.length === 0 &&

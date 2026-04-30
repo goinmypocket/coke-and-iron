@@ -111,7 +111,7 @@ export function PlayersPanel() {
     return [...turnOrder.slice(idx), ...turnOrder.slice(0, idx)];
   }, [turnOrder, mySeatId]);
   return (
-    <Panel id="player_mats" title="Player Mats">
+    <Panel id="player_mats" title="Player Mats" hideTitle>
       <div className="players-panel">
         {renderOrder.map((seatId) => (
           <PlayerSubPanel

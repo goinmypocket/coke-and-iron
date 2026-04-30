@@ -80,10 +80,17 @@ export interface PlayingEnvelope {
   readonly paused: boolean;
   readonly allowUndo: boolean;
   readonly canUndoNow: boolean;
-  /** The recipient's seat as an engine PlayerId (0..playerCount-1), or
-   *  -1 for spectators. The session computes this per-recipient so the
-   *  client doesn't have to re-derive it from the seats list. */
+  /** Whose perspective the projected `view` was rendered from. Equals
+   *  the recipient's seat for seated players; equals the spectator's
+   *  chosen view-seat when they've opted into one; -1 otherwise. The
+   *  client uses this to decide whose hand to render. */
   readonly viewerPlayerId: number;
+  /** Seat the recipient actually owns on the server, ignoring any
+   *  spectator-view override. -1 for true spectators (and for seated
+   *  players who released their seat mid-game). The client gates
+   *  dispatch eligibility on this — never on `viewerPlayerId`, which
+   *  may point at someone else's seat. */
+  readonly actualSeatId: number;
 }
 
 // -----------------------------------------------------------------------------
