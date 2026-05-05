@@ -8,13 +8,15 @@
 //     RemainingCardsOverlay).
 //
 // Source of truth:
-//   - The active player's ClientEngine maintains an `ObservableEvent[]`
-//     log it computes from STATE-message diffs (see network/eventLog.ts).
-//     Every connected client derives the SAME log from its own per-seat
-//     STATE stream; no extra round-trips, no host-driven event channel.
-//   - This overlay reads that log via `useRecentEvents()`. There is no
-//     local intent-log replay any more — the host is the single
-//     reducer, and the client only sees views.
+//   - The host (CokeAndIronSession) maintains the authoritative public
+//     `ObservableEvent[]` log, derived from spectator-view diffs as
+//     intents dispatch. SNAPSHOT messages ship the entire log; STATE
+//     messages with cause `intent` ship one new event apiece.
+//   - The browser ClientEngine just stores what the host sends (push
+//     on intent, pop on undo, replace on snapshot). This means a page
+//     refresh rebuilds the log from the snapshot rather than starting
+//     from empty.
+//   - This overlay reads that log via `useRecentEvents()`.
 //
 // Each row resolves player names + city districts from the live view so
 // styling matches the rest of the UI (player name in pawn colour, city
@@ -30,7 +32,7 @@ import {
   type LineEndpoints,
   type PlayerId,
 } from "../../../engine";
-import type { ObservableEvent } from "../../network/eventLog";
+import type { ObservableEvent } from "../../../engine/eventLog";
 import { useEngine, useRecentEvents } from "../hooks/useEngine";
 import { DISTRICT_FILL, INDUSTRY_LABEL } from "../industryIcons";
 

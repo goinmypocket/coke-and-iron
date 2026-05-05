@@ -18,8 +18,12 @@
 
 import {
   Engine,
+  buildEvent,
   projectFor,
+  projectForSpectator,
   type EngineConfigBundle,
+  type ObservableEvent,
+  type PlayerView,
   type SeatIdentity,
 } from "../engine";
 import type { Intent, PlayerCount, PlayerId } from "../engine/types";
@@ -143,6 +147,12 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
   private playerSlotOrder: number[] = [];
   /** Frozen at startGame for replay. */
   private loadedIntents: readonly Intent[] | null = null;
+  /** Authoritative public history of dispatched intents, in order.
+   *  Computed from spectator-view diffs as each intent dispatches and
+   *  shipped verbatim to every client on snapshot — so a page refresh
+   *  rebuilds the recent-actions log from the wire instead of starting
+   *  empty. Popped on undo to mirror the engine's intent log. */
+  private recentEvents: ObservableEvent[] = [];
 
   // ---- Connections ---------------------------------------------------
   private readonly connections = new Map<UserId, (msg: unknown) => void>();
@@ -361,16 +371,21 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
       this.bundle,
     );
     if (this.loadedIntents) {
+      let preView: PlayerView = projectForSpectator(this.engine.getState());
       for (const intent of this.loadedIntents) {
         const r = this.engine.dispatch(intent);
         if (!r.ok) {
           this.engine = null;
           this.bundle = null;
+          this.recentEvents = [];
           return {
             ok: false,
             reason: `replay diverged: ${r.reason}`,
           };
         }
+        const postView = projectForSpectator(this.engine.getState());
+        this.recentEvents.push(buildEvent(preView, postView, intent));
+        preView = postView;
       }
       this.loadedIntents = null;
     }
@@ -464,6 +479,7 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
         );
       }
     }
+    const preView = projectForSpectator(this.engine.getState());
     const result = this.engine.dispatch(intent);
     if (!result.ok) {
       this.sendTo(userId, {
@@ -473,8 +489,16 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
       });
       return;
     }
+    const postView = projectForSpectator(this.engine.getState());
+    const event = buildEvent(preView, postView, intent);
+    this.recentEvents.push(event);
     this.lastActivityAt = Date.now();
-    this.broadcastState({ kind: "intent", intent, originator: userId });
+    this.broadcastState({
+      kind: "intent",
+      intent,
+      originator: userId,
+      event,
+    });
   }
 
   private handleUndo(userId: UserId): void {
@@ -494,6 +518,7 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
     if (!this.engine.undo()) {
       return this.errorTo(userId, "nothing to undo");
     }
+    this.recentEvents.pop();
     this.lastActivityAt = Date.now();
     this.broadcastState({ kind: "undo" });
   }
@@ -638,6 +663,7 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
       ),
       seats: this.buildLobbyState().seats,
       seatToken: null,
+      events: this.recentEvents,
     };
   }
 
@@ -655,7 +681,12 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
 
   private broadcastState(
     cause:
-      | { kind: "intent"; intent: Intent; originator: UserId }
+      | {
+          kind: "intent";
+          intent: Intent;
+          originator: UserId;
+          event: ObservableEvent;
+        }
       | { kind: "undo" }
       | { kind: "snapshot" },
   ): void {

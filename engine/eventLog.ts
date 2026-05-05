@@ -37,8 +37,8 @@ import type {
   IronSource,
   LineEndpoints,
   PlayerId,
-} from "../../engine/types";
-import type { PlayerView } from "../../engine/view";
+} from "./types";
+import type { PlayerView } from "./view";
 
 /** One row in the recent-actions overlay — same fields the original
  * `IntentDetail` carried, just derived from STATE diffs instead of

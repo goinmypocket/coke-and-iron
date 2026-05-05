@@ -83,7 +83,9 @@ export function usePlatformGameSession(
       switch (msg.type) {
         case "SNAPSHOT": {
           // The session sends a SNAPSHOT carrying a fresh per-recipient
-          // PlayerView. Build / refresh the ClientEngine.
+          // PlayerView and the authoritative public-history log. Build
+          // / refresh the ClientEngine and adopt the events verbatim so
+          // a page refresh rehydrates the recent-actions overlay.
           const env = msg.playing;
           const viewer = env.viewerPlayerId >= 0 ? env.viewerPlayerId : null;
           const actual = env.actualSeatId >= 0 ? env.actualSeatId : null;
@@ -99,6 +101,7 @@ export function usePlatformGameSession(
               kind: "snapshot",
             });
           }
+          engineRef.current.replaceEvents(msg.events);
           setMySeatId(viewer);
           setActualSeatId(actual);
           setPaused(env.paused);

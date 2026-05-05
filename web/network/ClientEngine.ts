@@ -36,7 +36,7 @@ import type {
 import type { EngineConfigBundle } from "../../engine/initialState";
 import type { PlayerView } from "../../engine/view";
 import { projectForSpectator } from "../../engine/view";
-import { buildEvent, type ObservableEvent } from "./eventLog";
+import type { ObservableEvent } from "../../engine/eventLog";
 import type { S2CState } from "../../shared/protocol";
 
 type StateCause = S2CState["cause"];
@@ -100,35 +100,35 @@ export class ClientEngine implements ClientEngineLike {
    *  every STATE / SNAPSHOT message.
    *
    *  The `cause` discriminates how to evolve the local recent-events
-   *  log: `intent` appends a derived ObservableEvent, `undo` pops the
-   *  last entry. Snapshots are trickier — the FIRST snapshot we ever
-   *  see wipes any stale prior log (joined fresh / save reloaded /
-   *  spectator-view changed); subsequent snapshots happen on mid-game
-   *  seat events (claim / release / kick) and we MUST keep the log
-   *  intact, otherwise watchers' history evaporates whenever someone
-   *  drops a seat. */
-  private hadFirstView = false;
+   *  log: `intent` appends the host-derived ObservableEvent shipped on
+   *  the cause, `undo` pops the last entry. Snapshots come with the
+   *  full event log on a separate path (replaceEvents) since a refresh
+   *  / reconnect must rebuild the history from the wire rather than
+   *  starting empty. */
   applyView = (
     view: PlayerView,
     canUndoNow: boolean,
     cause: StateCause,
   ): void => {
-    const prev = this.view;
     if (cause.kind === "intent") {
-      this.recentEvents = [
-        ...this.recentEvents,
-        buildEvent(prev, view, cause.intent),
-      ];
+      this.recentEvents = [...this.recentEvents, cause.event];
     } else if (cause.kind === "undo") {
       this.recentEvents = this.recentEvents.slice(0, -1);
-    } else if (!this.hadFirstView) {
-      // First-ever snapshot for this client. Anything in the log
-      // predates the new authoritative state; drop it.
-      this.recentEvents = [];
     }
-    this.hadFirstView = true;
+    // cause.kind === "snapshot" arrives on mid-game seat changes; the
+    // engine state and event log haven't actually moved, so keep the
+    // log we already have.
     this.view = view;
     this.canUndoNow = canUndoNow;
+    for (const cb of this.subs) cb();
+  };
+
+  /** Adopt the authoritative event log shipped with a SNAPSHOT. Called
+   *  separately from applyView so the snapshot path can hand over both
+   *  the redacted view and the public history in one shot — refreshing
+   *  the page recovers the entire game's recent-actions log. */
+  replaceEvents = (events: readonly ObservableEvent[]): void => {
+    this.recentEvents = [...events];
     for (const cb of this.subs) cb();
   };
 

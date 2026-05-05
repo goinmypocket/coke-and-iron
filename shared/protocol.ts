@@ -26,9 +26,11 @@
 // =============================================================================
 import type { Intent, PlayerCount } from "../engine/types";
 import type { PlayerView } from "../engine/view";
+import type { ObservableEvent } from "../engine/eventLog";
 
 export type { PlayerCount };
 export type { PlayerView };
+export type { ObservableEvent };
 
 export const PROTOCOL_VERSION = 2 as const;
 
@@ -124,6 +126,12 @@ export interface S2CSnapshot {
    * The client persists this to localStorage and replays it via RESUME
    * on the next WebSocket open. null for spectators. */
   readonly seatToken: string | null;
+  /** The full public history of dispatched intents, computed by the
+   *  host from spectator-view diffs and shared verbatim with every
+   *  connected client. The recent-actions overlay reads this directly,
+   *  which is why a page refresh recovers the entire game's log
+   *  rather than starting from empty. */
+  readonly events: readonly ObservableEvent[];
 }
 
 /** Sent to every connected client after each accepted intent (or
@@ -135,7 +143,14 @@ export interface S2CState {
    * carries the raw intent for ergonomics; selectively redacting
    * intent payloads is a future concern. */
   readonly cause:
-    | { readonly kind: "intent"; readonly intent: Intent; readonly originator: string }
+    | {
+        readonly kind: "intent";
+        readonly intent: Intent;
+        readonly originator: string;
+        /** The observable form of this intent — host-derived from the
+         *  spectator-view diff so every client gets the same row. */
+        readonly event: ObservableEvent;
+      }
     | { readonly kind: "undo" }
     | { readonly kind: "snapshot" };
 }

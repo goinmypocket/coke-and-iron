@@ -26,6 +26,12 @@ export {
   type PlayerView,
   type PlayerInView,
 } from "./view";
+export {
+  buildEvent,
+  type ObservableEvent,
+  type SellOrderDetail,
+  type TileRef,
+} from "./eventLog";
 export { makeRng, shuffle, randomInt } from "./rng";
 export type { Rng } from "./rng";
 export type {

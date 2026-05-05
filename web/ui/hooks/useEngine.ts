@@ -1,7 +1,7 @@
 import { useContext, useSyncExternalStore } from "react";
 import type { Engine } from "../../../engine/Engine";
 import type { ClientEngine } from "../../network/ClientEngine";
-import type { ObservableEvent } from "../../network/eventLog";
+import type { ObservableEvent } from "../../../engine/eventLog";
 import { EngineContext } from "./EngineProvider";
 
 /**
