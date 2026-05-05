@@ -74,8 +74,8 @@
 			"district": "brown",
 			"name": "Dudley",
 			"position": [
-				370,
-				595
+				415,
+				615
 			],
 			"slots": [
 				"COAL_MINE",
@@ -86,8 +86,8 @@
 			"district": "brown",
 			"name": "Wolverhampton",
 			"position": [
-				365,
-				490
+				350,
+				500
 			],
 			"slots": [
 				"MANUFACTURER",
@@ -145,7 +145,7 @@
 			"name": "Cannock",
 			"position": [
 				425,
-				380
+				400
 			],
 			"slots": [
 				[
@@ -189,8 +189,8 @@
 			"district": "red",
 			"name": "Walsall",
 			"position": [
-				495,
-				495
+				505,
+				510
 			],
 			"slots": [
 				[
@@ -207,8 +207,8 @@
 			"district": "red",
 			"name": "Tamworth",
 			"position": [
-				625,
-				455
+				645,
+				450
 			],
 			"slots": [
 				[
@@ -334,8 +334,8 @@
 			"farmBrewery": true,
 			"name": "Farm Brewery 1",
 			"position": [
-				280,
-				375
+				290,
+				385
 			],
 			"slots": [
 				"BREWERY"
@@ -346,7 +346,7 @@
 			"farmBrewery": true,
 			"name": "Farm Brewery 2",
 			"position": [
-				130,
+				120,
 				680
 			],
 			"slots": [
