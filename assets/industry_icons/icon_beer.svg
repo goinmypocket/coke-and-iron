@@ -1,91 +1,131 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Brewery industry icon: three barrels laid on their sides, two on
-       the base and one balanced on top forming a triangular stack.
-       Deliberately different from the single-barrel BEER RESOURCE glyph
-       so you can tell a brewery INDUSTRY (a place that produces beer)
-       from a brewery's BEER OUTPUT at a glance. -->
+  <!-- Brewery industry icon: a single oak barrel resting on a wooden
+       stand. Barrel lies horizontal with its round end-cap (face) on
+       the LEFT, a cork bung protruding from the TOP, three iron
+       hoops around the body, and a brass tap on the lower-front.
+       The stand below is a trapezoidal yellow-wood plank with two
+       triangular wedges holding the barrel in place. Drawing order:
+       stand → body → cap → bung → tap. -->
 
   <defs>
-    <!-- Stave gradient: bright highlight top-left, deep shadow bottom-
-         right so every barrel reads as round. -->
-    <linearGradient id="stave" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#E29B4A"/>
-      <stop offset="0.5" stop-color="#B97530"/>
-      <stop offset="1" stop-color="#6E3F12"/>
+    <linearGradient id="bbl-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9C5828"/>
+      <stop offset="0.18" stop-color="#E0A868"/>
+      <stop offset="0.55" stop-color="#A86838"/>
+      <stop offset="0.85" stop-color="#5A2810"/>
+      <stop offset="1" stop-color="#3A1808"/>
     </linearGradient>
-    <!-- End-cap gradient so the circular barrel end looks hollowed. -->
-    <radialGradient id="end" cx="0.35" cy="0.35" r="0.8">
-      <stop offset="0" stop-color="#C98A48"/>
-      <stop offset="0.7" stop-color="#7A4818"/>
-      <stop offset="1" stop-color="#3A1F08"/>
+    <radialGradient id="bbl-cap" cx="0.4" cy="0.4" r="0.85">
+      <stop offset="0" stop-color="#A06438"/>
+      <stop offset="0.55" stop-color="#5A2E18"/>
+      <stop offset="1" stop-color="#2A1408"/>
     </radialGradient>
-    <linearGradient id="hoop" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4A3018"/>
-      <stop offset="1" stop-color="#1A0C04"/>
+    <linearGradient id="bbl-hoop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A2814"/>
+      <stop offset="0.5" stop-color="#1A0E04"/>
+      <stop offset="1" stop-color="#0A0402"/>
+    </linearGradient>
+    <linearGradient id="bbl-stand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8BC78"/>
+      <stop offset="0.5" stop-color="#B8843A"/>
+      <stop offset="1" stop-color="#7A4A1A"/>
+    </linearGradient>
+    <linearGradient id="bbl-tap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F0CA70"/>
+      <stop offset="0.5" stop-color="#A87838"/>
+      <stop offset="1" stop-color="#5E3A14"/>
     </linearGradient>
   </defs>
 
-  <!-- Shadow under the stack so the barrels sit on a surface -->
-  <ellipse cx="64" cy="112" rx="52" ry="6" fill="#1A1A1A" opacity="0.28"/>
-
-  <!-- Helper: each barrel is a rounded rect body + two end caps at the
-       sides + four iron hoops. Drawn back-to-front: top barrel LAST. -->
-
-  <!-- Base barrel LEFT (x=4..62, y=64..112) -->
-  <rect x="10" y="70" width="52" height="38" rx="6"
-        fill="url(#stave)" stroke="#1F0F04" stroke-width="2"/>
-  <!-- Stave seams -->
-  <g stroke="#2A1507" stroke-width="1.1" opacity="0.55" fill="none">
-    <line x1="10" y1="78" x2="62" y2="78"/>
-    <line x1="10" y1="89" x2="62" y2="89"/>
-    <line x1="10" y1="100" x2="62" y2="100"/>
+  <!-- ==== Wooden stand (trapezoidal plank + 2 triangular wedges) ==== -->
+  <g>
+    <!-- Plank: narrower top (where barrel sits), wider bottom (3D depth) -->
+    <path d="M 22 90 L 106 90 L 114 108 L 14 108 Z"
+          fill="url(#bbl-stand)" stroke="#3A1808" stroke-width="1.2"/>
+    <!-- Top edge highlight -->
+    <line x1="22" y1="90.5" x2="106" y2="90.5" stroke="#F4D88C"
+          stroke-width="0.8" opacity="0.75"/>
+    <!-- Front edge highlight -->
+    <line x1="14" y1="108" x2="114" y2="108" stroke="#3A1808"
+          stroke-width="1" opacity="0.85"/>
+    <!-- Left wedge under barrel cap -->
+    <path d="M 28 90 L 38 82 L 48 90 Z"
+          fill="url(#bbl-stand)" stroke="#3A1808" stroke-width="0.8"/>
+    <!-- Right wedge under barrel right end -->
+    <path d="M 80 90 L 90 82 L 100 90 Z"
+          fill="url(#bbl-stand)" stroke="#3A1808" stroke-width="0.8"/>
   </g>
-  <!-- Iron hoops -->
-  <rect x="10" y="75" width="52" height="4" fill="url(#hoop)"/>
-  <rect x="10" y="97" width="52" height="4" fill="url(#hoop)"/>
-  <!-- End cap LEFT -->
-  <ellipse cx="10" cy="89" rx="7" ry="18" fill="url(#end)"
-           stroke="#1F0F04" stroke-width="2"/>
-  <circle cx="10" cy="89" r="2" fill="#1A0C04"/>
-  <!-- End cap RIGHT -->
-  <ellipse cx="62" cy="89" rx="7" ry="18" fill="url(#end)"
-           stroke="#1F0F04" stroke-width="2"/>
 
-  <!-- Base barrel RIGHT (x=66..118, y=70..108) — offset overlap with
-       left barrel so the two read as touching -->
-  <rect x="66" y="70" width="52" height="38" rx="6"
-        fill="url(#stave)" stroke="#1F0F04" stroke-width="2"/>
-  <g stroke="#2A1507" stroke-width="1.1" opacity="0.55" fill="none">
-    <line x1="66" y1="78" x2="118" y2="78"/>
-    <line x1="66" y1="89" x2="118" y2="89"/>
-    <line x1="66" y1="100" x2="118" y2="100"/>
+  <!-- ==== Barrel body: cylinder side-view with rounded right end ====
+       Rectangle from (28, 22) to (84, 86), then a 32-radius arc closes
+       the right end. Length 86, height 64. -->
+  <path d="M 28 22
+           L 84 22
+           A 32 32 0 0 1 84 86
+           L 28 86 Z"
+        fill="url(#bbl-body)" stroke="#1A0A02" stroke-width="2"/>
+
+  <!-- Top-edge highlight along the lit side -->
+  <line x1="34" y1="24" x2="84" y2="24" stroke="#F8D89C"
+        stroke-width="2" opacity="0.6"/>
+
+  <!-- Iron hoops: three uniform-height vertical ellipses -->
+  <ellipse cx="44" cy="54" rx="3.2" ry="32" fill="url(#bbl-hoop)"
+           stroke="#000" stroke-width="0.5"/>
+  <ellipse cx="64" cy="54" rx="3.2" ry="32" fill="url(#bbl-hoop)"
+           stroke="#000" stroke-width="0.5"/>
+  <ellipse cx="84" cy="54" rx="3.2" ry="32" fill="url(#bbl-hoop)"
+           stroke="#000" stroke-width="0.5"/>
+
+  <!-- Vertical stave seams between hoops (visible wood grain) -->
+  <g stroke="#3A1808" stroke-width="0.7" opacity="0.55">
+    <line x1="54" y1="24" x2="54" y2="84"/>
+    <line x1="74" y1="24" x2="74" y2="84"/>
+    <line x1="94" y1="34" x2="94" y2="74"/>
+    <line x1="104" y1="44" x2="104" y2="64"/>
   </g>
-  <rect x="66" y="75" width="52" height="4" fill="url(#hoop)"/>
-  <rect x="66" y="97" width="52" height="4" fill="url(#hoop)"/>
-  <ellipse cx="66" cy="89" rx="7" ry="18" fill="url(#end)"
-           stroke="#1F0F04" stroke-width="2"/>
-  <circle cx="66" cy="89" r="2" fill="#1A0C04"/>
-  <ellipse cx="118" cy="89" rx="7" ry="18" fill="url(#end)"
-           stroke="#1F0F04" stroke-width="2"/>
 
-  <!-- Top barrel (centred on the seam between the two base barrels) -->
-  <rect x="38" y="28" width="52" height="38" rx="6"
-        fill="url(#stave)" stroke="#1F0F04" stroke-width="2"/>
-  <g stroke="#2A1507" stroke-width="1.1" opacity="0.55" fill="none">
-    <line x1="38" y1="36" x2="90" y2="36"/>
-    <line x1="38" y1="47" x2="90" y2="47"/>
-    <line x1="38" y1="58" x2="90" y2="58"/>
+  <!-- ==== End-cap on LEFT (round face) ==== -->
+  <ellipse cx="28" cy="54" rx="14" ry="32"
+           fill="url(#bbl-cap)" stroke="#1A0A02" stroke-width="1.8"/>
+  <!-- Stave divider lines on cap (shorter at the rim) -->
+  <g stroke="#1A0A02" stroke-width="0.8" opacity="0.7">
+    <line x1="18" y1="38" x2="18" y2="70"/>
+    <line x1="23" y1="28" x2="23" y2="80"/>
+    <line x1="28" y1="22" x2="28" y2="86"/>
+    <line x1="33" y1="28" x2="33" y2="80"/>
+    <line x1="38" y1="38" x2="38" y2="70"/>
   </g>
-  <rect x="38" y="33" width="52" height="4" fill="url(#hoop)"/>
-  <rect x="38" y="55" width="52" height="4" fill="url(#hoop)"/>
-  <ellipse cx="38" cy="47" rx="7" ry="18" fill="url(#end)"
-           stroke="#1F0F04" stroke-width="2"/>
-  <circle cx="38" cy="47" r="2" fill="#1A0C04"/>
-  <ellipse cx="90" cy="47" rx="7" ry="18" fill="url(#end)"
-           stroke="#1F0F04" stroke-width="2"/>
+  <!-- Inner rim line (suggests lid thickness) -->
+  <ellipse cx="28" cy="54" rx="9" ry="24" fill="none"
+           stroke="#1A0A02" stroke-width="0.8" opacity="0.55"/>
 
-  <!-- Highlight gleam on the top barrel so the eye reads the peak of
-       the triangle first -->
-  <path d="M46 30 Q42 38 46 56" fill="none" stroke="#F2BA7A"
-        stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+  <!-- ==== Bung / cork on TOP ==== -->
+  <g>
+    <!-- Bung hole (dark elliptical opening) -->
+    <ellipse cx="68" cy="23" rx="4.5" ry="2.2" fill="#1A0A02"
+             stroke="#0A0402" stroke-width="0.5"/>
+    <!-- Cork sticking up -->
+    <rect x="65" y="14" width="6" height="10" rx="1.2"
+          fill="#A86E40" stroke="#1A0A02" stroke-width="0.7"/>
+    <!-- Top cap of cork (slight ellipse for the round top) -->
+    <ellipse cx="68" cy="14" rx="3" ry="1" fill="#D08A50"
+             stroke="#1A0A02" stroke-width="0.5"/>
+  </g>
+
+  <!-- ==== Brass tap on lower-front ==== -->
+  <g>
+    <!-- Mount plate against the body -->
+    <rect x="46" y="74" width="7" height="6" rx="0.8"
+          fill="url(#bbl-tap)" stroke="#1A0A02" stroke-width="0.6"/>
+    <!-- Vertical valve body protruding down -->
+    <rect x="47.5" y="80" width="4" height="7"
+          fill="url(#bbl-tap)" stroke="#1A0A02" stroke-width="0.5"/>
+    <!-- Spout nozzle -->
+    <circle cx="49.5" cy="88.5" r="1.7" fill="#1A0A02"/>
+    <circle cx="49.5" cy="88.5" r="0.8" fill="#3A1808"/>
+    <!-- Handle on top of valve -->
+    <rect x="44" y="71" width="11" height="2.5" rx="0.6"
+          fill="url(#bbl-tap)" stroke="#1A0A02" stroke-width="0.5"/>
+  </g>
 </svg>

@@ -302,7 +302,11 @@ function CenterIcon({
   industry: IndustryName;
   y: number;
 }) {
-  const size = BASE_TILE * 0.42;
+  // The redesigned 3D industry icons read clearly when bumped from the
+  // historical 0.42 ratio to 0.55, leaving room for the corner level
+  // glyph (TL), beer-cost cubes (TR), and resource-cube stack (BR) on
+  // the unflipped face.
+  const size = BASE_TILE * 0.55;
   return (
     <image
       href={INDUSTRY_ICON[industry]}

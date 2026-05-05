@@ -54,7 +54,7 @@ const ROW_PAD = (ROW_H - TILE) / 2;                    // 6
 const SIDE_W = SIDE_COL_W;
 const COST_W = SIDE_W;
 const COL_W = COST_W + TILE + SIDE_W;
-const LABEL_BAND = 14;                                 // industry icon + name strip
+const LABEL_BAND = 18;                                 // industry icon + name strip
 // Physical gap between adjacent industry columns. Replaces the old
 // separator line — visually separating industries via whitespace
 // reads cleaner than a hairline rule.
@@ -199,10 +199,9 @@ function PlayerSubPanel({
 }
 
 /** Pixel size shared by every glyph in the seat-stats row so all five
- *  cells line up vertically. Picked to match the income / VP icons'
- *  native baseline (16) and large enough for the MoneyCoin number to
- *  stay legible. */
-const STAT_ICON_SIZE = 16;
+ *  cells line up vertically. Big enough that the money / VP / income
+ *  numbers read at a glance from across the table without leaning in. */
+const STAT_ICON_SIZE = 24;
 
 function SeatStats({
   money,

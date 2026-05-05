@@ -1,135 +1,144 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Cotton mill industry icon: brick multi-storey factory with a
-       silver/grey pitched roof, arched central door, grid of tall lit
-       windows, and subtle brick pattern. No chimney (brewery/iron
-       contrast). -->
+  <!-- Cotton mill industry icon: red-brick factory.
+       BBox: (14, 14) → (114, 114) — 100×100 (smoke wisps may extend
+       slightly above).
+       Depth offset: (+24, -12) — same as manufacturer / coal / iron.
+       Geometry:
+         Front wall: (14, 56) → (90, 114)         76 wide × 58 tall
+         Front gable triangle peak: (52, 30)      26 above eaves
+         Side wall:  (90, 56) (114, 44) (114, 102) (90, 114)
+         Roof slope (visible right slope):
+                     (52, 30) (76, 18) (114, 44) (90, 56) -->
 
   <defs>
-    <linearGradient id="brick" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#CDC4B4"/>
-      <stop offset="0.6" stop-color="#B8B0A0"/>
-      <stop offset="1" stop-color="#8A8070"/>
+    <linearGradient id="cmf-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D6886A"/>
+      <stop offset="0.6" stop-color="#B25E44"/>
+      <stop offset="1" stop-color="#7E3A26"/>
     </linearGradient>
-    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#C8CCD0"/>
-      <stop offset="1" stop-color="#6E7378"/>
+    <linearGradient id="cmf-side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B45E44"/>
+      <stop offset="1" stop-color="#6E2E1C"/>
     </linearGradient>
-    <linearGradient id="window" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#EACF72"/>
-      <stop offset="1" stop-color="#7A5018"/>
+    <linearGradient id="cmf-roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#888C90"/>
+      <stop offset="1" stop-color="#3E4348"/>
+    </linearGradient>
+    <linearGradient id="cmf-window" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F0D690"/>
+      <stop offset="1" stop-color="#7A4A14"/>
+    </linearGradient>
+    <linearGradient id="cmf-stack" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5C2418"/>
+      <stop offset="0.5" stop-color="#3A100A"/>
+      <stop offset="1" stop-color="#1A0604"/>
     </linearGradient>
   </defs>
 
-  <!-- Ground shadow -->
-  <ellipse cx="64" cy="118" rx="48" ry="4" fill="#1A1A1A" opacity="0.25"/>
-
-  <!-- Roof: pitched, double pitched shape -->
-  <polygon points="10,40 118,40 104,18 24,18"
-           fill="url(#roof)" stroke="#2A2A2A" stroke-width="2"/>
-  <!-- Ridge highlight -->
-  <line x1="24" y1="18" x2="104" y2="18" stroke="#E8ECEF" stroke-width="1.5"/>
-  <!-- Eaves line -->
-  <line x1="10" y1="40" x2="118" y2="40" stroke="#2A2A2A" stroke-width="2"/>
-  <!-- Roof tile rows -->
-  <g stroke="#4A4F54" stroke-width="0.8" opacity="0.55">
-    <line x1="12" y1="27" x2="116" y2="27"/>
-    <line x1="12" y1="34" x2="116" y2="34"/>
+  <!-- Smoke plumes (drawn first; chimneys cover bases) -->
+  <g fill="#C8C8C8" opacity="0.45">
+    <ellipse cx="56" cy="14" rx="6" ry="4"/>
+    <ellipse cx="62" cy="8" rx="4.5" ry="3.5"/>
+    <ellipse cx="84" cy="18" rx="5" ry="3.5"/>
   </g>
 
-  <!-- Main body -->
-  <rect x="10" y="40" width="108" height="72"
-        fill="url(#brick)" stroke="#2A2620" stroke-width="2.2"/>
-
-  <!-- Brick courses -->
-  <g stroke="#948870" stroke-width="0.8" opacity="0.8">
-    <line x1="11" y1="52" x2="117" y2="52"/>
-    <line x1="11" y1="64" x2="117" y2="64"/>
-    <line x1="11" y1="76" x2="117" y2="76"/>
-    <line x1="11" y1="88" x2="117" y2="88"/>
-    <line x1="11" y1="100" x2="117" y2="100"/>
+  <!-- Side wall -->
+  <polygon points="90,56 114,44 114,102 90,114"
+           fill="url(#cmf-side)" stroke="#1A0604" stroke-width="2"/>
+  <g stroke="#3A1208" stroke-width="0.5" opacity="0.85">
+    <line x1="90" y1="64" x2="114" y2="52"/>
+    <line x1="90" y1="72" x2="114" y2="60"/>
+    <line x1="90" y1="80" x2="114" y2="68"/>
+    <line x1="90" y1="88" x2="114" y2="76"/>
+    <line x1="90" y1="96" x2="114" y2="84"/>
+    <line x1="90" y1="104" x2="114" y2="92"/>
   </g>
-  <!-- Vertical brick joints offset per row -->
-  <g stroke="#948870" stroke-width="0.6" opacity="0.7">
-    <line x1="28" y1="40" x2="28" y2="52"/>
-    <line x1="48" y1="40" x2="48" y2="52"/>
-    <line x1="68" y1="40" x2="68" y2="52"/>
-    <line x1="88" y1="40" x2="88" y2="52"/>
-    <line x1="108" y1="40" x2="108" y2="52"/>
-    <line x1="18" y1="52" x2="18" y2="64"/>
-    <line x1="38" y1="52" x2="38" y2="64"/>
-    <line x1="58" y1="52" x2="58" y2="64"/>
-    <line x1="78" y1="52" x2="78" y2="64"/>
-    <line x1="98" y1="52" x2="98" y2="64"/>
-  </g>
-
-  <!-- Arched central door with keystone -->
-  <path d="M52 112 L52 84 A12 12 0 0 1 76 84 L76 112 Z"
-        fill="#2A1410" stroke="#0A0604" stroke-width="1.8"/>
-  <!-- Door planks -->
-  <line x1="64" y1="84" x2="64" y2="112" stroke="#6A4A30" stroke-width="1"/>
-  <circle cx="70" cy="98" r="1.3" fill="#E8B84A"/>
-  <!-- Keystone above the arch -->
-  <polygon points="60,72 68,72 66,76 62,76" fill="#7A7260"/>
-
-  <!-- Window grid (4 cols × 3 rows, skipping the middle col for the door) -->
+  <!-- Side-wall arched windows -->
   <g>
-    <!-- Row 1 -->
-    <rect x="16" y="44" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="36" y="44" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="80" y="44" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="100" y="44" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <!-- Row 2 -->
-    <rect x="16" y="62" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="36" y="62" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="80" y="62" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="100" y="62" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <!-- Row 3 (flanks of door) -->
-    <rect x="16" y="82" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="36" y="82" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="80" y="82" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
-    <rect x="100" y="82" width="12" height="12" fill="url(#window)"
-          stroke="#1F160A" stroke-width="1"/>
+    <path d="M 94 78 L 94 70 Q 94 65 98 64.5 L 100 64 Q 100 70 100 73 L 98 80 Z"
+          fill="url(#cmf-window)" stroke="#1A0604" stroke-width="0.6"/>
+    <path d="M 102 74 L 102 66 Q 102 61 106 60.5 L 108 60 Q 108 66 108 69 L 106 76 Z"
+          fill="url(#cmf-window)" stroke="#1A0604" stroke-width="0.6"/>
   </g>
-  <!-- Window frames (cross) -->
-  <g stroke="#EEDAA0" stroke-width="0.9" opacity="0.8">
-    <line x1="22" y1="44" x2="22" y2="56"/>
-    <line x1="16" y1="50" x2="28" y2="50"/>
-    <line x1="42" y1="44" x2="42" y2="56"/>
-    <line x1="36" y1="50" x2="48" y2="50"/>
-    <line x1="86" y1="44" x2="86" y2="56"/>
-    <line x1="80" y1="50" x2="92" y2="50"/>
-    <line x1="106" y1="44" x2="106" y2="56"/>
-    <line x1="100" y1="50" x2="112" y2="50"/>
-    <line x1="22" y1="62" x2="22" y2="74"/>
-    <line x1="16" y1="68" x2="28" y2="68"/>
-    <line x1="42" y1="62" x2="42" y2="74"/>
-    <line x1="36" y1="68" x2="48" y2="68"/>
-    <line x1="86" y1="62" x2="86" y2="74"/>
-    <line x1="80" y1="68" x2="92" y2="68"/>
-    <line x1="106" y1="62" x2="106" y2="74"/>
-    <line x1="100" y1="68" x2="112" y2="68"/>
-    <line x1="22" y1="82" x2="22" y2="94"/>
-    <line x1="16" y1="88" x2="28" y2="88"/>
-    <line x1="42" y1="82" x2="42" y2="94"/>
-    <line x1="36" y1="88" x2="48" y2="88"/>
-    <line x1="86" y1="82" x2="86" y2="94"/>
-    <line x1="80" y1="88" x2="92" y2="88"/>
-    <line x1="106" y1="82" x2="106" y2="94"/>
-    <line x1="100" y1="88" x2="112" y2="88"/>
+  <!-- Foundation strip on side -->
+  <polygon points="90,106 114,94 114,102 90,114"
+           fill="#3A2418" stroke="#1A0604" stroke-width="0.6"/>
+
+  <!-- Visible roof slope -->
+  <polygon points="52,30 76,18 114,44 90,56"
+           fill="url(#cmf-roof)" stroke="#1A0604" stroke-width="1.6"/>
+  <line x1="52" y1="30" x2="76" y2="18" stroke="#D4D8DC"
+        stroke-width="1.3" opacity="0.85"/>
+  <g stroke="#1E2226" stroke-width="0.4" opacity="0.7">
+    <line x1="58" y1="35" x2="86" y2="48"/>
+    <line x1="64" y1="40" x2="92" y2="51"/>
+    <line x1="70" y1="45" x2="98" y2="54"/>
   </g>
 
-  <!-- Foundation stone at the base -->
-  <rect x="10" y="108" width="108" height="6" fill="#5A5246"
-        stroke="#2A2620" stroke-width="1.5"/>
+  <!-- Front gable wall -->
+  <polygon points="14,56 52,30 90,56"
+           fill="url(#cmf-front)" stroke="#1A0604" stroke-width="2"/>
+  <rect x="14" y="56" width="76" height="58"
+        fill="url(#cmf-front)" stroke="#1A0604" stroke-width="2.2"/>
+  <g stroke="#3A1208" stroke-width="0.5" opacity="0.85">
+    <line x1="14" y1="65" x2="90" y2="65"/>
+    <line x1="14" y1="73" x2="90" y2="73"/>
+    <line x1="14" y1="81" x2="90" y2="81"/>
+    <line x1="14" y1="89" x2="90" y2="89"/>
+    <line x1="14" y1="97" x2="90" y2="97"/>
+  </g>
+  <line x1="14" y1="56" x2="52" y2="30" stroke="#C26A50"
+        stroke-width="1.2" opacity="0.85"/>
+
+  <!-- Gable roundel window -->
+  <circle cx="52" cy="44" r="4.5" fill="url(#cmf-window)"
+          stroke="#1A0604" stroke-width="0.8"/>
+  <line x1="47.5" y1="44" x2="56.5" y2="44" stroke="#1A0604"
+        stroke-width="0.5"/>
+  <line x1="52" y1="39.5" x2="52" y2="48.5" stroke="#1A0604"
+        stroke-width="0.5"/>
+
+  <!-- Front-wall arched windows: 2 cols × 2 rows -->
+  <g>
+    <path d="M 22 72 L 22 64 Q 22 58 28 58 L 32 58 Q 34 58 34 64 L 34 72 Z"
+          fill="url(#cmf-window)" stroke="#1A0604" stroke-width="0.7"/>
+    <path d="M 70 72 L 70 64 Q 70 58 76 58 L 80 58 Q 82 58 82 64 L 82 72 Z"
+          fill="url(#cmf-window)" stroke="#1A0604" stroke-width="0.7"/>
+    <path d="M 22 90 L 22 82 Q 22 76 28 76 L 32 76 Q 34 76 34 82 L 34 90 Z"
+          fill="url(#cmf-window)" stroke="#1A0604" stroke-width="0.7"/>
+    <path d="M 70 90 L 70 82 Q 70 76 76 76 L 80 76 Q 82 76 82 82 L 82 90 Z"
+          fill="url(#cmf-window)" stroke="#1A0604" stroke-width="0.7"/>
+  </g>
+  <g stroke="#F0D690" stroke-width="0.6" opacity="0.7">
+    <line x1="28" y1="60" x2="28" y2="72"/>
+    <line x1="22" y1="66" x2="34" y2="66"/>
+    <line x1="76" y1="60" x2="76" y2="72"/>
+    <line x1="70" y1="66" x2="82" y2="66"/>
+    <line x1="28" y1="78" x2="28" y2="90"/>
+    <line x1="22" y1="84" x2="34" y2="84"/>
+    <line x1="76" y1="78" x2="76" y2="90"/>
+    <line x1="70" y1="84" x2="82" y2="84"/>
+  </g>
+
+  <!-- Arched central door -->
+  <path d="M 44 114 L 44 102 Q 44 94 52 94 L 60 94 Q 60 94 60 102 L 60 114 Z"
+        fill="#1A0808" stroke="#0A0402" stroke-width="1.2"/>
+  <line x1="52" y1="95" x2="52" y2="114" stroke="#5A3220"
+        stroke-width="0.8"/>
+  <circle cx="57" cy="105" r="0.9" fill="#E0B044"/>
+  <polygon points="48,92 56,92 55,94 49,94" fill="#A89878"/>
+
+  <!-- Foundation stone strip -->
+  <rect x="14" y="108" width="76" height="6" fill="#3A2418"
+        stroke="#1A0604" stroke-width="0.8"/>
+
+  <!-- Tall smoking chimneys on the back roof -->
+  <rect x="54" y="14" width="6" height="22"
+        fill="url(#cmf-stack)" stroke="#0A0402" stroke-width="1.2"/>
+  <rect x="52" y="13" width="10" height="3" fill="#1A0604"
+        stroke="#0A0402" stroke-width="0.7"/>
+  <rect x="82" y="20" width="5" height="18"
+        fill="url(#cmf-stack)" stroke="#0A0402" stroke-width="1"/>
+  <rect x="80" y="19" width="9" height="3" fill="#1A0604"
+        stroke="#0A0402" stroke-width="0.7"/>
 </svg>

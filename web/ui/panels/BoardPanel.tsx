@@ -504,7 +504,9 @@ export function DistrictCityShape({
 
 /** Compute icon centre positions and a unit icon size for n icons
  *  packed inside a TILE-sized cell. Centroid of the centres equals
- *  the slot's centre. */
+ *  the slot's centre. The 3D-rendered industry icons read clearly even
+ *  with slight overlap, so the multi-icon cases trade a bit of overlap
+ *  for a larger per-icon size. */
 function iconCentroidPositions(
   n: number,
   cx: number,
@@ -512,32 +514,41 @@ function iconCentroidPositions(
 ): { size: number; centres: readonly (readonly [number, number])[] } {
   if (n <= 1) {
     // Single icon: large, centred.
-    return { size: TILE * 0.7, centres: [[cx, cy]] };
+    return { size: TILE * 0.78, centres: [[cx, cy]] };
   }
   if (n === 2) {
-    // Side by side, midpoint at centre.
-    const size = TILE * 0.42;
-    const offset = size / 2 + 1;
+    // Diagonal layout: top-left + bottom-right, each icon filling a 66%
+    // bbox of the slot pinned to its corner. With size=0.66*T and
+    // off=0.17*T, TL.bbox = (0,0)→(0.66T, 0.66T) and BR.bbox =
+    // (0.34T, 0.34T)→(T, T) — touching the slot edges exactly, no
+    // overflow, with a 32%×32% overlap region in the centre that the
+    // 3D-rendered icons handle cleanly.
+    const size = TILE * 0.66;
+    const off = TILE * 0.17;
     return {
       size,
       centres: [
-        [cx - offset, cy],
-        [cx + offset, cy],
+        [cx - off, cy - off],
+        [cx + off, cy + off],
       ],
     };
   }
   if (n === 3) {
-    // Equilateral triangle: top, bottom-left, bottom-right. Centroid
-    // sits at (cx, cy) by construction.
-    const size = TILE * 0.36;
-    const r = TILE * 0.26;
-    const sin60 = Math.sqrt(3) / 2;
+    // Triple-merchant layout: top-left + bottom-middle + top-right.
+    // size=0.5*T, dx=0.25*T, dy=0.125*T tunes the three 50% bboxes so
+    // each one's outer edge sits exactly on a slot edge — TL/TR touch
+    // the top corners, BM touches the bottom — with a small overlap
+    // between BM and the upper pair. dy2 = 2*dy keeps the centroid at
+    // (cx, cy).
+    const size = TILE * 0.5;
+    const dx = TILE * 0.25;
+    const dy = TILE * 0.125;
     return {
       size,
       centres: [
-        [cx, cy - r],
-        [cx - r * sin60, cy + r * 0.5],
-        [cx + r * sin60, cy + r * 0.5],
+        [cx - dx, cy - dy],
+        [cx, cy + dy * 2],
+        [cx + dx, cy - dy],
       ],
     };
   }
@@ -545,7 +556,7 @@ function iconCentroidPositions(
   // is the slot centre). Extras cycle inside the grid.
   const cols = 2;
   const rows = Math.ceil(n / 2);
-  const size = Math.min(TILE * 0.32, (TILE - 4) / rows);
+  const size = Math.min(TILE * 0.36, (TILE - 4) / rows);
   const centres: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     const col = i % cols;

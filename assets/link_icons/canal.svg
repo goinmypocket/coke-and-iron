@@ -1,39 +1,89 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 28">
-  <!-- Wooden canal narrowboat with cargo crates. Hull tapered fore
-       and aft, plank bands across the side, a small cabin at the
-       stern, and three crates of coal amidships. -->
+  <!-- Canal narrowboat in 3/4 perspective. Hull tapers to a pointed bow
+       on the left and a flat stern on the right. The deck plane sits
+       slightly tilted so the eye reads three crates of coal stacked
+       amidships and the small stern cabin. Plank bands run the length
+       of the hull; a tiller arm pokes out at the back. -->
 
   <defs>
     <linearGradient id="canal-hull" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7a5030"/>
-      <stop offset="0.5" stop-color="#4e3218"/>
-      <stop offset="1" stop-color="#281404"/>
+      <stop offset="0" stop-color="#8a5a36"/>
+      <stop offset="0.45" stop-color="#4e3218"/>
+      <stop offset="1" stop-color="#1a0a04"/>
+    </linearGradient>
+    <linearGradient id="canal-deck" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a3018"/>
+      <stop offset="1" stop-color="#1a0c04"/>
     </linearGradient>
     <linearGradient id="canal-cargo" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8a6238"/>
-      <stop offset="1" stop-color="#3a2110"/>
+      <stop offset="0" stop-color="#9a6e3e"/>
+      <stop offset="0.5" stop-color="#5a3818"/>
+      <stop offset="1" stop-color="#2a1408"/>
+    </linearGradient>
+    <linearGradient id="canal-water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3e6e94"/>
+      <stop offset="1" stop-color="#1a3a5a"/>
     </linearGradient>
   </defs>
 
-  <!-- Hull silhouette: pointed bow on the left, flat-ish stern on the
-       right. Two paths so we can stack the deck plank above the
-       hull's lower curve. -->
-  <path d="M 4 12 L 8 8 L 56 8 L 60 12 L 60 22 Q 56 26 48 26 L 12 26 Q 6 26 4 22 Z"
-        fill="url(#canal-hull)" stroke="#1a0c04" stroke-width="0.7"/>
+  <!-- Soft water shadow under the hull -->
+  <ellipse cx="32" cy="26.4" rx="30" ry="1.5" fill="#0a0a0a" opacity="0.55"/>
 
-  <!-- Plank bands -->
-  <line x1="6"  y1="14" x2="58" y2="14" stroke="#1a0c04" stroke-width="0.4"/>
-  <line x1="6"  y1="18" x2="58" y2="18" stroke="#1a0c04" stroke-width="0.4"/>
-  <line x1="6"  y1="22" x2="58" y2="22" stroke="#1a0c04" stroke-width="0.4"/>
+  <!-- Hull silhouette: pointed bow left, slightly squared stern right.
+       Curved bottom for a barge-like rocker. -->
+  <path d="M 4 12
+           L 8 8
+           L 56 8
+           L 60 12
+           L 60 22
+           Q 56 26 48 26
+           L 12 26
+           Q 6 26 4 22 Z"
+        fill="url(#canal-hull)" stroke="#1a0a04" stroke-width="0.7"/>
+
+  <!-- Plank bands along the hull side -->
+  <g stroke="#1a0a04" stroke-width="0.4" opacity="0.85">
+    <line x1="6"  y1="14" x2="58" y2="14"/>
+    <line x1="6"  y1="18" x2="58" y2="18"/>
+    <line x1="6"  y1="22" x2="58" y2="22"/>
+  </g>
+  <!-- Plank highlight -->
+  <line x1="6" y1="13" x2="58" y2="13" stroke="#a8753c" stroke-width="0.3" opacity="0.55"/>
 
   <!-- Deck plate (dark band at the very top of the hull) -->
-  <path d="M 6 9 L 58 9 L 58 12 L 6 12 Z" fill="#1f140a"/>
+  <path d="M 6 9 L 58 9 L 58 12 L 6 12 Z" fill="url(#canal-deck)"/>
+  <!-- Subtle deck plank lines -->
+  <g stroke="#0a0402" stroke-width="0.25" opacity="0.7">
+    <line x1="14" y1="9.4" x2="14" y2="11.6"/>
+    <line x1="22" y1="9.4" x2="22" y2="11.6"/>
+    <line x1="30" y1="9.4" x2="30" y2="11.6"/>
+    <line x1="38" y1="9.4" x2="38" y2="11.6"/>
+    <line x1="46" y1="9.4" x2="46" y2="11.6"/>
+  </g>
 
-  <!-- Three cargo crates on the deck, each with a hint of coal -->
+  <!-- Bow trim (light line where bow meets water) -->
+  <line x1="4" y1="12" x2="8" y2="8" stroke="#c08850" stroke-width="0.45" opacity="0.85"/>
+
+  <!-- Three cargo crates on the deck, slight gap between -->
   <g stroke="#1a0c04" stroke-width="0.45">
     <rect x="14" y="3"  width="9" height="8" fill="url(#canal-cargo)"/>
     <rect x="26" y="3"  width="9" height="8" fill="url(#canal-cargo)"/>
     <rect x="38" y="3"  width="9" height="8" fill="url(#canal-cargo)"/>
+  </g>
+  <!-- Crate top rims (highlighted edge) -->
+  <g stroke="#c08550" stroke-width="0.3" opacity="0.7">
+    <line x1="14" y1="3.2" x2="23" y2="3.2"/>
+    <line x1="26" y1="3.2" x2="35" y2="3.2"/>
+    <line x1="38" y1="3.2" x2="47" y2="3.2"/>
+  </g>
+  <!-- Vertical plank seams on crates -->
+  <g stroke="#1a0c04" stroke-width="0.3" opacity="0.85">
+    <line x1="17" y1="4" x2="17" y2="11"/>
+    <line x1="20" y1="4" x2="20" y2="11"/>
+    <line x1="29" y1="4" x2="29" y2="11"/>
+    <line x1="32" y1="4" x2="32" y2="11"/>
+    <line x1="41" y1="4" x2="41" y2="11"/>
+    <line x1="44" y1="4" x2="44" y2="11"/>
   </g>
   <!-- Coal nuggets peeking out of each crate -->
   <g fill="#0a0a0a">
@@ -47,11 +97,34 @@
     <circle cx="42.6" cy="4.2" r="0.8"/>
     <circle cx="45" cy="4.5" r="0.7"/>
   </g>
+  <!-- Tiny sheen on coal nuggets -->
+  <g fill="#7a7a7a" opacity="0.7">
+    <circle cx="18.4" cy="4" r="0.2"/>
+    <circle cx="30.4" cy="4" r="0.2"/>
+    <circle cx="42.4" cy="4" r="0.2"/>
+  </g>
 
   <!-- Stern cabin / steerer's box -->
-  <rect x="49" y="4" width="8" height="7" fill="#3a2110" stroke="#1a0c04" stroke-width="0.5"/>
-  <rect x="51" y="6" width="4" height="3" fill="#9a8050" stroke="#1a0c04" stroke-width="0.3"/>
+  <rect x="49" y="4" width="8" height="7"
+        fill="#3a2110" stroke="#1a0c04" stroke-width="0.5"/>
+  <!-- Cabin roof -->
+  <rect x="48" y="3.4" width="10" height="1.2" fill="#1a0c04"
+        stroke="#000" stroke-width="0.3"/>
+  <!-- Cabin window -->
+  <rect x="51" y="6" width="4" height="3"
+        fill="#9a8050" stroke="#1a0c04" stroke-width="0.3"/>
+  <line x1="53" y1="6" x2="53" y2="9" stroke="#1a0c04" stroke-width="0.2"/>
+  <!-- Cabin door hint (right edge) -->
+  <rect x="55.5" y="7" width="1" height="4" fill="#1a0c04" opacity="0.65"/>
 
   <!-- Tiller arm at the stern -->
-  <line x1="57" y1="9" x2="62" y2="6" stroke="#1a0c04" stroke-width="0.6" stroke-linecap="round"/>
+  <line x1="57" y1="9" x2="62" y2="6" stroke="#1a0c04"
+        stroke-width="0.6" stroke-linecap="round"/>
+  <circle cx="62" cy="6" r="0.6" fill="#9a8050"/>
+
+  <!-- Water ripple highlights at bow + stern -->
+  <g stroke="#a0c4dc" stroke-width="0.3" opacity="0.7" fill="none">
+    <path d="M 1 24 Q 4 25 6 24"/>
+    <path d="M 58 24 Q 60 25 62 24"/>
+  </g>
 </svg>
