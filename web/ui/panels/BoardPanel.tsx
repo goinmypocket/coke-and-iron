@@ -1447,7 +1447,7 @@ export function CityBanners({
     <g className="board-city-banners">
       {districtCities.map((c) => {
         const fill = DISTRICT_FILL[c.districtTag] ?? "#aaaaaa";
-        const [cityW, cityH] = cityBodyDims(c.slots.length);
+        const [, cityH] = cityBodyDims(c.slots.length);
         const cx = c.position[0];
         // Banner top sits 4u below the bottom edge of the city body.
         const topY = c.position[1] + cityH / 2 + 4;
@@ -1456,7 +1456,6 @@ export function CityBanners({
             key={c.name}
             cx={cx}
             topY={topY}
-            innerW={cityW}
             fill={fill}
             text={c.name}
             textColor="#fff"
@@ -1464,8 +1463,6 @@ export function CityBanners({
         );
       })}
       {merchantCities.map((m) => {
-        const slotCount = Math.max(m.slotCount, 1);
-        const clusterW = slotCount * TILE;
         const totalH = TILE + BEER_BOX + 2;
         // Mirror the merchant layout in MerchantCityShape: bonus badge
         // sits at TILE+BEER_BOX+14 below local origin; the name banner
@@ -1479,7 +1476,6 @@ export function CityBanners({
             key={m.name}
             cx={cx}
             topY={topY}
-            innerW={clusterW}
             fill={MERCHANT_BANNER_FILL}
             text={m.name}
             textColor="#000"
@@ -1493,22 +1489,24 @@ export function CityBanners({
 function CityBanner({
   cx,
   topY,
-  innerW,
   fill,
   text,
   textColor,
 }: {
   cx: number;
   topY: number;
-  innerW: number;
   fill: string;
   text: string;
   /** District banners use white text on the dark district fills;
    *  merchants use black on the light-gray fill. Both are legible. */
   textColor: string;
 }) {
-  const minTextW = text.length * CITY_BANNER_CHAR_W + CITY_BANNER_PAD_X * 2;
-  const bannerW = Math.max(innerW, minTextW);
+  // Font size and banner height are uniform across every city (set in
+  // CSS / by CITY_BANNER_HEIGHT) — only the width grows to contain the
+  // name. We deliberately don't pad the banner out to the city body /
+  // merchant cluster width: stretching it makes the centred text look
+  // smaller in big cities even though the font-size hasn't changed.
+  const bannerW = text.length * CITY_BANNER_CHAR_W + CITY_BANNER_PAD_X * 2;
   const x = cx - bannerW / 2;
   return (
     <g transform={`translate(${x}, ${topY})`}>
