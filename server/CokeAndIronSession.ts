@@ -5,7 +5,7 @@
 // intent dispatch + per-recipient projection model. Replaces the old
 // HostGame.ts (which targeted the standalone host's clientId / seat-token
 // model). Most logic is the same; the differences are:
-//   - identity is `userId` (long-lived account), not `clientId` (socket).
+//   - identity is `userId` (table participant), not `clientId` (socket).
 //   - seat tokens are gone — the platform's JWT cookie is the reconnect.
 //   - autosave-to-disk is gone — the platform owns persistence.
 //   - lobby ops dispatched by the platform: claimSeat / releaseSeat / kick /
