@@ -1,8 +1,9 @@
-:root {
+.ci-game {
   --ink: #1a1a1a;
   --paper: #fafaf7;
   --panel-bg: #fafaf7;
   --warm-gold: #c79b3f;
+  --focus: #805b16;
   --muted: #6b6b66;
   --soft-tint: #f3edd8;
 
@@ -32,9 +33,7 @@
   --income-row-h: calc(var(--board-edge) / 32);
 }
 
-html,
-body,
-#root {
+.ci-game {
   margin: 0;
   /* Document grows with content — page-level vertical scroll handles
    * tall panel stacks; horizontal scroll stays disabled. */
@@ -42,7 +41,7 @@ body,
   overflow-x: hidden;
 }
 
-body {
+.ci-game {
   background: var(--paper);
   color: var(--ink);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -118,8 +117,8 @@ body {
 }
 .context-bar__btn--primary {
   background: var(--warm-gold);
-  border-color: var(--warm-gold);
-  color: white;
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .context-bar__btn--primary:hover:not(:disabled) {
   background: var(--warm-gold);
@@ -171,7 +170,7 @@ body {
   background: var(--panel-bg);
 }
 .panel--emphasized {
-  outline: 2px solid var(--warm-gold);
+  outline: 2px solid var(--focus);
   outline-offset: -1px;
 }
 .panel__title {
@@ -344,7 +343,7 @@ body {
   border: 1px solid transparent;
 }
 .viewer-banner__spectator-picker .viewer-banner__chip--active {
-  outline: 2px solid var(--warm-gold);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 .viewer-banner__clear {
@@ -425,7 +424,7 @@ body {
   object-fit: contain;
 }
 .card-face--picked {
-  outline: 2px solid var(--warm-gold);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 .card-face--deck {
@@ -641,8 +640,8 @@ body {
 }
 .merchant-pick-btn--chosen {
   background: var(--warm-gold);
-  color: white;
-  border-color: var(--warm-gold);
+  color: var(--ink);
+  border-color: var(--ink);
   opacity: 1;
 }
 .merchant-pick-btn--chosen:disabled {
@@ -654,7 +653,7 @@ body {
   font-weight: 400;
 }
 .merchant-pick-btn--chosen .merchant-pick-btn__sub {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
 }
 
 /* ---------- Resource picker overlay (§5.6) ---------- */
@@ -810,7 +809,7 @@ body {
   background: var(--soft-tint);
 }
 .shortfall-overlay__tile--picked {
-  outline: 2px solid var(--warm-gold);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
   background: var(--soft-tint);
 }
@@ -1268,8 +1267,8 @@ body {
 }
 .action-btn--active {
   background: var(--warm-gold);
-  color: white;
-  border-color: var(--warm-gold);
+  color: var(--ink);
+  border-color: var(--ink);
 }
 .action-btn--active:hover:not(:disabled) {
   background: var(--warm-gold);
@@ -1277,16 +1276,16 @@ body {
 }
 .action-btn--suggested {
   /* Card-first stash hint: this action naturally fits the stashed card. */
-  border-color: var(--warm-gold);
+  border-color: var(--focus);
   border-width: 1.5px;
-  box-shadow: 0 0 0 1px var(--warm-gold) inset;
+  box-shadow: 0 0 0 1px var(--focus) inset;
 }
 .action-btn--dimmed {
   /* Card-first stash hint: stashed card adds no value here (still legal). */
-  opacity: 0.55;
+  color: var(--muted);
 }
 .action-btn--dimmed:hover:not(:disabled) {
-  opacity: 0.8;
+  color: var(--ink);
 }
 .action-btn--neutral {
   /* Visually demoted button for non-game actions (e.g., the Log
@@ -1300,24 +1299,13 @@ body {
   background: #c4c2be;
 }
 
-/* ---------- Narrow-viewport global scale-down ----------
- *
- * Below the cutoff, shrink the root font-size proportionally so
- * EVERYTHING rem-based (board, mat, income, panels, text, padding,
- * gaps) scales down in lock-step until the board fits horizontally.
- * Single knob, uniform shrink — no per-property overrides needed.
- *
- * Default --board-edge (40rem) + the income ladder (~1.25rem) +
- * panel chrome / page padding (~1rem) needs about 42–43rem of
- * horizontal room, so the cut-in is 44rem. Below that, root font
- * shrinks linearly with viewport width: at 44rem the root is 16px
- * (matches default); at 25rem (~phone) it's ~9px and --board-edge
- * renders at ~365 device px — board + income still fit edge-to-edge.
- * Mat tiles render at the same on-screen px as board tiles because
- * .mat-svg width is anchored to --board-edge (not its container). */
+/* Fit the board on narrow screens without shrinking the document's
+ * root font: platform forms and game controls must remain readable. */
 @media (max-width: 46rem) {
-  html {
-    font-size: calc(100vw / 46);
+  .ci-game {
+    /* The four income columns add 1/8 of the board width. Reserve
+     * space for them, the panel border, and the game-stack padding. */
+    --board-edge: min(40rem, calc((100vw - 1.5rem) / 1.125));
   }
 }
 

@@ -33,14 +33,15 @@ export const INDUSTRY_LABEL: Readonly<Record<IndustryName, string>> = {
 
 // District swatch colours used wherever the UI needs to colour-code a
 // city or district reference (board, remaining-cards labels, recent
-// actions). Mirrored in the dev editor at src/editor/types.ts.
+// actions). These support both white banner text and colored text on
+// paper at AA contrast; decorative editor swatches use a separate palette.
 export const DISTRICT_FILL: Readonly<Record<DistrictTag, string>> = {
-  purple: "#8a6fb0",
-  brown: "#9c7656",
-  red: "#c75e5e",
-  blue: "#5e8fc7",
-  teal: "#5eb0a8",
-  farm: "#a89568",
+  purple: "#654582",
+  brown: "#745137",
+  red: "#9e3535",
+  blue: "#326399",
+  teal: "#266c65",
+  farm: "#6c582e",
 };
 
 export const DISTRICT_LABEL: Readonly<Record<DistrictTag, string>> = {

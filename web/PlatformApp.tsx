@@ -39,6 +39,10 @@ interface Props {
 }
 
 export default function PlatformApp({ ctx }: Props): ReactNode {
+  return <div className="ci-game"><GameContent ctx={ctx} /></div>;
+}
+
+function GameContent({ ctx }: Props): ReactNode {
   const session = usePlatformGameSession(ctx);
 
   if (!session.engine) {
@@ -79,7 +83,7 @@ export default function PlatformApp({ ctx }: Props): ReactNode {
         <EraRoundBanner />
         <ResourcePickerOverlay />
         <SellMerchantPickerOverlay />
-        <Toaster position="bottom-center" duration={2000} />
+        <Toaster theme="light" position="bottom-center" duration={2000} />
       </WizardProvider>
     </EngineProvider>
   );

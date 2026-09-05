@@ -63,6 +63,7 @@ export function ViewerBanner({
               (visualSeat === p.id ? " viewer-banner__chip--active" : "")
             }
             style={{ background: pawnSwatch(p.color) }}
+            aria-pressed={visualSeat === p.id}
             onClick={() => {
               setPendingSeat(p.id);
               onPickSpectatorView?.(p.id);
@@ -95,15 +96,15 @@ function pawnSwatch(color: string | null): string {
     case "red":
       return "#c14040";
     case "yellow":
-      return "#d8b444";
+      return "#806015";
     case "green":
-      return "#3f8f5a";
+      return "#2d6a45";
     case "blue":
       return "#3a6ea5";
     case "purple":
       return "#7a4a8d";
     case "teal":
-      return "#3a8b9c";
+      return "#256a78";
     default:
       return "var(--muted)";
   }

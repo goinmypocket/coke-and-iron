@@ -180,7 +180,7 @@ function pawnSwatch(color: string | null): string {
     case "red":
       return "#c14040";
     case "yellow":
-      return "#a07a20";
+      return "#805b16";
     case "green":
       return "#2d6a45";
     case "blue":

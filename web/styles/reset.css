@@ -1,28 +1,32 @@
-*,
-*::before,
-*::after {
+/* This reset belongs to the game, never to the hosting platform. */
+.ci-game, .ci-game *, .ci-game *::before, .ci-game *::after {
   box-sizing: border-box;
 }
 
-* {
+.ci-game :where(*) {
   margin: 0;
   padding: 0;
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-}
-
-body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+.ci-game {
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-button {
+.ci-game :where(button, input, select, textarea, optgroup, option) {
   font: inherit;
-  cursor: pointer;
+  color: var(--ink);
+  background-color: var(--panel-bg);
+  border-color: var(--muted);
+  accent-color: var(--focus);
 }
+.ci-game :where(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.ci-game :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.ci-game button { cursor: pointer; }
