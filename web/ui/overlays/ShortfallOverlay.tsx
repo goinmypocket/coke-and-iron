@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import type { GameState, IndustryName, PlayerId } from "../../../engine";
 import { reasonToText } from "../affordances/toast";
 import { useEngine } from "../hooks/useEngine";
+import { useActualSeatId } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { MoneyCoin } from "../icons/MoneyCoin";
 
@@ -31,6 +32,7 @@ const INDUSTRY_LABEL: Readonly<Record<IndustryName, string>> = {
 };
 
 export function ShortfallOverlay() {
+  const actualSeatId = useActualSeatId();
   // Subscribe to stable refs only (no fresh-filter inside the
   // selector) — we derive the per-player view via useMemo below so
   // the snapshot stays cache-stable.
@@ -56,6 +58,13 @@ export function ShortfallOverlay() {
   }, [view]);
 
   if (!view) return null;
+  // A viewing perspective is not ownership. Other players and spectators must
+  // retain platform controls so a hotseat host can select the actual debtor.
+  if (actualSeatId !== view.headPlayerId) return (
+    <p className="shortfall-waiting" role="status">
+      Waiting for {view.headPlayerName} to resolve an income shortfall of £{view.owed}.
+    </p>
+  );
   return <ShortfallBody view={{ ...view, ownTiles }} />;
 }
 

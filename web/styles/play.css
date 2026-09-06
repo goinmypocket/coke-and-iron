@@ -3,6 +3,7 @@
 .ci-game .app-shell { width: 100%; max-width: 100%; min-height: 0; overflow: visible; padding: 20px; gap: 16px; }
 .ci-game h2 { font-size: 14px; line-height: 1.4; font-weight: 650; }
 .ci-game .ci-turn-summary { display: grid; gap: 12px; }
+.ci-game .shortfall-waiting { margin: 0; padding: 12px; color: var(--ink); background: var(--panel-bg); border: 1px solid var(--ci-border); border-radius: 8px; }
 .ci-game .ci-game-heading, .ci-game .ci-turn-summary__line, .ci-game .ci-section-heading, .ci-game .ci-board-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ci-game .ci-game-heading h1 { font: 600 clamp(26px, 3cqw, 36px)/1.1 Georgia, serif; letter-spacing: -1px; }
 .ci-game .ci-game-heading > span { color: var(--muted); }

@@ -68,6 +68,7 @@ function GameContent({ ctx }: Props): ReactNode {
       <WizardProvider key={`${session.actualSeatId}:${session.mySeatId}`}>
         <div className="app-shell">
           <TurnSummary paused={session.paused} />
+          <ShortfallOverlay />
           <nav className="ci-jump-links" aria-label="Game areas">
             <a href={`#${regionId}-actions`}>Actions</a>
             <a href={`#${regionId}-board`}>Board</a>
@@ -87,7 +88,6 @@ function GameContent({ ctx }: Props): ReactNode {
             </div>
           </div>
         </div>
-        <ShortfallOverlay />
         <EndGameOverlay />
         <EraRoundBanner />
         <ResourcePickerOverlay />
