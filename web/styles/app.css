@@ -1,11 +1,12 @@
 .ci-game {
-  --ink: #1a1a1a;
-  --paper: #fafaf7;
-  --panel-bg: #fafaf7;
+  --ink: #282b2a;
+  --paper: #f6f3ed;
+  --panel-bg: #ffffff;
   --warm-gold: #c79b3f;
-  --focus: #805b16;
-  --muted: #6b6b66;
-  --soft-tint: #f3edd8;
+  --focus: #92512f;
+  --muted: #626762;
+  --soft-tint: #f2e8df;
+  --ci-border: #d5d4cb;
 
   /* ---------- Geometry knobs ----------
    *
@@ -38,20 +39,20 @@
   /* Document grows with content — page-level vertical scroll handles
    * tall panel stacks; horizontal scroll stays disabled. */
   min-height: 100%;
-  overflow-x: hidden;
+  min-width: 0;
 }
 
 .ci-game {
   background: var(--paper);
   color: var(--ink);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
 }
 
 /* ---------- App shell ---------- */
 
-.app-shell {
+.ci-game .app-shell {
   display: flex;
   flex-direction: column;
   width: 100vw;
@@ -62,7 +63,7 @@
 
 /* ---------- Affordances (§11.10) ---------- */
 
-.prompt-strip {
+.ci-game .prompt-strip {
   padding: 0.35rem 0.75rem;
   font-size: 0.95em;
   font-weight: 500;
@@ -71,7 +72,7 @@
   text-align: center;
 }
 
-.context-bar {
+.ci-game .context-bar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -82,24 +83,24 @@
   flex-wrap: wrap;
   min-height: 1.6rem;
 }
-.context-bar__chips {
+.ci-game .context-bar__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
   flex: 1;
 }
-.context-bar__chip {
+.ci-game .context-bar__chip {
   background: var(--soft-tint);
   border: 1px solid var(--ink);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
   font-size: 0.85em;
 }
-.context-bar__buttons {
+.ci-game .context-bar__buttons {
   display: flex;
   gap: 0.3rem;
 }
-.context-bar__btn {
+.ci-game .context-bar__btn {
   font: inherit;
   font-size: 0.85em;
   padding: 0.2rem 0.6rem;
@@ -108,19 +109,19 @@
   border-radius: 2px;
   cursor: pointer;
 }
-.context-bar__btn:hover:not(:disabled) {
+.ci-game .context-bar__btn:hover:not(:disabled) {
   background: var(--soft-tint);
 }
-.context-bar__btn:disabled {
+.ci-game .context-bar__btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.context-bar__btn--primary {
+.ci-game .context-bar__btn--primary {
   background: var(--warm-gold);
   border-color: var(--ink);
   color: var(--ink);
 }
-.context-bar__btn--primary:hover:not(:disabled) {
+.ci-game .context-bar__btn--primary:hover:not(:disabled) {
   background: var(--warm-gold);
   filter: brightness(0.95);
 }
@@ -144,7 +145,7 @@
  * else (mat, income) follows because they all derive from --board-edge.
  */
 
-.game-stack {
+.ci-game .game-stack {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -163,24 +164,24 @@
  * so each panel is just as wide as the widest thing inside it. The
  * page document is the only thing that scrolls; the recent-actions
  * panel opts in to internal scroll via its own rule. */
-.panel {
+.ci-game .panel {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--ink);
   background: var(--panel-bg);
 }
-.panel--emphasized {
+.ci-game .panel--emphasized {
   outline: 2px solid var(--focus);
   outline-offset: -1px;
 }
-.panel__title {
+.ci-game .panel__title {
   padding: 0.15rem 0.4rem;
   border-bottom: 1px solid var(--ink);
   font-weight: 600;
   font-size: 0.78rem;
   line-height: 1.15;
 }
-.panel__content {
+.ci-game .panel__content {
   padding: 0.35rem;
   overflow: hidden;
 }
@@ -189,7 +190,7 @@
  * border around whatever sits inside. The board / mat already manage
  * their own internal spacing; the outer panel exists only as a bounding
  * box. */
-.panel--no-title > .panel__content {
+.ci-game .panel--no-title > .panel__content {
   padding: 0;
 }
 
@@ -197,7 +198,7 @@
  * board side by side. All sizes derive from --board-edge — the panel
  * width = income natural width + board width (--board-edge), the
  * panel height = --board-edge + chrome. No outer whitespace. */
-.board-region {
+.ci-game .board-region {
   display: flex;
   flex-direction: row;
   /* Hairline gap so the income ladder reads as snapped onto the board's
@@ -206,7 +207,7 @@
   align-items: stretch;
   height: var(--board-edge);
 }
-.board-region__income {
+.ci-game .board-region__income {
   /* Hard-cap the income strip's height to --board-edge to defeat any
    * subpixel rounding on the 21 ladder rows that would otherwise let
    * the strip render a few px taller than the board square. */
@@ -214,7 +215,7 @@
   overflow: hidden;
   flex: 0 0 auto;
 }
-.board-region .board-svg {
+.ci-game .board-region .board-svg {
   /* Board square: width derives from height via aspect-ratio. Height
    * = --board-edge via parent .board-region. */
   height: 100%;
@@ -225,17 +226,17 @@
 
 /* ---------- Panel-specific rules (just enough to render legibly) ---------- */
 
-.kv-list {
+.ci-game .kv-list {
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: 0.75rem;
   row-gap: 0.15rem;
 }
-.kv-list__key {
+.ci-game .kv-list__key {
   color: var(--muted);
 }
 
-.player-table {
+.ci-game .player-table {
   /* width:auto so each column snaps to its content's natural width
    * rather than stretching to fill the panel. */
   width: auto;
@@ -243,27 +244,27 @@
   /* Slightly compressed so all seven columns fit in the RHS (~13rem). */
   font-size: 0.85em;
 }
-.player-table th,
-.player-table td {
+.ci-game .player-table th,
+.ci-game .player-table td {
   text-align: left;
   padding: 0.1rem 0.2rem;
   border-bottom: 1px solid var(--soft-tint);
   white-space: nowrap;
 }
-.player-table th {
+.ci-game .player-table th {
   font-weight: 600;
   color: var(--muted);
 }
-.player-table__name {
+.ci-game .player-table__name {
   /* Pawn-coloured stripe lives on the left border so we don't need a
    * separate swatch column. The 3px stripe + minimum padding keeps the
    * table compact. */
   padding-left: 0.3rem;
 }
-.player-table tr.player-row--active {
+.ci-game .player-table tr.player-row--active {
   background: var(--soft-tint);
 }
-.pawn-swatch {
+.ci-game .pawn-swatch {
   display: inline-block;
   width: 0.75rem;
   height: 0.75rem;
@@ -272,7 +273,7 @@
   vertical-align: middle;
 }
 
-.hand-grid {
+.ci-game .hand-grid {
   /* Legacy 2 × 4 grid layout — retained in case any other panel still
    * uses .hand-grid. The Hand itself now renders as .hand-banner. */
   display: grid;
@@ -286,7 +287,7 @@
  * Sits just under .actions-banner in the top affordance area: a
  * chrome-less, centered horizontal strip with the active seat's hand
  * laid out in one row. Wraps if the viewport can't fit every card. */
-.hand-banner {
+.ci-game .hand-banner {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -300,7 +301,7 @@
 /* Viewer banner — slim spectator-only picker. Hidden for seated
  * players; whose-turn lives in PromptStrip and the platform top-nav
  * already shows the signed-in user's identity. */
-.viewer-banner {
+.ci-game .viewer-banner {
   display: flex;
   align-items: center;
   padding: 0.2rem 0.75rem;
@@ -309,15 +310,15 @@
   font-size: 0.85rem;
   gap: 0.6rem;
 }
-.viewer-banner__label {
+.ci-game .viewer-banner__label {
   color: var(--muted);
   font-style: italic;
 }
-.viewer-banner--unseated {
+.ci-game .viewer-banner--unseated {
   color: var(--muted);
   font-style: italic;
 }
-.viewer-banner__chip {
+.ci-game .viewer-banner__chip {
   display: inline-block;
   padding: 0.1rem 0.55rem;
   border-radius: 999px;
@@ -325,28 +326,28 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-.viewer-banner__status {
+.ci-game .viewer-banner__status {
   color: var(--muted);
 }
-.viewer-banner__active {
+.ci-game .viewer-banner__active {
   font-weight: 600;
 }
-.viewer-banner__spectator-picker {
+.ci-game .viewer-banner__spectator-picker {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.3rem;
   align-items: center;
 }
-.viewer-banner__spectator-picker .viewer-banner__chip {
+.ci-game .viewer-banner__spectator-picker .viewer-banner__chip {
   font: inherit;
   cursor: pointer;
   border: 1px solid transparent;
 }
-.viewer-banner__spectator-picker .viewer-banner__chip--active {
+.ci-game .viewer-banner__spectator-picker .viewer-banner__chip--active {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
-.viewer-banner__clear {
+.ci-game .viewer-banner__clear {
   font: inherit;
   font-size: 0.8rem;
   padding: 0.1rem 0.55rem;
@@ -355,11 +356,11 @@
   background: var(--panel-bg);
   cursor: pointer;
 }
-.viewer-banner__clear:hover {
+.ci-game .viewer-banner__clear:hover {
   background: var(--soft-tint);
 }
 
-.hand-banner__cards {
+.ci-game .hand-banner__cards {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -367,7 +368,7 @@
   justify-content: center;
   align-items: center;
 }
-.card-face {
+.ci-game .card-face {
   /* Landscape format for the hand banner: cards are wider than tall
    * so an 8-card hand reads as a single thin strip. Multi-industry
    * cards lay their icons out side-by-side; see card-face--industry
@@ -387,15 +388,15 @@
   border-radius: 2px;
   overflow: hidden;
 }
-.card-face:hover {
+.ci-game .card-face:hover {
   background: var(--soft-tint);
 }
-.card-face--wild {
+.ci-game .card-face--wild {
   background: var(--soft-tint);
   font-weight: 700;
   font-size: 0.95em;
 }
-.card-face__city {
+.ci-game .card-face__city {
   /* Bumped from 0.5em — readable at conversational distance. The
    * longest single-word names ("Wolverhampton", "Coalbrookdale" — 13
    * chars) still fit on one line at the wider 5.6em card body.
@@ -409,13 +410,13 @@
   overflow-wrap: normal;
   hyphens: manual;
 }
-.card-face--industry {
+.ci-game .card-face--industry {
   /* Multi-industry cards lay their icons left-to-right rather than
    * stacked; row override beats the column default on .card-face. */
   flex-direction: row;
   gap: 2px;
 }
-.card-face__industry-icon {
+.ci-game .card-face__industry-icon {
   width: auto;
   height: auto;
   max-width: 1.9em;
@@ -423,11 +424,11 @@
   display: block;
   object-fit: contain;
 }
-.card-face--picked {
+.ci-game .card-face--picked {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
-.card-face--deck {
+.ci-game .card-face--deck {
   /* Square trigger: same height as a hand card, but a 1:1 footprint so
    * the deck reads as a stacked-card icon rather than a card face. The
    * HandSizeIcon (3 fanned cards + count) renders inside; click opens
@@ -448,16 +449,16 @@
  * (both are in the centre grid column), and the .mat-svg width rule
  * below scales the mat viewBox to the board's per-unit ratio. Tiling
  * seats side-by-side would halve their width and break tile parity. */
-.players-panel {
+.ci-game .players-panel {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
 }
-.players-panel > .panel {
+.ci-game .players-panel > .panel {
   border-width: 2px;
   min-width: 0;
 }
-.seat-stats {
+.ci-game .seat-stats {
   display: flex;
   align-items: center;
   /* Left-aligned row with even fixed gaps between items — they don't
@@ -471,11 +472,11 @@
   font-size: 1.1em;
   font-weight: 500;
 }
-.seat-stats__item {
+.ci-game .seat-stats__item {
   display: inline-flex;
   align-items: center;
 }
-.seat-stats__link {
+.ci-game .seat-stats__link {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
@@ -497,33 +498,33 @@
  * Anchoring the mat to --board-edge (not to its container width)
  * means the mat scales with browser zoom in lock-step with the
  * board, even though they live in different regions. */
-.mat-svg {
+.ci-game .mat-svg {
   width: calc(var(--board-edge) * var(--mat-w-units) / 900);
   display: block;
   margin: 0 auto;
 }
-.mat-row {
+.ci-game .mat-row {
   /* Empty levels fade out; clickable rows show a pointer; the picked
    * gold outline is drawn as a `<rect>` inside the row group, so no
    * outline rule here. */
 }
-.mat-row--gone {
+.ci-game .mat-row--gone {
   opacity: 0.35;
 }
-.mat-row--clickable {
+.ci-game .mat-row--clickable {
   cursor: pointer;
 }
-.mat-row--clickable:hover > rect:first-child {
+.ci-game .mat-row--clickable:hover > rect:first-child {
   fill: var(--soft-tint);
 }
 /* ---------- Board (§11.2) ---------- */
 
-.board-svg {
+.ci-game .board-svg {
   width: 100%;
   height: 100%;
   display: block;
 }
-.board-city__label {
+.ci-game .board-city__label {
   /* Bumped ~20% from 11 → 13 so city names read clearly at conversational
    * distance. Banner geometry (CITY_BANNER_HEIGHT / CITY_BANNER_CHAR_W
    * in BoardPanel.tsx) was bumped in lock-step. */
@@ -531,93 +532,93 @@
   font-weight: 600;
   fill: var(--ink);
 }
-.board-slot__label {
+.ci-game .board-slot__label {
   font-size: 8px;
   font-weight: 600;
   fill: var(--ink);
   pointer-events: none;
 }
-.board-slot--clickable {
+.ci-game .board-slot--clickable {
   cursor: pointer;
 }
-.board-slot--clickable:hover rect {
+.ci-game .board-slot--clickable:hover rect {
   fill: var(--soft-tint);
 }
-.board-slot--clickable.board-slot--occupied:hover rect {
+.ci-game .board-slot--clickable.board-slot--occupied:hover rect {
   /* hover hint that this is an overbuild candidate, not a free pick */
   fill: #ead7a3;
 }
-.board-line--clickable {
+.ci-game .board-line--clickable {
   cursor: pointer;
 }
-.board-line--clickable:hover line {
+.ci-game .board-line--clickable:hover line {
   stroke-opacity: 1;
 }
-.board-tile--clickable {
+.ci-game .board-tile--clickable {
   cursor: pointer;
 }
-.board-tile--clickable:hover rect {
+.ci-game .board-tile--clickable:hover rect {
   fill: var(--soft-tint);
 }
-.board-merchant__label {
+.ci-game .board-merchant__label {
   font-size: 11px;
   font-weight: 600;
   fill: var(--ink);
 }
-.board-merchant__bonus {
+.ci-game .board-merchant__bonus {
   font-size: 9px;
   fill: var(--ink);
 }
-.board-merchant__slots {
+.ci-game .board-merchant__slots {
   font-size: 8px;
   fill: var(--muted);
 }
-.board-tile__label {
+.ci-game .board-tile__label {
   font-size: 9px;
   font-weight: 700;
   fill: var(--ink);
 }
-.board-tile__resource {
+.ci-game .board-tile__resource {
   font-size: 7px;
   font-weight: 700;
   fill: #fffdf6;
 }
-.board-markets__title {
+.ci-game .board-markets__title {
   font-size: 11px;
   font-weight: 700;
   fill: var(--ink);
 }
-.board-markets__row-label {
+.ci-game .board-markets__row-label {
   font-size: 10px;
   font-weight: 600;
   fill: var(--ink);
 }
-.board-markets__row-data {
+.ci-game .board-markets__row-data {
   font-size: 9px;
   fill: var(--muted);
 }
-.board-markets__tier-price {
+.ci-game .board-markets__tier-price {
   font-size: 8px;
   fill: var(--ink);
 }
-.board-markets__tier-price--overflow {
+.ci-game .board-markets__tier-price--overflow {
   font-style: italic;
   fill: var(--muted);
 }
-.board-markets--active .board-markets__col--active .board-markets__row-label {
+.ci-game .board-markets--active .board-markets__col--active .board-markets__row-label {
   font-weight: 700;
 }
 
-.merchant-pick-row__tile {
+.ci-game .merchant-pick-row__tile {
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
-.merchant-pick-row__options {
+.ci-game .merchant-pick-row__options {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
-.merchant-pick-btn {
+.ci-game .merchant-pick-btn {
   font: inherit;
   display: flex;
   flex-direction: column;
@@ -631,34 +632,34 @@
   text-align: left;
   min-width: 8rem;
 }
-.merchant-pick-btn:hover:not(:disabled) {
+.ci-game .merchant-pick-btn:hover:not(:disabled) {
   background: var(--soft-tint);
 }
-.merchant-pick-btn:disabled {
+.ci-game .merchant-pick-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
-.merchant-pick-btn--chosen {
+.ci-game .merchant-pick-btn--chosen {
   background: var(--warm-gold);
   color: var(--ink);
   border-color: var(--ink);
   opacity: 1;
 }
-.merchant-pick-btn--chosen:disabled {
+.ci-game .merchant-pick-btn--chosen:disabled {
   opacity: 1;
 }
-.merchant-pick-btn__sub {
+.ci-game .merchant-pick-btn__sub {
   font-size: 0.85em;
   color: var(--muted);
   font-weight: 400;
 }
-.merchant-pick-btn--chosen .merchant-pick-btn__sub {
+.ci-game .merchant-pick-btn--chosen .merchant-pick-btn__sub {
   color: var(--ink);
 }
 
 /* ---------- Resource picker overlay (§5.6) ---------- */
 
-.picker-overlay {
+.ci-game .picker-overlay {
   background: var(--paper);
   border: 3px solid var(--ink);
   padding: 1rem;
@@ -668,23 +669,23 @@
   gap: 0.6rem;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
-.picker-overlay__title {
+.ci-game .picker-overlay__title {
   font-weight: 700;
   font-size: 1.05em;
   border-bottom: 1px solid var(--ink);
   padding-bottom: 0.4rem;
 }
-.picker-overlay__lead {
+.ci-game .picker-overlay__lead {
   margin: 0;
   font-size: 0.9em;
   color: var(--muted);
 }
-.picker-overlay__progress {
+.ci-game .picker-overlay__progress {
   display: flex;
   gap: 0.3rem;
   flex-wrap: wrap;
 }
-.picker-overlay__chip {
+.ci-game .picker-overlay__chip {
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.45rem;
@@ -693,12 +694,12 @@
   font-size: 0.8em;
   background: var(--soft-tint);
 }
-.picker-overlay__chip--pending {
+.ci-game .picker-overlay__chip--pending {
   background: var(--paper);
   color: var(--muted);
   border-style: dashed;
 }
-.picker-overlay__sources {
+.ci-game .picker-overlay__sources {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -706,17 +707,17 @@
   flex-direction: column;
   gap: 0.3rem;
 }
-.picker-overlay__source {
+.ci-game .picker-overlay__source {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
-.picker-overlay__source .action-btn {
+.ci-game .picker-overlay__source .action-btn {
   flex: 1;
   text-align: left;
 }
-.picker-overlay__section {
+.ci-game .picker-overlay__section {
   font-size: 0.75em;
   text-transform: uppercase;
   color: var(--muted);
@@ -724,26 +725,26 @@
   padding-bottom: 0.15rem;
   border-bottom: 1px solid var(--soft-tint);
 }
-.picker-overlay__order {
+.ci-game .picker-overlay__order {
   border: 1px solid var(--soft-tint);
   padding: 0.4rem;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
-.picker-overlay__order-head {
+.ci-game .picker-overlay__order-head {
   font-size: 0.9em;
 }
-.picker-overlay__order-done {
+.ci-game .picker-overlay__order-done {
   font-size: 0.85em;
   color: var(--muted);
   font-style: italic;
 }
-.picker-overlay__owner {
+.ci-game .picker-overlay__owner {
   font-size: 0.8em;
   color: var(--muted);
 }
-.picker-overlay__buttons {
+.ci-game .picker-overlay__buttons {
   display: flex;
   gap: 0.4rem;
   justify-content: flex-end;
@@ -753,7 +754,7 @@
 
 /* ---------- Shortfall overlay (§4.3 step 2) ---------- */
 
-.overlay-backdrop {
+.ci-game .overlay-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(26, 26, 26, 0.55);
@@ -762,7 +763,7 @@
   justify-content: center;
   z-index: 200;
 }
-.shortfall-overlay {
+.ci-game .shortfall-overlay {
   background: var(--paper);
   border: 3px solid var(--ink);
   padding: 1rem;
@@ -773,23 +774,23 @@
   gap: 0.5rem;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
-.shortfall-overlay__title {
+.ci-game .shortfall-overlay__title {
   font-weight: 700;
   font-size: 1.1em;
   border-bottom: 1px solid var(--ink);
   padding-bottom: 0.4rem;
 }
-.shortfall-overlay__lead {
+.ci-game .shortfall-overlay__lead {
   margin: 0;
   font-size: 0.9em;
   color: var(--muted);
 }
-.shortfall-overlay__totals {
+.ci-game .shortfall-overlay__totals {
   display: flex;
   gap: 1.5rem;
   font-size: 0.95em;
 }
-.shortfall-overlay__tiles {
+.ci-game .shortfall-overlay__tiles {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -798,27 +799,27 @@
   flex: 1;
   min-height: 6rem;
 }
-.shortfall-overlay__tile {
+.ci-game .shortfall-overlay__tile {
   display: flex;
   justify-content: space-between;
   padding: 0.3rem 0.5rem;
   cursor: pointer;
   border-bottom: 1px solid var(--soft-tint);
 }
-.shortfall-overlay__tile:hover {
+.ci-game .shortfall-overlay__tile:hover {
   background: var(--soft-tint);
 }
-.shortfall-overlay__tile--picked {
+.ci-game .shortfall-overlay__tile--picked {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
   background: var(--soft-tint);
 }
-.shortfall-overlay__empty {
+.ci-game .shortfall-overlay__empty {
   padding: 0.5rem;
   font-style: italic;
   color: var(--muted);
 }
-.shortfall-overlay__buttons {
+.ci-game .shortfall-overlay__buttons {
   display: flex;
   gap: 0.4rem;
   justify-content: flex-end;
@@ -828,7 +829,7 @@
 
 /* ---------- Era / round banner (§11.11) ---------- */
 
-.banner-overlay {
+.ci-game .banner-overlay {
   position: fixed;
   inset: 0;
   display: flex;
@@ -837,7 +838,7 @@
   pointer-events: none;
   z-index: 150;
 }
-.banner-overlay__text {
+.ci-game .banner-overlay__text {
   background: rgba(26, 26, 26, 0.85);
   color: var(--warm-gold);
   padding: 1rem 2.5rem;
@@ -857,7 +858,7 @@
 
 /* ---------- End-game overlay (§11.11) ---------- */
 
-.endgame-overlay {
+.ci-game .endgame-overlay {
   background: var(--paper);
   border: 3px solid var(--ink);
   padding: 1rem;
@@ -867,29 +868,29 @@
   gap: 0.6rem;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
-.endgame-overlay__title {
+.ci-game .endgame-overlay__title {
   font-weight: 700;
   font-size: 1.2em;
   border-bottom: 1px solid var(--ink);
   padding-bottom: 0.4rem;
 }
-.endgame-overlay__table {
+.ci-game .endgame-overlay__table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95em;
 }
-.endgame-overlay__table th,
-.endgame-overlay__table td {
+.ci-game .endgame-overlay__table th,
+.ci-game .endgame-overlay__table td {
   text-align: left;
   padding: 0.25rem 0.5rem;
   border-bottom: 1px solid var(--soft-tint);
 }
-.endgame-overlay__footnote {
+.ci-game .endgame-overlay__footnote {
   margin: 0;
   font-size: 0.85em;
   color: var(--muted);
 }
-.endgame-overlay__buttons {
+.ci-game .endgame-overlay__buttons {
   display: flex;
   justify-content: flex-end;
 }
@@ -903,14 +904,14 @@
  * too, so everything scales in lock-step with the board (and
  * therefore with browser zoom). */
 
-.income-ladder {
+.ci-game .income-ladder {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
 }
-.income-row {
+.ci-game .income-row {
   display: grid;
   grid-template-columns: var(--income-row-h) auto;
   align-items: center;
@@ -920,7 +921,7 @@
   justify-content: start;
   height: var(--income-row-h);
 }
-.income-row__level {
+.ci-game .income-row__level {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -928,11 +929,11 @@
   height: var(--income-row-h);
 }
 /* Force the level money-coin to fill the row's reserved square. */
-.income-row__level > svg {
+.ci-game .income-row__level > svg {
   width: calc(var(--income-row-h) * 0.85);
   height: calc(var(--income-row-h) * 0.85);
 }
-.income-row__cells {
+.ci-game .income-row__cells {
   /* Reserve 3 cells worth of width — the max any level needs (levels
    * 11..20 each occupy 3 raw steps). Earlier code reserved 4; that
    * extra column was always blank. Trimming it makes the ladder
@@ -942,7 +943,7 @@
   gap: 1px;
   height: var(--income-row-h);
 }
-.income-cell {
+.ci-game .income-cell {
   position: relative;
   width: var(--income-row-h);
   height: var(--income-row-h);
@@ -951,7 +952,7 @@
   border: 1px solid #1a1a1a;
   box-sizing: border-box;
 }
-.income-cell__step {
+.ci-game .income-cell__step {
   position: absolute;
   inset: 0;
   display: flex;
@@ -962,7 +963,7 @@
   font-size: calc(var(--income-row-h) * 0.5);
   pointer-events: none;
 }
-.income-cell__markers {
+.ci-game .income-cell__markers {
   /* Up to 4 pawn-coloured markers laid out 2 × 2 inside the cell.
    * Each marker is sized to ~42% of the cell side (less than half),
    * so a full 2 × 2 fits with a small gap. Markers sit on top of
@@ -976,7 +977,7 @@
   pointer-events: none;
   z-index: 1;
 }
-.income-cell__marker {
+.ci-game .income-cell__marker {
   width: 100%;
   height: 100%;
   aspect-ratio: 1;
@@ -991,7 +992,7 @@
 /* Modal overlay — toggled from the "Log" button on ActionsPanel. The
  * card sits at a comfortable reading width and scrolls if the log
  * outgrows the viewport. Backdrop is the shared .overlay-backdrop. */
-.recent-actions-overlay {
+.ci-game .recent-actions-overlay {
   background: var(--paper);
   border: 3px solid var(--ink);
   padding: 1rem;
@@ -1003,7 +1004,7 @@
   gap: 0.6rem;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
-.recent-actions-overlay__head {
+.ci-game .recent-actions-overlay__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1011,12 +1012,12 @@
   border-bottom: 1px solid var(--ink);
   padding-bottom: 0.4rem;
 }
-.recent-actions-overlay__title {
+.ci-game .recent-actions-overlay__title {
   font-weight: 700;
   font-size: 1.05em;
 }
 
-.recent-actions {
+.ci-game .recent-actions {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1025,18 +1026,18 @@
   flex-direction: column;
   gap: 0;
 }
-.recent-actions__row {
+.ci-game .recent-actions__row {
   padding: 0.25rem 0.3rem;
   border-bottom: 1px solid var(--soft-tint);
   line-height: 1.3;
 }
-.recent-actions__row:last-child {
+.ci-game .recent-actions__row:last-child {
   border-bottom: none;
 }
-.recent-actions__headline {
+.ci-game .recent-actions__headline {
   display: block;
 }
-.recent-actions__detail {
+.ci-game .recent-actions__detail {
   list-style: none;
   margin: 0.1rem 0 0;
   padding: 0 0 0 0.85rem;
@@ -1046,14 +1047,14 @@
   flex-direction: column;
   gap: 0.05rem;
 }
-.recent-actions__detail li::before {
+.ci-game .recent-actions__detail li::before {
   content: "↳ ";
   color: var(--muted);
 }
-.recent-actions__player {
+.ci-game .recent-actions__player {
   font-weight: 600;
 }
-.recent-actions__card {
+.ci-game .recent-actions__card {
   display: inline-block;
   padding: 0 0.35rem;
   margin-left: 0.15rem;
@@ -1063,11 +1064,11 @@
   font-size: 0.9em;
   color: var(--ink);
 }
-.recent-actions__empty {
+.ci-game .recent-actions__empty {
   color: var(--muted);
   font-style: italic;
 }
-.recent-actions__divider {
+.ci-game .recent-actions__divider {
   /* Section gap between successive rounds — small centred label that
    * names the round below it (newest-first list). Treats the newer
    * block above and the older block below as distinct sections of the
@@ -1085,7 +1086,7 @@
   text-align: center;
   background: transparent;
 }
-.recent-actions__divider--era {
+.ci-game .recent-actions__divider--era {
   /* Era flip is a much bigger event — solid borders, gold accent, a
    * heavier band so the canal→rail boundary reads at a glance. */
   color: var(--ink);
@@ -1103,7 +1104,7 @@
 /* Modal overlay container — backdrop is shared .overlay-backdrop. The
  * card sits at a comfortable reading width and scrolls if the universe
  * grows past the viewport. */
-.remaining-cards-overlay {
+.ci-game .remaining-cards-overlay {
   background: var(--paper);
   border: 3px solid var(--ink);
   padding: 1rem;
@@ -1115,7 +1116,7 @@
   gap: 0.6rem;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
-.remaining-cards-overlay__head {
+.ci-game .remaining-cards-overlay__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1123,43 +1124,43 @@
   border-bottom: 1px solid var(--ink);
   padding-bottom: 0.4rem;
 }
-.remaining-cards-overlay__title {
+.ci-game .remaining-cards-overlay__title {
   font-weight: 700;
   font-size: 1.05em;
 }
-.remaining-cards__meta {
+.ci-game .remaining-cards__meta {
   font-size: 0.85em;
   color: var(--muted);
   margin-bottom: 0.4rem;
 }
-.remaining-cards__grid {
+.ci-game .remaining-cards__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem 0.8rem;
 }
-.remaining-cards__group {
+.ci-game .remaining-cards__group {
   display: flex;
   flex-direction: column;
 }
-.remaining-cards__group-label {
+.ci-game .remaining-cards__group-label {
   font-size: 0.75em;
   text-transform: uppercase;
   color: var(--muted);
   border-bottom: 1px solid var(--soft-tint);
   margin-bottom: 0.2rem;
 }
-.remaining-cards__list {
+.ci-game .remaining-cards__list {
   list-style: none;
   margin: 0;
   padding: 0;
   font-size: 0.85em;
 }
-.remaining-cards__row {
+.ci-game .remaining-cards__row {
   display: flex;
   justify-content: space-between;
   padding: 0.1rem 0;
 }
-.remaining-cards__row--muted {
+.ci-game .remaining-cards__row--muted {
   opacity: 0.45;
 }
 
@@ -1175,7 +1176,7 @@
  * continuous top affordance area.
  */
 
-.actions-banner {
+.ci-game .actions-banner {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -1183,13 +1184,13 @@
   background: var(--panel-bg);
   border-bottom: 1px solid var(--ink);
 }
-.actions-banner--emphasized {
+.ci-game .actions-banner--emphasized {
   /* When idle (no wizard active), draw attention to the verbs row by
    * tinting the banner background — mirrors the old emphasized panel
    * outline without the panel chrome. */
   background: var(--soft-tint);
 }
-.actions-banner__row {
+.ci-game .actions-banner__row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -1197,13 +1198,13 @@
   justify-content: center;
   gap: 0.4rem;
 }
-.actions-banner__verbs,
-.actions-banner__controls {
+.ci-game .actions-banner__verbs,
+.ci-game .actions-banner__controls {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
 }
-.actions-banner__counter {
+.ci-game .actions-banner__counter {
   /* Compact chip-style "Actions k/n" indicator on the leading edge of
    * the verbs row. Replaces the actions-left line that used to live
    * in GameStatePanel. */
@@ -1216,7 +1217,7 @@
   color: var(--ink);
   white-space: nowrap;
 }
-.actions-banner__chips {
+.ci-game .actions-banner__chips {
   /* Selection summary for the active wizard. Chips read like the old
    * ContextBar pills; sit next to the controls row so the player sees
    * "what I've picked" right next to "what I can do with it". */
@@ -1225,14 +1226,14 @@
   gap: 0.3rem;
   align-items: center;
 }
-.actions-banner__chip {
+.ci-game .actions-banner__chip {
   background: var(--soft-tint);
   border: 1px solid var(--ink);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
   font-size: 0.8em;
 }
-.actions-banner__chip--error {
+.ci-game .actions-banner__chip--error {
   /* Inline selection error — same chip shape as the regular picks but
    * tinted red so it stands out next to the picks it relates to. */
   background: #fde7e7;
@@ -1240,17 +1241,17 @@
   color: #7a1a1a;
   font-weight: 600;
 }
-.actions-banner__chip--dismissable {
+.ci-game .actions-banner__chip--dismissable {
   /* Server-rejection chip: clickable to dismiss. Uses the same red
    * tint as inline-selection errors so they read as the same kind
    * of feedback. */
   cursor: pointer;
   font-family: inherit;
 }
-.actions-banner__chip--dismissable:hover {
+.ci-game .actions-banner__chip--dismissable:hover {
   background: #fbd1d1;
 }
-.action-btn {
+.ci-game .action-btn {
   padding: 0.35rem 0.6rem;
   font: inherit;
   cursor: pointer;
@@ -1258,36 +1259,36 @@
   border: 1px solid var(--ink);
   border-radius: 2px;
 }
-.action-btn:hover:not(:disabled) {
+.ci-game .action-btn:hover:not(:disabled) {
   background: var(--soft-tint);
 }
-.action-btn:disabled {
+.ci-game .action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.action-btn--active {
+.ci-game .action-btn--active {
   background: var(--warm-gold);
   color: var(--ink);
   border-color: var(--ink);
 }
-.action-btn--active:hover:not(:disabled) {
+.ci-game .action-btn--active:hover:not(:disabled) {
   background: var(--warm-gold);
   filter: brightness(0.95);
 }
-.action-btn--suggested {
+.ci-game .action-btn--suggested {
   /* Card-first stash hint: this action naturally fits the stashed card. */
   border-color: var(--focus);
   border-width: 1.5px;
   box-shadow: 0 0 0 1px var(--focus) inset;
 }
-.action-btn--dimmed {
+.ci-game .action-btn--dimmed {
   /* Card-first stash hint: stashed card adds no value here (still legal). */
   color: var(--muted);
 }
-.action-btn--dimmed:hover:not(:disabled) {
+.ci-game .action-btn--dimmed:hover:not(:disabled) {
   color: var(--ink);
 }
-.action-btn--neutral {
+.ci-game .action-btn--neutral {
   /* Visually demoted button for non-game actions (e.g., the Log
    * toggle). Grey palette so it reads as "tool / utility" alongside
    * the cream-paper game verbs without competing for attention. */
@@ -1295,7 +1296,7 @@
   border-color: #6a6a6a;
   color: #2a2a2a;
 }
-.action-btn--neutral:hover:not(:disabled) {
+.ci-game .action-btn--neutral:hover:not(:disabled) {
   background: #c4c2be;
 }
 
@@ -1311,7 +1312,7 @@
 
 /* ---------- Lobby (pre-game) ---------- */
 
-.lobby-shell {
+.ci-game .lobby-shell {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -1320,7 +1321,7 @@
   background: var(--paper);
 }
 
-.lobby-card {
+.ci-game .lobby-card {
   background: var(--panel-bg);
   border: 1px solid var(--muted);
   border-radius: 0.5rem;
@@ -1332,32 +1333,32 @@
   box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
 }
 
-.lobby-title {
+.ci-game .lobby-title {
   margin: 0;
   font-size: 1.5rem;
 }
 
-.lobby-status {
+.ci-game .lobby-status {
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
-.lobby-share {
+.ci-game .lobby-share {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
   word-break: break-all;
 }
 
-.lobby-share code {
+.ci-game .lobby-share code {
   background: var(--soft-tint);
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
   font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, monospace;
 }
 
-.lobby-seats {
+.ci-game .lobby-seats {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1366,7 +1367,7 @@
   gap: 0.5rem;
 }
 
-.lobby-seat {
+.ci-game .lobby-seat {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1376,14 +1377,14 @@
   border-radius: 0.35rem;
 }
 
-.lobby-seat__index {
+.ci-game .lobby-seat__index {
   font-weight: 600;
   width: 1.25rem;
   text-align: center;
   color: var(--muted);
 }
 
-.lobby-seat__body {
+.ci-game .lobby-seat__body {
   flex: 1;
   display: grid;
   grid-template-columns: minmax(8rem, 1fr) auto auto auto;
@@ -1391,8 +1392,8 @@
   align-items: center;
 }
 
-.lobby-seat__name,
-.lobby-seat__color {
+.ci-game .lobby-seat__name,
+.ci-game .lobby-seat__color {
   padding: 0.3rem 0.5rem;
   border: 1px solid #c8c4b6;
   border-radius: 0.25rem;
@@ -1400,38 +1401,38 @@
   font-size: 0.95rem;
 }
 
-.lobby-seat__name:disabled,
-.lobby-seat__color:disabled {
+.ci-game .lobby-seat__name:disabled,
+.ci-game .lobby-seat__color:disabled {
   background: #f0eee6;
   color: var(--muted);
 }
 
-.lobby-seat__swatch {
+.ci-game .lobby-seat__swatch {
   width: 1.25rem;
   height: 1.25rem;
   border-radius: 50%;
   border: 1px solid var(--ink);
 }
 
-.lobby-seat__actions {
+.ci-game .lobby-seat__actions {
   display: flex;
   gap: 0.35rem;
   align-items: center;
 }
 
-.lobby-seat__claimed {
+.ci-game .lobby-seat__claimed {
   color: var(--muted);
   font-style: italic;
   font-size: 0.85rem;
 }
 
-.lobby-host-controls {
+.ci-game .lobby-host-controls {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
 
-.lobby-host-setup {
+.ci-game .lobby-host-setup {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -1442,32 +1443,32 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
-.lobby-host-setup__row {
+.ci-game .lobby-host-setup__row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.lobby-host-setup__label {
+.ci-game .lobby-host-setup__label {
   font-size: 0.85rem;
   color: var(--muted);
   min-width: 5.5rem;
 }
 
-.lobby-host-setup__count {
+.ci-game .lobby-host-setup__count {
   display: inline-flex;
   gap: 0.25rem;
 }
 
-.lobby-host-setup__select {
+.ci-game .lobby-host-setup__select {
   flex: 1 1 14rem;
   min-width: 12rem;
   padding: 0.25rem 0.4rem;
   font-size: 0.85rem;
 }
 
-.lobby-host-setup__hint {
+.ci-game .lobby-host-setup__hint {
   margin: 0;
   font-size: 0.8rem;
   color: var(--muted);

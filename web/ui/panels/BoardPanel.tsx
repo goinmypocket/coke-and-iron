@@ -1,3 +1,4 @@
+import { svgButton } from "../affordances/svgButton";
 // =============================================================================
 // §11.2 Main Board — read-only render at this milestone.
 //
@@ -24,7 +25,7 @@
 // card-only wizards run.
 // =============================================================================
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type {
   DistrictCity,
   Era,
@@ -96,7 +97,8 @@ function slotCellPos(
   return [col * TILE, row * TILE];
 }
 
-export function BoardPanel() {
+export function BoardPanel({ regionId }: { regionId?: string }) {
+  const [zoomed, setZoomed] = useState(false);
   const wizard = useWizard();
   const mySeatId = useMySeatId();
   const view = useGameState((s) => ({
@@ -225,7 +227,9 @@ export function BoardPanel() {
 
   return (
     <Panel id="board" title="Board" hideTitle>
-      <div className="board-region">
+      <div className="ci-board-toolbar" id={regionId}><h2>Main board</h2><button type="button" className="action-btn" aria-pressed={zoomed} onClick={() => setZoomed(value => !value)}>{zoomed ? "Fit board" : "Enlarge board"}</button></div>
+      <div className="ci-board-viewport" tabIndex={0} role="region" aria-label="Main board. Scroll to explore when enlarged.">
+      <div className={`board-region${zoomed ? " board-region--zoomed" : ""}`}>
         <div className="board-region__income">
           <IncomeLadder />
         </div>
@@ -234,7 +238,7 @@ export function BoardPanel() {
           viewBox={`0 0 ${CANVAS} ${CANVAS}`}
           preserveAspectRatio="xMidYMid meet"
         >
-        <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="#f3edd8" />
+        <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="var(--paper)" />
         <Lines
           lines={view.lines}
           era={view.era}
@@ -329,6 +333,8 @@ export function BoardPanel() {
         />
         </svg>
       </div>
+      </div>
+      <div className="ci-board-legend"><span><i className="ci-canal-key" />Canal</span><span><i className="ci-rail-key" />Rail</span><span>Enlarge for a closer look. Scroll to explore.</span></div>
     </Panel>
   );
 }
@@ -481,6 +487,7 @@ export function DistrictCityShape({
             transform={`translate(${cellX}, ${cellY})`}
             className={cls}
             style={slotDim ? { opacity: 0.35 } : undefined}
+            {...svgButton(`${city.name}, slot ${i + 1}: ${slot.acceptList.join(", ") || "Any industry"}`, clickable ? () => onSlotClick(i) : undefined, isPicked)}
             onClick={clickable ? () => onSlotClick(i) : undefined}
           >
             <rect
@@ -975,7 +982,7 @@ export function Lines({
           if (lineAngle > 90) lineAngle -= 180;
           if (lineAngle < -90) lineAngle += 180;
           return (
-            <g key={i} className={groupClass} onClick={handleClick}>
+            <g key={i} className={groupClass} onClick={handleClick} {...svgButton(`${line.era === "CANAL" ? "Canal" : "Rail"}: ${line.endpoints.join(" to ")}`, handleClick, isPicked)}>
               <line
                 x1={points[0]![0]}
                 y1={points[0]![1]}
@@ -1003,7 +1010,7 @@ export function Lines({
                   x2={points[1]![0]}
                   y2={points[1]![1]}
                   stroke="transparent"
-                  strokeWidth={14}
+                  strokeWidth={24}
                   strokeLinecap="round"
                 />
               ) : null}
@@ -1016,7 +1023,7 @@ export function Lines({
         const cy =
           points.reduce((acc, p) => acc + p[1], 0) / points.length;
         return (
-          <g key={i} className={groupClass} onClick={handleClick}>
+          <g key={i} className={groupClass} onClick={handleClick} {...svgButton(`${line.era === "CANAL" ? "Canal" : "Rail"}: ${line.endpoints.join(" to ")}`, handleClick, isPicked)}>
             {points.map((p, j) => (
               <line
                 key={j}
@@ -1049,7 +1056,7 @@ export function Lines({
                     x2={cx}
                     y2={cy}
                     stroke="transparent"
-                    strokeWidth={14}
+                    strokeWidth={24}
                     strokeLinecap="round"
                   />
                 ))
@@ -1142,6 +1149,7 @@ function BuiltTiles({
             key={t.id}
             transform={`translate(${ox}, ${oy})`}
             className={cls}
+            {...svgButton(`${spec.industry} at ${t.cityName}, ${t.resources} resources${t.flipped ? ", flipped" : ""}`, onClick, isPicked)}
             onClick={onClick}
           >
             <TileFace
@@ -1428,8 +1436,8 @@ function SvgMoneyCoin({
 // Bumped ~20% (was 14 / 5.5). Drives the rectangle and the text glyphs;
 // labels read clearly at conversational distance even on the darker
 // district fills.
-const CITY_BANNER_HEIGHT = 17;
-const CITY_BANNER_CHAR_W = 6.6;
+const CITY_BANNER_HEIGHT = 20;
+const CITY_BANNER_CHAR_W = 7.6;
 const CITY_BANNER_PAD_X = 5;
 // Merchant banners get a soft light-gray (vs. the sandier district
 // fills); district names render white-on-color, merchant names render

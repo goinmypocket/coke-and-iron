@@ -9,7 +9,7 @@
 // noise that drifts out of date when seats swap mid-game.
 // =============================================================================
 import { useEffect, useState } from "react";
-import { shallowEqual, useGameState } from "../hooks/useGameState";
+import { useGameState } from "../hooks/useGameState";
 
 interface Props {
   /** True when this user has no real seat. Drives the picker UI. */
@@ -37,15 +37,7 @@ export function ViewerBanner({
     }
   }, [viewedSeatId, pendingSeat]);
 
-  const players = useGameState(
-    (s) =>
-      s.players.map((p) => ({
-        id: p.id,
-        name: p.displayName,
-        color: p.pawnColor,
-      })),
-    shallowEqual,
-  );
+  const players = useGameState((s) => s.players);
 
   if (!isSpectator) return null;
 
@@ -62,15 +54,15 @@ export function ViewerBanner({
               "viewer-banner__chip" +
               (visualSeat === p.id ? " viewer-banner__chip--active" : "")
             }
-            style={{ background: pawnSwatch(p.color) }}
+            style={{ background: pawnSwatch(p.pawnColor) }}
             aria-pressed={visualSeat === p.id}
             onClick={() => {
               setPendingSeat(p.id);
               onPickSpectatorView?.(p.id);
             }}
-            title={`View ${p.name}'s hand`}
+            title={`View ${p.displayName}'s hand`}
           >
-            {p.name}
+            {p.displayName}
           </button>
         ))}
         {visualSeat !== null && (

@@ -3,9 +3,11 @@ import type { Card, DistrictCity, IndustryName } from "../../../engine";
 import { useActualSeatId } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { HandSizeIcon } from "../icons/HandSizeIcon";
-import { DISTRICT_FILL, INDUSTRY_ICON } from "../industryIcons";
+import { DISTRICT_FILL, INDUSTRY_ICON, INDUSTRY_LABEL } from "../industryIcons";
 import { RemainingCardsOverlay } from "../overlays/RemainingCardsOverlay";
 import { useWizard } from "../wizards/WizardProvider";
+
+const EMPTY_HAND: readonly Card[] = [];
 
 /**
  * §11.7 Hand — viewer's own hand as a chrome-less centred banner that
@@ -45,7 +47,9 @@ export function HandPanel() {
         ? s.players.find((p) => p.id === viewerSeatId)
         : null;
     return {
-      hand: me?.hand ?? [],
+      hand: me?.hand ?? EMPTY_HAND,
+      name: me?.displayName ?? null,
+      canAct: s.actionsRemaining > 0 && s.pendingShortfalls.length === 0 && s.phase === "PLAYER_TURNS",
       activeId,
       viewerSeatId,
       drawDeckCount: s.drawDeck.length,
@@ -53,6 +57,7 @@ export function HandPanel() {
     };
   }, shallowEqual);
   const isMyTurn =
+    view.canAct &&
     view.activeId !== null &&
     actualSeatId !== null &&
     view.activeId === actualSeatId &&
@@ -64,12 +69,15 @@ export function HandPanel() {
   );
 
   return (
-    <div className="hand-banner">
-      <div className="hand-banner__cards">
+    <section className="hand-banner" aria-label="Hand">
+      <div className="ci-section-heading">
+        <h2>{actualSeatId !== null && actualSeatId === view.viewerSeatId ? "Your hand" : view.name ? `${view.name}’s hand` : "Hand"} <span>({view.hand.length})</span></h2>
         <DeckButton
           remaining={view.drawDeckCount}
           onClick={() => setDeckOpen(true)}
         />
+      </div>
+      <div className="hand-banner__cards">
         {view.hand.map((card, i) => (
           <CardFace
             key={i}
@@ -81,11 +89,12 @@ export function HandPanel() {
           />
         ))}
       </div>
+      {view.hand.length === 0 ? <p className="ci-empty-hand">{view.viewerSeatId === null ? "Choose a player view to inspect their hand." : "No cards left in hand."}</p> : null}
       <RemainingCardsOverlay
         open={deckOpen}
         onClose={() => setDeckOpen(false)}
       />
-    </div>
+    </section>
   );
 }
 
@@ -105,12 +114,12 @@ function DeckButton({
   return (
     <button
       type="button"
-      className="card-face card-face--deck"
+      className="action-btn ci-deck-button"
       onClick={onClick}
       aria-label={`Show remaining cards — draw deck: ${remaining}`}
       title={`Remaining cards (draw deck: ${remaining})`}
     >
-      <HandSizeIcon amount={remaining} size={18} />
+      <HandSizeIcon amount={remaining} size={20} /> Draw deck
     </button>
   );
 }
@@ -136,71 +145,22 @@ function CardFace({
     .filter(Boolean)
     .join(" ");
 
-  switch (card.kind) {
-    case "LOCATION": {
-      const tag = cityToDistrict.get(card.cityName);
-      const color = tag ? DISTRICT_FILL[tag as keyof typeof DISTRICT_FILL] : undefined;
-      return (
-        <div
-          className={`${baseCls} card-face--location`}
-          onClick={interactive ? onClick : undefined}
-          role={interactive ? "button" : undefined}
-          tabIndex={interactive ? 0 : -1}
-          aria-disabled={interactive ? undefined : true}
-        >
-          <span className="card-face__city" style={color ? { color } : undefined}>
-            {card.cityName}
-          </span>
-        </div>
-      );
-    }
-    case "INDUSTRY":
-      return (
-        <div
-          className={`${baseCls} card-face--industry`}
-          onClick={interactive ? onClick : undefined}
-          role={interactive ? "button" : undefined}
-          tabIndex={interactive ? 0 : -1}
-          aria-disabled={interactive ? undefined : true}
-          title={card.industries.join(" / ")}
-        >
-          {card.industries.map((ind) => (
-            <img
-              key={ind}
-              src={INDUSTRY_ICON[ind as IndustryName]}
-              className="card-face__industry-icon"
-              alt={ind}
-            />
-          ))}
-        </div>
-      );
-    case "WILD_LOCATION":
-      return (
-        <div
-          className={`${baseCls} card-face--wild`}
-          onClick={interactive ? onClick : undefined}
-          role={interactive ? "button" : undefined}
-          tabIndex={interactive ? 0 : -1}
-          aria-disabled={interactive ? undefined : true}
-          title="Wild Location"
-        >
-          WL
-        </div>
-      );
-    case "WILD_INDUSTRY":
-      return (
-        <div
-          className={`${baseCls} card-face--wild`}
-          onClick={interactive ? onClick : undefined}
-          role={interactive ? "button" : undefined}
-          tabIndex={interactive ? 0 : -1}
-          aria-disabled={interactive ? undefined : true}
-          title="Wild Industry"
-        >
-          WI
-        </div>
-      );
-  }
+  if (card.kind === "HIDDEN") return <div className="card-face card-face--inert">Hidden card</div>;
+  const label = card.kind === "LOCATION" ? card.cityName
+    : card.kind === "INDUSTRY" ? card.industries.map(ind => INDUSTRY_LABEL[ind]).join(" / ")
+    : card.kind === "WILD_LOCATION" ? "Wild Location" : "Wild Industry";
+  const district = card.kind === "LOCATION" ? cityToDistrict.get(card.cityName) : undefined;
+  const swatch = district ? DISTRICT_FILL[district as keyof typeof DISTRICT_FILL] : undefined;
+  return (
+    <button type="button" className={baseCls} disabled={!interactive} aria-pressed={picked}
+      aria-label={label} title={label} onClick={onClick}>
+      {picked ? <span className="card-face__check" aria-hidden="true">✓</span> : null}
+      {card.kind === "INDUSTRY" ? <span className="card-face__icons">{card.industries.map(ind =>
+        <img key={ind} src={INDUSTRY_ICON[ind as IndustryName]} className="card-face__industry-icon" alt="" />
+      )}</span> : <span className="card-face__mark" style={swatch ? { background: swatch } : undefined} aria-hidden="true">{card.kind === "LOCATION" ? "" : "✦"}</span>}
+      <span className="card-face__name">{label}</span>
+    </button>
+  );
 }
 
 function indexCityDistricts(

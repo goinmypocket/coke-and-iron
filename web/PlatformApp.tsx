@@ -9,14 +9,14 @@
 // existing UI already handles it via ViewerBanner / hidden hand.
 // =============================================================================
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import {
   type PlatformGameContext,
   usePlatformGameSession,
 } from "./ui/hooks/usePlatformGameSession";
-import { PromptStrip } from "./ui/affordances/PromptStrip";
+import { TurnSummary } from "./ui/affordances/TurnSummary";
 import { ViewerBanner } from "./ui/affordances/ViewerBanner";
 import { EndGameOverlay } from "./ui/overlays/EndGameOverlay";
 import { EraRoundBanner } from "./ui/overlays/EraRoundBanner";
@@ -31,6 +31,7 @@ import { WizardProvider } from "./ui/wizards/WizardProvider";
 
 import "./styles/reset.css";
 import "./styles/app.css";
+import "./styles/play.css";
 
 export type { PlatformGameContext };
 
@@ -44,6 +45,7 @@ export default function PlatformApp({ ctx }: Props): ReactNode {
 
 function GameContent({ ctx }: Props): ReactNode {
   const session = usePlatformGameSession(ctx);
+  const regionId = useId();
 
   if (!session.engine) {
     return (
@@ -63,19 +65,26 @@ function GameContent({ ctx }: Props): ReactNode {
         dismiss: session.clearRejection,
       }}
     >
-      <WizardProvider>
+      <WizardProvider key={`${session.actualSeatId}:${session.mySeatId}`}>
         <div className="app-shell">
+          <TurnSummary paused={session.paused} />
+          <nav className="ci-jump-links" aria-label="Game areas">
+            <a href={`#${regionId}-actions`}>Actions</a>
+            <a href={`#${regionId}-board`}>Board</a>
+            <a href={`#${regionId}-industries`}>Industries</a>
+          </nav>
           <ViewerBanner
             isSpectator={session.isSpectator}
             viewedSeatId={session.mySeatId}
             onPickSpectatorView={session.setSpectatorView}
           />
-          <PromptStrip />
-          <ActionsPanel />
-          <HandPanel />
           <div className="game-stack">
-            <BoardPanel />
-            <PlayersPanel />
+            <BoardPanel regionId={`${regionId}-board`} />
+            <div className="ci-play-rail">
+              <div className="ci-action-region" id={`${regionId}-actions`}><ActionsPanel /></div>
+              <HandPanel />
+              <div id={`${regionId}-industries`}><PlayersPanel /></div>
+            </div>
           </div>
         </div>
         <ShortfallOverlay />
@@ -83,7 +92,8 @@ function GameContent({ ctx }: Props): ReactNode {
         <EraRoundBanner />
         <ResourcePickerOverlay />
         <SellMerchantPickerOverlay />
-        <Toaster theme="light" position="bottom-center" duration={2000} />
+        <Toaster theme="light" position="bottom-center" duration={4000}
+          toastOptions={{ className: "ci-toast", style: { background: "#fff", color: "#282b2a", borderColor: "#92512f", fontFamily: "system-ui, sans-serif" } }} />
       </WizardProvider>
     </EngineProvider>
   );

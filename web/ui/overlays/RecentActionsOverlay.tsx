@@ -1,3 +1,4 @@
+import { Modal } from "./Modal";
 // =============================================================================
 // §11.9 Recent actions — modal overlay showing a newest-first scrolling list
 // of dispatched intents.
@@ -23,7 +24,7 @@
 // name in district colour).
 // =============================================================================
 
-import { Fragment, useEffect, useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import {
   type Card,
   type DistrictTag,
@@ -49,29 +50,11 @@ export function RecentActionsOverlay({
   open: boolean;
   onClose: () => void;
 }) {
-  // ESC dismisses — same affordance as RemainingCardsOverlay so the
-  // two modals behave identically.
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
-
   if (!open) return null;
   return (
-    <div
-      className="overlay-backdrop"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="recent-actions-overlay" role="dialog" aria-modal="true">
+    <Modal className="recent-actions-overlay" label="Recent actions" onClose={onClose}>
         <RecentActionsBody onClose={onClose} />
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -380,7 +363,7 @@ function playerSpan(state: GameState, id: PlayerId): ReactNode {
   const label = p?.displayName ?? `P${id + 1}`;
   if (!p) return label;
   return (
-    <span className="recent-actions__player" style={{ color: p.pawnColor }}>
+    <span className="recent-actions__player" style={{ borderLeft: `3px solid ${p.pawnColor}`, paddingLeft: "0.35em" }}>
       {label}
     </span>
   );
@@ -398,7 +381,7 @@ function citySpan(
   return (
     <span
       className="recent-actions__city"
-      style={{ color: DISTRICT_FILL[tag] }}
+      style={{ borderBottom: `2px solid ${DISTRICT_FILL[tag]}` }}
     >
       {cityName}
     </span>

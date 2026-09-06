@@ -1,3 +1,4 @@
+import { Modal } from "./Modal";
 // =============================================================================
 // Resource picker — fires only when the wizard detects 2+ free board
 // sources for a needed cube (per spec §5.6, user-confirmed UX). Single-
@@ -502,8 +503,7 @@ function PickerShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overlay-backdrop">
-      <div className="picker-overlay">
+    <Modal className="picker-overlay" label={title} onClose={onCancel}>
         <header className="picker-overlay__title">{title}</header>
         <p className="picker-overlay__lead">{lead}</p>
         <div className="picker-overlay__progress">
@@ -532,8 +532,7 @@ function PickerShell({
             Cancel
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

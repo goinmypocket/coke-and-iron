@@ -29,6 +29,8 @@ export function PromptStrip() {
         activeId !== null ? s.players.find((p) => p.id === activeId) : null;
       return {
         activeId,
+        phase: s.phase,
+        actionsRemaining: s.actionsRemaining,
         activeName: active?.displayName ?? null,
         activeColor: active?.pawnColor ?? null,
       };
@@ -40,7 +42,12 @@ export function PromptStrip() {
     activeColor: turn.activeColor,
     isMyTurn: turn.activeId !== null && turn.activeId === actualSeatId,
   };
-  return <div className="prompt-strip">{describePrompt(wizard.state, info)}</div>;
+  const prompt = turn.phase === "GAME_OVER"
+    ? "The game is complete. Review the board or recent actions."
+    : wizard.state.phase === "IDLE" && info.isMyTurn && turn.actionsRemaining === 0
+      ? "Your actions are complete. Choose End Turn."
+      : describePrompt(wizard.state, info);
+  return <div className="prompt-strip" role="status" aria-live="polite">{prompt}</div>;
 }
 
 function describePrompt(
@@ -65,8 +72,8 @@ function describePrompt(
   switch (state.phase) {
     case "IDLE":
       return state.stashedCardIndex === null
-        ? "Click an action button to begin a turn — or click a card first to stash it."
-        : "Card stashed. Click an action button (Pass / Loan / Build / etc) to use it.";
+        ? "Choose an action, or select a card first."
+        : "Card selected. Choose an action to use it.";
     case "AWAITING_CARD":
       return state.action === "PASS"
         ? "Pass — pick a card from your hand to discard."
@@ -78,7 +85,7 @@ function describePrompt(
           need === 1 ? "" : "s"
         } from your hand.`;
       }
-      return "Scout — three cards picked. Click End Action to dispatch.";
+      return "Scout — three cards picked. Choose End Action to confirm.";
     }
     case "AWAITING_DEVELOP_INPUTS": {
       const missing: string[] = [];
@@ -115,14 +122,14 @@ function describePrompt(
         return "Sell — pick a card and one or more own tiles to flip.";
       }
       if (state.cardIndex === null) {
-        return "Sell — pick a card from your hand to authorise the action.";
+        return "Sell — pick a card from your hand to use for this action.";
       }
       if (state.tileIds.length === 0) {
         return "Sell — pick at least one own unflipped Cotton / Manufacturer / Pottery tile.";
       }
       return `Sell — ${state.tileIds.length} tile${
         state.tileIds.length === 1 ? "" : "s"
-      } picked. Click End Action to dispatch (or pick more).`;
+      } picked. Choose End Action to confirm (or pick more).`;
     }
     case "AWAITING_SELL_GLOUCESTER": {
       const left = state.need - state.industries.length;

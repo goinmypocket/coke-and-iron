@@ -1,3 +1,4 @@
+import { Modal } from "./Modal";
 // =============================================================================
 // §11.11 End-game overlay — rendered when state.phase === "GAME_OVER".
 //
@@ -51,8 +52,7 @@ export function EndGameOverlay() {
         : "Game over";
 
   return (
-    <div className="overlay-backdrop">
-      <div className="endgame-overlay">
+    <Modal className="endgame-overlay" label="Game results" onClose={() => setClosed(true)}>
         <header className="endgame-overlay__title">{headline}</header>
         <table className="endgame-overlay__table">
           <thead>
@@ -103,8 +103,7 @@ export function EndGameOverlay() {
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

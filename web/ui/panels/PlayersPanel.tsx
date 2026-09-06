@@ -1,3 +1,4 @@
+import { svgButton } from "../affordances/svgButton";
 // =============================================================================
 // §11.3 Players panel — outer container with one sub-panel per seated
 // player.
@@ -22,7 +23,7 @@ import type {
   IndustryTileSpec,
   PlayerId,
 } from "../../../engine";
-import { useMySeatId } from "../hooks/EngineProvider";
+import { useActualSeatId, useMySeatId } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import {
   INDUSTRY_ICON,
@@ -101,6 +102,7 @@ const MAT_H = MAX_VISIBLE_LEVELS * ROW_H + LABEL_BAND;
 export function PlayersPanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
   const mySeatId = useMySeatId();
+  const actualSeatId = useActualSeatId();
   // Render the viewer's own mat first, then everyone else in turn-order
   // (rotated so the viewer's seat is the head). When the viewer is
   // unseated (spectator), fall back to natural turn order.
@@ -117,7 +119,7 @@ export function PlayersPanel() {
           <PlayerSubPanel
             key={seatId}
             seatId={seatId}
-            isViewer={seatId === mySeatId}
+            isViewer={seatId === actualSeatId}
           />
         ))}
       </div>
@@ -173,7 +175,7 @@ function PlayerSubPanel({
   return (
     <Panel
       id={`player_${seatId + 1}`}
-      title={`${view.name}${isViewer ? " (you)" : ""}${view.isActive ? " ←" : ""}`}
+      title={`${view.name}${isViewer ? " · your industries" : " · industries"}${view.isActive ? " · active" : ""}`}
       borderColor={view.pawnColor}
     >
       <SeatStats
@@ -185,6 +187,8 @@ function PlayerSubPanel({
         era={view.era}
         pawnColor={view.pawnColor}
       />
+      <p className="ci-mat-hint">Scroll sideways to see all industries.</p>
+      <div className="ci-mat-viewport" tabIndex={0} role="region" aria-label={`${view.name} industry tiles. Scroll to explore.`}>
       <MatSvg
         stacks={view.stacks}
         tileCatalogue={view.tileCatalogue}
@@ -194,6 +198,7 @@ function PlayerSubPanel({
         pickCounts={pickCounts}
         onPickIndustry={(ind) => wizard.pickIndustry(seatId, ind)}
       />
+      </div>
     </Panel>
   );
 }
@@ -264,7 +269,7 @@ function SeatStats({
     <div className="seat-stats">
       {stats.map((s) => (
         <span key={s.key} className="seat-stats__item" title={s.title}>
-          {s.node}
+          {s.node}<span className="seat-stats__label">{s.key === "income" ? "Income" : s.key === "vp" ? "VP" : s.key === "hand" ? "Cards" : s.key === "links" ? "Links" : "Money"}</span>
         </span>
       ))}
     </div>
@@ -480,6 +485,7 @@ function MatLevelRowSvg({
     <g
       transform={`translate(${x}, ${y})`}
       className={cls}
+      {...svgButton(`${spec ? INDUSTRY_FULL_LABEL[spec.industry] : "Industry"} level ${_level}`, onClick, pickCount > 0)}
       onClick={onClick}
     >
       {/* Background — picks up hover/pick styling via CSS. */}

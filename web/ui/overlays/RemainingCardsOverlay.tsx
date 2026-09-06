@@ -1,3 +1,4 @@
+import { Modal } from "./Modal";
 // =============================================================================
 // §11.6 Remaining cards — modal overlay listing every non-wild card that is
 // still UNPLAYED from the active player's perspective.
@@ -27,7 +28,7 @@
 // so players can scan for "where did all the Birminghams go?".
 // =============================================================================
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   buildDeck,
   DEFAULT_CARDS_CONFIG,
@@ -53,29 +54,11 @@ export function RemainingCardsOverlay({
   open: boolean;
   onClose: () => void;
 }) {
-  // ESC closes the modal — standard affordance for any overlay opened
-  // by a discrete trigger.
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
-
   if (!open) return null;
   return (
-    <div
-      className="overlay-backdrop"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="remaining-cards-overlay" role="dialog" aria-modal="true">
+    <Modal className="remaining-cards-overlay" label="Remaining cards" onClose={onClose}>
         <RemainingCardsBody onClose={onClose} />
-      </div>
-    </div>
+    </Modal>
   );
 }
 

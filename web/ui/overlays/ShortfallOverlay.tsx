@@ -1,3 +1,4 @@
+import { Modal } from "./Modal";
 // =============================================================================
 // §4.3 step 2 shortfall sub-flow.
 //
@@ -112,8 +113,7 @@ function ShortfallBody({ view }: { view: View }) {
   };
 
   return (
-    <div className="overlay-backdrop">
-      <div className="shortfall-overlay" style={{ borderColor: view.pawnColor }}>
+    <Modal className="shortfall-overlay" label="Resolve income shortfall">
         <header className="shortfall-overlay__title">
           Shortfall — {view.headPlayerName} owes{" "}
           <MoneyCoin amount={view.owed} size={14} />
@@ -196,7 +196,6 @@ function ShortfallBody({ view }: { view: View }) {
             Finalize ({Math.min(view.vp, remaining)} VP)
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

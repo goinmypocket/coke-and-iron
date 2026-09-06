@@ -1,13 +1,8 @@
 // =============================================================================
 // §11.8 Actions banner — verbs + wizard controls + selection chips.
 //
-// Renders as a chrome-less horizontal banner that sits in the top
-// affordance area (above the game stack). Action verbs on the left,
-// wizard controls on the right. When a wizard is active the banner
-// also shows a row of chips describing the player's current picks
-// (card, industry, slot, links, etc.) — that summary used to live in
-// a separate ContextBar; it now lives here so the top of the screen
-// always has just three things: Prompt, Actions, Hand.
+// The action rail keeps verbs, the next-step prompt, turn controls,
+// selection summaries and rejection feedback in one region.
 // =============================================================================
 
 import { useState } from "react";
@@ -19,6 +14,7 @@ import type {
   Player,
 } from "../../../engine";
 import { reasonToText } from "../affordances/toast";
+import { PromptStrip } from "../affordances/PromptStrip";
 import {
   useActualSeatId,
   useMySeatId,
@@ -100,6 +96,8 @@ export function ActionsPanel() {
   const isPass = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "PASS";
   const isLoan = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "LOAN";
   const isScout = wizard.state.phase === "AWAITING_CARDS_SCOUT";
+  const canEndScout = wizard.state.phase === "AWAITING_CARDS_SCOUT" &&
+    wizard.state.cardIndices.length === 3;
   const isDevelop = wizard.state.phase === "AWAITING_DEVELOP_INPUTS";
   const canEndDevelop =
     wizard.state.phase === "AWAITING_DEVELOP_INPUTS" &&
@@ -137,9 +135,6 @@ export function ActionsPanel() {
 
   const bannerCls =
     "actions-banner" + (wizardActive ? "" : " actions-banner--emphasized");
-  // k/n indicator. k = actions used so far this turn = total - remaining.
-  // Reads naturally as "1/2" once the player has spent one of two actions.
-  const actionsUsed = Math.max(0, flags.actionsTotal - flags.actionsRemaining);
   const chips = describeChips(wizard.state, myHand);
   const issues = describeIssues(
     wizard.state,
@@ -151,7 +146,8 @@ export function ActionsPanel() {
   // state — both are user-meaningful "undo my partial selection" gestures.
   const canReset = wizardActive || stashedIndex !== null;
   return (
-    <div className={bannerCls}>
+    <section className={bannerCls} aria-label="Turn actions">
+      <h2>Choose an action</h2>
       <div className="actions-banner__row actions-banner__row--verbs">
         <div
           className="actions-banner__counter"
@@ -159,7 +155,7 @@ export function ActionsPanel() {
             flags.actionsRemaining === 1 ? "" : "s"
           } left this turn`}
         >
-          Actions {actionsUsed}/{flags.actionsTotal}
+          {flags.actionsRemaining} of {flags.actionsTotal} {flags.actionsTotal === 1 ? "action" : "actions"} left
         </div>
         <div className="actions-banner__verbs">
           <ActionButton
@@ -206,18 +202,20 @@ export function ActionsPanel() {
           />
         </div>
       </div>
+      <PromptStrip />
       <div className="actions-banner__row actions-banner__row--controls">
         <div className="actions-banner__controls">
           <ActionButton
-            label="Reset"
+            label="Reset selection"
             disabled={!canReset}
             onClick={wizard.reset}
-            tooltip="Clear the current wizard's picks (does not undo dispatched actions)."
+            tooltip="Clear this selection. Completed actions stay on the board."
           />
           <ActionButton
             label="End Action"
+            variant="primary"
             disabled={
-              !isScout &&
+              !canEndScout &&
               !canEndDevelop &&
               !canEndBuild &&
               !canEndNetwork &&
@@ -231,7 +229,7 @@ export function ActionsPanel() {
             onClick={() => engine.undo()}
             tooltip={
               wizardActive
-                ? "Reset the wizard first."
+                ? "Reset your selection first."
                 : !flags.isMyTurn
                   ? "Only the active player can undo."
                   : "Roll back your last action (within this turn only)."
@@ -239,11 +237,12 @@ export function ActionsPanel() {
           />
           <ActionButton
             label="End Turn"
+            variant="primary"
             disabled={!flags.canEndTurn}
             onClick={onEndTurn}
           />
           <ActionButton
-            label="Log"
+            label="Recent actions"
             variant="neutral"
             onClick={() => setLogOpen(true)}
             tooltip="Show the recent actions log."
@@ -283,7 +282,7 @@ export function ActionsPanel() {
         open={logOpen}
         onClose={() => setLogOpen(false)}
       />
-    </div>
+    </section>
   );
 }
 
@@ -448,6 +447,16 @@ function prettyIndustry(name: string): string {
     .join(" ");
 }
 
+const ACTION_HELP: Readonly<Record<string, string>> = {
+  Build: "Place an industry from your mat. Uses a card, money and required resources.",
+  Network: "Lay a canal or rail link. Uses a card and the link’s cost.",
+  Develop: "Remove one or two industry tiles from your mat. Uses a card and iron.",
+  Sell: "Sell your connected Cotton, Manufacturer or Pottery tiles. Uses a card and required beer.",
+  Loan: "Discard a card to gain £30 and lose three income levels.",
+  Scout: "Exchange three non-wild cards for a Wild Location and a Wild Industry card.",
+  Pass: "Discard a card and spend one action.",
+};
+
 /** Inspect the wizard's current picks against the engine state and
  *  return short, single-line descriptions of any combination errors.
  *  Surfaced as red chips next to the regular selection chips so the
@@ -553,7 +562,7 @@ function ActionButton({
   /** "neutral" demotes the button visually for non-game utilities
    *  (currently only the Log toggle). Default styling reads as a
    *  game-verb button. */
-  variant?: "neutral";
+  variant?: "neutral" | "primary";
   tooltip?: string;
 }) {
   const className = [
@@ -568,7 +577,8 @@ function ActionButton({
       type="button"
       className={className}
       disabled={disabled}
-      title={tooltip}
+      aria-pressed={ACTION_HELP[label] ? active : undefined}
+      title={tooltip ?? ACTION_HELP[label]}
       onClick={onClick}
     >
       {label}

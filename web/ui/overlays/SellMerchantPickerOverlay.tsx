@@ -1,3 +1,4 @@
+import { Modal } from "./Modal";
 // =============================================================================
 // §5.4 Sell merchant picker — surfaces when a Sell submit hits a tile
 // with 2+ valid merchant slots (matching accept-list AND reachable
@@ -35,8 +36,7 @@ export function SellMerchantPickerOverlay() {
   const choices = wizard.state.choices;
 
   return (
-    <div className="overlay-backdrop">
-      <div className="picker-overlay">
+    <Modal className="picker-overlay" label="Choose merchants" onClose={wizard.reset}>
         <header className="picker-overlay__title">
           Pick a merchant per tile
         </header>
@@ -65,8 +65,7 @@ export function SellMerchantPickerOverlay() {
             Cancel sell
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
