@@ -33,7 +33,7 @@ export function CoalIcon({
         y={1}
         width={14}
         height={14}
-        fill="#222222"
+        fill="#24332f"
         stroke="#1a1a1a"
         strokeWidth={0.9}
       />

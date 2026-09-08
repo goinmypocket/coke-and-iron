@@ -57,15 +57,15 @@ export function LinkTileIcon({
         height={TILE_VB_H - 1.2}
         rx={2}
         ry={2}
-        fill="#ffffff"
+        fill="#f7f6ef"
         stroke="#1a1a1a"
         strokeWidth={0.8}
       />
       <rect x={1} y={1} width={4} height={12} rx={1} fill={color} />
       {era === "CANAL" ? (
-        <path d="M8 8h21l-3 3H11ZM13 7V4h10v3" fill="#333333" />
+        <path d="M8 8h21l-3 3H11ZM13 7V4h10v3" fill="#3d5357" />
       ) : (
-        <g fill="none" stroke="#333333" strokeWidth={1.5}>
+        <g fill="none" stroke="#3d5357" strokeWidth={1.5}>
           <path d="M10 3v8M26 3v8M10 4h16M10 7h16M10 10h16" />
         </g>
       )}

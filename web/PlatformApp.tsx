@@ -83,7 +83,7 @@ function GameContent({ ctx }: Props): ReactNode {
         <ResourcePickerOverlay />
         <SellMerchantPickerOverlay />
         <Toaster theme="light" position="bottom-center" duration={4000}
-          toastOptions={{ className: "ci-toast", style: { background: "#fff", color: "#222222", borderColor: "#858585", fontFamily: "system-ui, sans-serif" } }} />
+          toastOptions={{ className: "ci-toast", style: { background: "#fff", color: "#282b2a", borderColor: "#92512f", fontFamily: "system-ui, sans-serif" } }} />
       </WizardProvider>
     </EngineProvider>
   );

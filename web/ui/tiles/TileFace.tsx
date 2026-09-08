@@ -108,8 +108,8 @@ function FlippedFace({
   spec: IndustryTileSpec;
   ownerColor: string;
 }) {
-  const topColor = mix(ownerColor, "#ffffff", 0.7);
-  const bottomColor = mix(ownerColor, "#ffffff", 0.55);
+  const topColor = mix(ownerColor, "#f7f6ef", 0.7);
+  const bottomColor = mix(ownerColor, "#fffdf6", 0.55);
   return (
     <g transform={`scale(${TILE_SCALE})`}>
       <rect width={BASE_TILE} height={BASE_TILE} rx={2} fill={topColor} />
@@ -166,7 +166,7 @@ function UnflippedFace({
   resources: number;
   stackCount: number | undefined;
 }) {
-  const tint = mix(ownerColor, "#ffffff", 0.7);
+  const tint = mix(ownerColor, "#fffdf6", 0.7);
   return (
     <g transform={`scale(${TILE_SCALE})`}>
       <rect width={BASE_TILE} height={BASE_TILE} rx={2} fill={tint} />
