@@ -29,6 +29,49 @@ function makeRecorder(): Recorder {
   return { msgs, send: (m) => msgs.push(m as GameServerMessage) };
 }
 
+describe("atomic inactive-seat transfer", () => {
+  const playing = (rec: Recorder) => {
+    const message = rec.msgs.filter(m => m.type === "SNAPSHOT").at(-1);
+    if (!message || message.type !== "SNAPSHOT") throw new Error("Missing snapshot");
+    return message.playing;
+  };
+  it("preserves the engine position and hand while only the new holder can act", () => {
+    const host = asUserId("host"), old = asUserId("old"), next = asUserId("next");
+    const s = makeSession(host);
+    s.claimSeat(old, 0, { displayName: "Original" }); s.claimSeat(host, 1);
+    s.startGame(host);
+    const oldView = makeRecorder(), hostView = makeRecorder(), newView = makeRecorder();
+    s.attachConnection(old, oldView.send); s.attachConnection(host, hostView.send); s.attachConnection(next, newView.send);
+    const state = playing(oldView).view, active = state.turnOrder[state.currentPlayerIndex]!;
+    const previous = active === 0 ? old : host, previousView = active === 0 ? oldView : hostView;
+    const before = s.serialize(), hand = playing(previousView).view.myHand;
+    expect(s.transferSeat(next, active, previous)).toEqual({ ok: true });
+    expect(s.serialize()).toEqual(before);
+    expect(playing(newView).actualSeatId).toBe(active);
+    expect(playing(newView).view.myHand).toEqual(hand);
+    expect(playing(previousView).actualSeatId).toBe(-1);
+    s.handleGameMessage(previous, { type: "INTENT", intent: { type: "PASS", playerId: active, cardIndex: 0 } });
+    expect(s.serialize().intentLog).toEqual(before.intentLog);
+    s.handleGameMessage(next, { type: "INTENT", intent: { type: "PASS", playerId: active, cardIndex: 0 } });
+    expect(s.serialize().intentLog.length).toBe(before.intentLog.length + 1);
+  });
+  it("leaves claims untouched on stale or unused targets and switches an existing holder atomically", () => {
+    const host = asUserId("host"), other = asUserId("other");
+    const s = makeSession(host); s.claimSeat(host, 0); s.claimSeat(other, 1); s.startGame(host);
+    const a = makeRecorder(), b = makeRecorder(); s.attachConnection(host, a.send); s.attachConnection(other, b.send);
+    const before = s.serialize(), otherHand = playing(b).view.myHand;
+    expect(s.transferSeat(host, 1, asUserId("stale")).ok).toBe(false);
+    expect(s.transferSeat(host, 2, null).ok).toBe(false);
+    expect(playing(a).actualSeatId).toBe(0); expect(playing(b).actualSeatId).toBe(1);
+    expect(s.transferSeat(host, 1, other).ok).toBe(true);
+    expect(s.serialize()).toEqual(before);
+    expect(playing(a).actualSeatId).toBe(1); expect(playing(a).view.myHand).toEqual(otherHand);
+    expect(playing(b).actualSeatId).toBe(-1);
+    expect(s.describe().playerCount).toBe(2); // Both engine positions still exist.
+    expect(s.claimSeat(other, 0).ok).toBe(true); // The previous position is free.
+  });
+});
+
 describe("CokeAndIronSession lobby", () => {
   it("only the host can start", () => {
     const host = asUserId("host");

@@ -279,6 +279,30 @@ export class CokeAndIronSession implements GameSession<CokeAndIronSave> {
     return { ok: true };
   }
 
+  /** The platform has checked inactivity; validate the expected assignment and
+   * swap only seat owners. No engine intent, identity, hand or turn is changed. */
+  transferSeat(userId: UserId, seatIndex: number, expectedOwner: UserId | null, persist: () => void = () => {}): Result {
+    if (!Number.isInteger(seatIndex) || seatIndex < 0 || seatIndex >= this.maxSlots)
+      return { ok: false, reason: "invalid seat" };
+    if (this.status !== "lobby" && !this.playerSlotOrder.includes(seatIndex))
+      return { ok: false, reason: "seat not in this game" };
+    if ((this.slotToUser.get(seatIndex) ?? null) !== expectedOwner)
+      return { ok: false, reason: "seat owner changed" };
+    const nextClaims = new Map(this.slotToUser);
+    for (const [index, owner] of nextClaims) if (owner === userId && index !== seatIndex) nextClaims.delete(index);
+    nextClaims.set(seatIndex, userId);
+    // No session mutation or projection may precede the durable ownership write.
+    try { persist(); }
+    catch { return { ok: false, reason: "Could not save the seat change. Please try again." }; }
+    this.slotToUser = nextClaims;
+    if (expectedOwner) this.spectatorViewSeat.delete(expectedOwner);
+    this.spectatorViewSeat.delete(userId);
+    this.lastActivityAt = Date.now();
+    if (this.status === "lobby") this.broadcastLobby();
+    else this.broadcastSnapshot();
+    return { ok: true };
+  }
+
   releaseSeat(userId: UserId, seatIndex: number): Result {
     if (this.status === "playing" || this.status === "finished") {
       // Mid-game leaving doesn't free the seat from the engine — the
