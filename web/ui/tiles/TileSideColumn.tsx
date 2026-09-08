@@ -60,9 +60,8 @@ export function TileSideColumn({
   // the link cascade below them is small.
   const iconSize = 14;
   const half = iconSize / 2;
-  // Link-point hexes use a smaller size — the inner content (line +
-  // dots) doesn't need to be legible at the same scale.
-  const linkIconSize = 9;
+  // Link-derived VP uses the same numbered hexagon and size as industry VP.
+  const linkIconSize = iconSize;
   const rowH = BASE_ROW_H;
   const items: JSX.Element[] = [];
   if (spec.vp > 0) {
@@ -88,9 +87,7 @@ export function TileSideColumn({
     );
   }
   if (spec.linkPoints > 0) {
-    // Single shared LinkPointsIcon component renders all N hexagons
-    // joined edge-to-edge with one outer outline — same component
-    // used on the flipped tile face and the merchant link badges.
+    // Same numbered VP hexagon as flipped tiles and merchant badges.
     const stripW = linkPointsIconWidth(spec.linkPoints, linkIconSize);
     const cy = 2 * rowH + rowH / 2;
     items.push(
@@ -109,9 +106,6 @@ export function TileSideColumn({
       width={SIDE_COL_W}
       height={height}
       viewBox={`0 0 ${BASE_SIDE_COL_W} ${BASE_VIEWBOX_H}`}
-      // Nested SVGs default to overflow:hidden — a 2-link cascade is
-      // intentionally allowed to extend a hair past the column edge
-      // into the COL_GAP between industries, so don't clip.
       overflow="visible"
       aria-hidden
     >

@@ -27,6 +27,9 @@ interface RejectionValue {
   dismiss(): void;
 }
 
+const PausedContext = createContext(false);
+export function usePaused(): boolean { return useContext(PausedContext); }
+
 const noopRejection: RejectionValue = { text: null, dismiss: () => {} };
 
 export const RejectionContext = createContext<RejectionValue>(noopRejection);
@@ -36,6 +39,7 @@ export function EngineProvider({
   mySeatId,
   actualSeatId,
   rejection,
+  paused = false,
   children,
 }: {
   engine: Engine;
@@ -47,6 +51,7 @@ export function EngineProvider({
    *  prevents the wizard from offering action verbs they can't dispatch. */
   actualSeatId?: number | null;
   rejection?: RejectionValue;
+  paused?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -56,7 +61,7 @@ export function EngineProvider({
           value={actualSeatId === undefined ? mySeatId : actualSeatId}
         >
           <RejectionContext.Provider value={rejection ?? noopRejection}>
-            {children}
+            <PausedContext.Provider value={paused}>{children}</PausedContext.Provider>
           </RejectionContext.Provider>
         </ActualSeatContext.Provider>
       </ViewerSeatContext.Provider>

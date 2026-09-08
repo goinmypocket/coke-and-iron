@@ -1,3 +1,4 @@
+import { VictoryPointsValue } from "../icons/VictoryPointsIcon";
 import { useMemo } from "react";
 import { stepToLevel } from "../../../engine/income";
 import { scoringSummary } from "../../../engine/scoring";
@@ -34,16 +35,16 @@ export function StatisticsPanel({ regionId }: { regionId: string }) {
             <article className="ci-score-card" key={player.id} aria-label={`${player.displayName} statistics`}>
               <h3><span className="pawn-swatch" style={{ background: player.pawnColor }} />{player.displayName}</h3>
               <dl className="ci-score-card__totals">
-                <div><dt>{finished ? "Final VP" : "Scored VP"}</dt><dd>{score.scored.total}</dd></div>
-                {!finished ? <div><dt>If era ended now</dt><dd>{score.totalIfScoredNow}</dd></div> : null}
+                <div><dt>{finished ? "Final VP" : "Scored VP"}</dt><dd><VictoryPointsValue amount={score.scored.total} /></dd></div>
+                {!finished ? <div><dt>If era ended now</dt><dd><VictoryPointsValue amount={score.totalIfScoredNow} /></dd></div> : null}
               </dl>
               <table className="ci-score-table">
                 <caption className="ci-visually-hidden">{player.displayName} point distribution</caption>
                 <thead><tr><th scope="col">VP source</th><th scope="col">Scored</th>{!finished ? <th scope="col">Current board</th> : null}</tr></thead>
                 <tbody>
-                  <tr><th scope="row">Industries</th><td>{score.scored.industry}</td>{score.projection ? <td>+{score.projection.industry}</td> : null}</tr>
-                  <tr><th scope="row">Links</th><td>{score.scored.links}</td>{score.projection ? <td>+{score.projection.links}</td> : null}</tr>
-                  <tr><th scope="row">Bonuses / penalties</th><td>{score.scored.other > 0 ? "+" : ""}{score.scored.other}</td>{!finished ? <td>—</td> : null}</tr>
+                  <tr><th scope="row">Industries</th><td><VictoryPointsValue amount={score.scored.industry} /></td>{score.projection ? <td>+<VictoryPointsValue amount={score.projection.industry} /></td> : null}</tr>
+                  <tr><th scope="row">Links</th><td><VictoryPointsValue amount={score.scored.links} /></td>{score.projection ? <td>+<VictoryPointsValue amount={score.projection.links} /></td> : null}</tr>
+                  <tr><th scope="row">Bonuses / penalties</th><td>{score.scored.other > 0 ? "+" : ""}<VictoryPointsValue amount={score.scored.other} /></td>{!finished ? <td>—</td> : null}</tr>
                 </tbody>
               </table>
               <p className="ci-score-card__economy">£{player.money} cash · £{stepToLevel(player.incomeStep)} income · {player.loansTaken} loans</p>
@@ -61,7 +62,7 @@ export function StatisticsPanel({ regionId }: { regionId: string }) {
               <caption>{era.era === "CANAL" ? "Canal" : "Rail"} era awarded</caption>
               <thead><tr><th scope="col">Player</th><th scope="col">Industries</th><th scope="col">Links</th></tr></thead>
               <tbody>{era.players.map((score) => (
-                <tr key={score.playerId}><th scope="row">{state.players.find((p) => p.id === score.playerId)?.displayName}</th><td>{score.industry}</td><td>{score.links}</td></tr>
+                <tr key={score.playerId}><th scope="row">{state.players.find((p) => p.id === score.playerId)?.displayName}</th><td><VictoryPointsValue amount={score.industry} /></td><td><VictoryPointsValue amount={score.links} /></td></tr>
               ))}</tbody>
             </table>
           ))}

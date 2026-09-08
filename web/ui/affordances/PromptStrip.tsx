@@ -9,7 +9,7 @@
 // =============================================================================
 
 import type { ReactNode } from "react";
-import { useActualSeatId } from "../hooks/EngineProvider";
+import { useActualSeatId, usePaused } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { useWizard } from "../wizards/WizardProvider";
 
@@ -21,6 +21,7 @@ interface TurnInfo {
 
 export function PromptStrip() {
   const wizard = useWizard();
+  const paused = usePaused();
   const actualSeatId = useActualSeatId();
   const turn = useGameState(
     (s) => {
@@ -42,7 +43,7 @@ export function PromptStrip() {
     activeColor: turn.activeColor,
     isMyTurn: turn.activeId !== null && turn.activeId === actualSeatId,
   };
-  const prompt = turn.phase === "GAME_OVER"
+  const prompt = paused ? "Game paused. Choices are locked until play resumes." : turn.phase === "GAME_OVER"
     ? "The game is complete. Review the board or recent actions."
     : wizard.state.phase === "IDLE" && info.isMyTurn && turn.actionsRemaining === 0
       ? "Your actions are complete. Choose End Turn."
@@ -90,7 +91,7 @@ function describePrompt(
     case "AWAITING_DEVELOP_INPUTS": {
       const missing: string[] = [];
       if (state.cardIndex === null) missing.push("a card");
-      if (state.industries.length === 0) missing.push("an industry on your mat");
+      if (state.industries.length === 0) missing.push("an industry");
       if (missing.length > 0) {
         return `Develop — pick ${missing.join(" and ")}.`;
       }
@@ -102,8 +103,8 @@ function describePrompt(
     case "AWAITING_BUILD_INPUTS": {
       const missing: string[] = [];
       if (state.cardIndex === null) missing.push("a card");
-      if (state.slot === null) missing.push("an empty city slot");
-      if (state.industry === null) missing.push("an industry on your mat");
+      if (state.slot === null) missing.push("a city slot (or a tile to overbuild)");
+      if (state.industry === null) missing.push("an industry");
       if (missing.length === 0) return "Build — submitting…";
       return `Build — pick ${missing.join(" and ")}.`;
     }

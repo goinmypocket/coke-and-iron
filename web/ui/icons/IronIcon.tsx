@@ -21,16 +21,16 @@ export function IronIcon({
       y={y}
       viewBox="0 0 16 16"
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
-      aria-label="Iron"
+      aria-label="Iron cube"
     >
       <rect
         x={1}
         y={1}
         width={14}
         height={14}
-        fill="#ad7040"
+        fill="#a26339"
         stroke="#1a1a1a"
-        strokeWidth={0.6}
+        strokeWidth={0.9}
       />
     </svg>
   );

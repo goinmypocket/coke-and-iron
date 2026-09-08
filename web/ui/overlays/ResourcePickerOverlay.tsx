@@ -1,4 +1,5 @@
 import { Modal } from "./Modal";
+import { usePaused } from "../hooks/EngineProvider";
 // =============================================================================
 // Resource picker — fires only when the wizard detects 2+ free board
 // sources for a needed cube (per spec §5.6, user-confirmed UX). Single-
@@ -502,10 +503,12 @@ function PickerShell({
   onCancel: () => void;
   children: React.ReactNode;
 }) {
+  const paused = usePaused();
   return (
     <Modal className="picker-overlay" label={title} onClose={onCancel}>
         <header className="picker-overlay__title">{title}</header>
         <p className="picker-overlay__lead">{lead}</p>
+        {paused ? <p role="status">Game paused. Resource choices are locked; you can cancel this selection.</p> : null}
         <div className="picker-overlay__progress">
           {pickedChips.map((c, i) => (
             <span key={i} className="picker-overlay__chip">
@@ -551,12 +554,13 @@ function SourceRow({
   disabled: boolean;
   onClick: () => void;
 }) {
+  const paused = usePaused();
   return (
     <li className="picker-overlay__source">
       <button
         type="button"
         className="action-btn"
-        disabled={disabled}
+        disabled={paused || disabled}
         onClick={onClick}
       >
         {label}

@@ -1,3 +1,5 @@
+import { usePaused, useActualSeatId } from "../hooks/EngineProvider";
+import { canTakeTurn, guardChoice } from "../interactionPolicy";
 // =============================================================================
 // WizardProvider — context glue for the local UI state machine.
 //
@@ -138,6 +140,14 @@ const WizardContext = createContext<WizardApi | null>(null);
 
 export function WizardProvider({ children }: { children: ReactNode }) {
   const engine = useEngine();
+  const paused = usePaused();
+  const actualSeatId = useActualSeatId();
+  const permission = useRef({ paused, actualSeatId });
+  permission.current = { paused, actualSeatId };
+  const allowChoice = useCallback(() => {
+    const live = engine.getState();
+    return canTakeTurn(live, permission.current.actualSeatId, permission.current.paused) && live.actionsRemaining > 0;
+  }, [engine]);
   const [state, dispatch] = useReducer(wizardReducer, INITIAL_WIZARD);
 
   // Reset wizard state whenever the active seat changes. The wizard's
@@ -1300,34 +1310,35 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     () => ({
       state,
       picked: pickedCardIndices(state),
-      startPass,
-      startLoan,
-      startScout,
-      startDevelop,
-      startBuild,
-      startNetwork,
-      startSell,
-      pickCard,
-      pickIndustry,
-      pickSlot,
-      pickLine,
-      pickTile,
-      pickIronSource,
+      startPass: guardChoice(allowChoice, startPass),
+      startLoan: guardChoice(allowChoice, startLoan),
+      startScout: guardChoice(allowChoice, startScout),
+      startDevelop: guardChoice(allowChoice, startDevelop),
+      startBuild: guardChoice(allowChoice, startBuild),
+      startNetwork: guardChoice(allowChoice, startNetwork),
+      startSell: guardChoice(allowChoice, startSell),
+      pickCard: guardChoice(allowChoice, pickCard),
+      pickIndustry: guardChoice(allowChoice, pickIndustry),
+      pickSlot: guardChoice(allowChoice, pickSlot),
+      pickLine: guardChoice(allowChoice, pickLine),
+      pickTile: guardChoice(allowChoice, pickTile),
+      pickIronSource: guardChoice(allowChoice, pickIronSource),
       resetIronPicks,
-      pickBuildCoal,
-      pickBuildIron,
+      pickBuildCoal: guardChoice(allowChoice, pickBuildCoal),
+      pickBuildIron: guardChoice(allowChoice, pickBuildIron),
       resetBuildResources,
-      pickNetworkFirstCoal,
-      pickNetworkSecondCoal,
-      pickNetworkBeer,
+      pickNetworkFirstCoal: guardChoice(allowChoice, pickNetworkFirstCoal),
+      pickNetworkSecondCoal: guardChoice(allowChoice, pickNetworkSecondCoal),
+      pickNetworkBeer: guardChoice(allowChoice, pickNetworkBeer),
       resetNetworkResources,
-      pickSellBeer,
+      pickSellBeer: guardChoice(allowChoice, pickSellBeer),
       resetSellResources,
-      pickSellMerchant,
-      endAction,
+      pickSellMerchant: guardChoice(allowChoice, pickSellMerchant),
+      endAction: guardChoice(allowChoice, endAction),
       reset,
     }),
     [
+      allowChoice,
       state,
       startPass,
       startLoan,

@@ -1,4 +1,4 @@
-// Income-gained glyph: gold up-arrow with the gain written inside.
+// Income-gained glyph: outlined up-arrow with the gain written inside.
 //
 // Used on tile-face flipped corners, the mat side column, and the
 // merchant INCOME bonus badge. Anywhere the player would otherwise
@@ -34,9 +34,9 @@ export function IncomeGainedIcon({
        *  Money icons. */}
       <path
         d="M 8 1 L 14 7 L 13 7 L 13 14 L 3 14 L 3 7 L 2 7 Z"
-        fill="#d4a017"
+        fill="#f3f6f1"
         stroke="#1a1a1a"
-        strokeWidth={0.7}
+        strokeWidth={1}
         strokeLinejoin="round"
       />
       {/* Number centred within the icon's full 16×16 viewBox (not just

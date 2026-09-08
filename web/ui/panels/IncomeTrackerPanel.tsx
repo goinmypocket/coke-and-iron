@@ -31,7 +31,6 @@ import {
 } from "../../../engine";
 import type { PawnColor, PlayerId } from "../../../engine";
 import { useGameState } from "../hooks/useGameState";
-import { MoneyCoin } from "../icons/MoneyCoin";
 
 interface SeatMarker {
   readonly seatId: PlayerId;
@@ -92,7 +91,7 @@ export function IncomeLadder() {
     <ol className="income-ladder">
       <li key="compressed" className="income-row">
         <div className="income-row__level">
-          <MoneyCoin amount={21} label="21+" size={18} />
+          <span>£21+</span>
         </div>
         <div className="income-row__cells">
           <div className="income-cell">
@@ -117,7 +116,7 @@ export function IncomeLadder() {
         return (
           <li key={level} className="income-row">
             <div className="income-row__level">
-              <MoneyCoin amount={level} size={18} />
+              <span>£{level}</span>
             </div>
             <div className="income-row__cells">
               {steps.map((step) => {

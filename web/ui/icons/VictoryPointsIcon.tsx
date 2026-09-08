@@ -1,5 +1,5 @@
 // Victory-points glyph: pointy-top hexagon with the VP value inside.
-// Black background, dark-golden border, dark-golden value.
+// Plain outlined hexagon; the number stays legible at board scale.
 
 import type { CSSProperties } from "react";
 
@@ -15,8 +15,8 @@ const HEX_POINTS = (() => {
   return pts.map(([px, py]) => `${px.toFixed(2)},${py.toFixed(2)}`).join(" ");
 })();
 
-const VP_BG = "#0a0a0a";
-const VP_GOLD = "#c89020";
+const VP_BG = "#ffffff";
+const VP_INK = "#24332f";
 
 export function VictoryPointsIcon({
   amount,
@@ -24,12 +24,14 @@ export function VictoryPointsIcon({
   x,
   y,
   style,
+  label,
 }: {
-  amount: number;
+  amount?: number;
   size?: number;
   x?: number;
   y?: number;
   style?: CSSProperties;
+  label?: string;
 }) {
   return (
     <svg
@@ -39,25 +41,30 @@ export function VictoryPointsIcon({
       y={y}
       viewBox="0 0 16 16"
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
-      aria-label={`${amount} victory points`}
+      aria-label={label ?? (amount === undefined ? "Victory points" : `${amount} victory points`)}
     >
       <polygon
         points={HEX_POINTS}
         fill={VP_BG}
-        stroke={VP_GOLD}
+        stroke={VP_INK}
         strokeWidth={1.1}
         strokeLinejoin="round"
       />
-      <text
+      {amount !== undefined ? <text
         x={8}
         y={11}
         textAnchor="middle"
-        fontSize={8}
+        fontSize={String(amount).length > 2 ? 6.5 : 8}
         fontWeight={700}
-        fill={VP_GOLD}
+        fill={VP_INK}
       >
         {amount}
-      </text>
+      </text> : null}
     </svg>
   );
+}
+
+/** Keep prose and table values at normal text size beside the shared VP glyph. */
+export function VictoryPointsValue({ amount }: { amount: number }) {
+  return <span className="ci-vp-value"><span aria-hidden="true"><VictoryPointsIcon /></span><span>{amount}</span></span>;
 }

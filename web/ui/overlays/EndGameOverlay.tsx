@@ -1,3 +1,4 @@
+import { VictoryPointsValue } from "../icons/VictoryPointsIcon";
 import { Modal } from "./Modal";
 // =============================================================================
 // §11.11 End-game overlay — rendered when state.phase === "GAME_OVER".
@@ -13,9 +14,6 @@ import { rankSeats } from "../../../engine";
 import type { GameState, RankReason } from "../../../engine";
 import { useEngine } from "../hooks/useEngine";
 import { useGameState } from "../hooks/useGameState";
-import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
-import { MoneyCoin } from "../icons/MoneyCoin";
-import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 
 const TIE_BREAK_LABEL: Readonly<Record<RankReason, string>> = {
   VP: "VP",
@@ -58,12 +56,10 @@ export function EndGameOverlay() {
           <thead>
             <tr>
               <th>#</th>
-              <th></th>
               <th>Name</th>
               <th>VP</th>
-              <th>Inc</th>
-              <th>Money</th>
-              <th>Tie-break</th>
+              <th>Income</th>
+              <th>Cash</th>
             </tr>
           </thead>
           <tbody>
@@ -75,24 +71,23 @@ export function EndGameOverlay() {
                     className="pawn-swatch"
                     style={{ background: row.pawnColor }}
                   />
-                </td>
-                <td>{row.displayName}</td>
-                <td>
-                  <VictoryPointsIcon amount={row.vp} size={14} />
+                  {row.displayName}<small className="ci-result-reason">{TIE_BREAK_LABEL[row.tieBreak]}</small>
                 </td>
                 <td>
-                  <CurrentIncomeIcon amount={row.incomeLevel} size={14} />
+                  <VictoryPointsValue amount={row.vp} />
                 </td>
                 <td>
-                  <MoneyCoin amount={row.money} size={14} />
+                  £{row.incomeLevel}
                 </td>
-                <td>{TIE_BREAK_LABEL[row.tieBreak]}</td>
+                <td>
+                  £{row.money}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
         <p className="endgame-overlay__footnote">
-          Tie-break order per §6.6: VP, then income level, then money.
+          Ranking: VP, then income level, then cash. The note under each name shows the deciding tie-break.
         </p>
         <div className="endgame-overlay__buttons">
           <button

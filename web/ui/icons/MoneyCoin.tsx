@@ -44,9 +44,9 @@ export function MoneyCoin({
         cx={7}
         cy={7}
         r={6.4}
-        fill="#d9c596"
+        fill="#fffdf4"
         stroke="#1a1a1a"
-        strokeWidth={0.6}
+        strokeWidth={0.9}
       />
       <text
         x={7}

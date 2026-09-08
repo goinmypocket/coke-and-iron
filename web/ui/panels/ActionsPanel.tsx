@@ -17,6 +17,7 @@ import { reasonToText } from "../affordances/toast";
 import { PromptStrip } from "../affordances/PromptStrip";
 import {
   useActualSeatId,
+  usePaused,
   useMySeatId,
   useRejection,
 } from "../hooks/EngineProvider";
@@ -25,12 +26,19 @@ import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { RecentActionsOverlay } from "../overlays/RecentActionsOverlay";
 import { useWizard } from "../wizards/WizardProvider";
 
+import { HandPanel } from "./HandPanel";
+import { NextIndustryPicker } from "./NextIndustryPicker";
+import { ActionIcon } from "../icons/ActionIcon";
+import { commitHint, wizardActionName } from "../wizards/wizardCopy";
+
 interface ChipDef {
   readonly key: string;
   readonly label: string;
 }
 
-export function ActionsPanel() {
+export function ActionsPanel({ onOpenBoard }: { onOpenBoard: () => void }) {
+  const paused = usePaused();
+  const [chooserOpen, setChooserOpen] = useState(false);
   const engine = useEngine();
   const wizard = useWizard();
   const canUndo = useCanUndo();
@@ -50,6 +58,7 @@ export function ActionsPanel() {
       s.pendingShortfalls.length === 0 &&
       s.phase === "PLAYER_TURNS";
     return {
+      era: s.era,
       actionsRemaining: s.actionsRemaining,
       // Round 1 of the Canal era is a single-action round; every other
       // round gives 2 actions (mirrors actionsForRound() in the engine's
@@ -59,6 +68,7 @@ export function ActionsPanel() {
       // This prevents one client's UI from poking at another client's
       // hand or actions during their turn.
       canAct: baseCanAct && isMyTurn,
+      turnOpen: s.pendingShortfalls.length === 0 && s.phase === "PLAYER_TURNS" && isMyTurn,
       canEndTurn:
         s.actionsRemaining === 0 &&
         s.pendingShortfalls.length === 0 &&
@@ -93,30 +103,21 @@ export function ActionsPanel() {
     wizard.state.phase === "IDLE" ? wizard.state.stashedCardIndex : null;
 
   const wizardActive = wizard.state.phase !== "IDLE";
-  const isPass = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "PASS";
-  const isLoan = wizard.state.phase === "AWAITING_CARD" && wizard.state.action === "LOAN";
-  const isScout = wizard.state.phase === "AWAITING_CARDS_SCOUT";
   const canEndScout = wizard.state.phase === "AWAITING_CARDS_SCOUT" &&
     wizard.state.cardIndices.length === 3;
-  const isDevelop = wizard.state.phase === "AWAITING_DEVELOP_INPUTS";
   const canEndDevelop =
     wizard.state.phase === "AWAITING_DEVELOP_INPUTS" &&
     wizard.state.cardIndex !== null &&
     wizard.state.industries.length >= 1;
-  const isBuild = wizard.state.phase === "AWAITING_BUILD_INPUTS";
   const canEndBuild =
     wizard.state.phase === "AWAITING_BUILD_INPUTS" &&
     wizard.state.cardIndex !== null &&
     wizard.state.slot !== null &&
     wizard.state.industry !== null;
-  const isNetwork = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
   const canEndNetwork =
     wizard.state.phase === "AWAITING_NETWORK_INPUTS" &&
     wizard.state.cardIndex !== null &&
     wizard.state.lineIndex !== null;
-  const isSell =
-    wizard.state.phase === "AWAITING_SELL_INPUTS" ||
-    wizard.state.phase === "AWAITING_SELL_GLOUCESTER";
   const canEndSell =
     (wizard.state.phase === "AWAITING_SELL_INPUTS" &&
       wizard.state.cardIndex !== null &&
@@ -125,7 +126,7 @@ export function ActionsPanel() {
       wizard.state.industries.length === wizard.state.need);
 
   const onEndTurn = () => {
-    if (flags.activePlayerId === null) return;
+    if (paused || !flags.canEndTurn || flags.activePlayerId === null) return;
     const result = engine.dispatch({
       type: "END_TURN",
       playerId: flags.activePlayerId,
@@ -133,8 +134,6 @@ export function ActionsPanel() {
     if (!result.ok) toast.error(reasonToText(result.reason));
   };
 
-  const bannerCls =
-    "actions-banner" + (wizardActive ? "" : " actions-banner--emphasized");
   const chips = describeChips(wizard.state, myHand);
   const issues = describeIssues(
     wizard.state,
@@ -145,139 +144,43 @@ export function ActionsPanel() {
   // Reset clears either an active wizard's picks or the IDLE-with-stash
   // state — both are user-meaningful "undo my partial selection" gestures.
   const canReset = wizardActive || stashedIndex !== null;
+  const activeName = wizardActionName(wizard.state);
+  const hint = commitHint(wizard.state, flags.era);
+  const verbs = [
+    ["Build", "Place an industry", wizard.startBuild], ["Network", "Connect cities", wizard.startNetwork],
+    ["Develop", "Unlock better tiles", wizard.startDevelop], ["Sell", "Flip industries", wizard.startSell],
+    ["Loan", "Raise £30", wizard.startLoan], ["Scout", "Exchange 3 cards", wizard.startScout],
+    ["Pass", "Discard a card", wizard.startPass],
+  ] as const;
   return (
-    <section className={bannerCls} aria-label="Turn actions">
-      <h2>Choose an action</h2>
-      <div className="actions-banner__row actions-banner__row--verbs">
-        <div
-          className="actions-banner__counter"
-          title={`${flags.actionsRemaining} action${
-            flags.actionsRemaining === 1 ? "" : "s"
-          } left this turn`}
-        >
-          {flags.actionsRemaining} of {flags.actionsTotal} {flags.actionsTotal === 1 ? "action" : "actions"} left
-        </div>
-        <div className="actions-banner__verbs">
-          <ActionButton
-            label="Build"
-            active={isBuild}
-            disabled={!flags.canAct}
-            onClick={wizard.startBuild}
-          />
-          <ActionButton
-            label="Network"
-            active={isNetwork}
-            disabled={!flags.canAct}
-            onClick={wizard.startNetwork}
-          />
-          <ActionButton
-            label="Develop"
-            active={isDevelop}
-            disabled={!flags.canAct}
-            onClick={wizard.startDevelop}
-          />
-          <ActionButton
-            label="Sell"
-            active={isSell}
-            disabled={!flags.canAct}
-            onClick={wizard.startSell}
-          />
-          <ActionButton
-            label="Loan"
-            active={isLoan}
-            disabled={!flags.canAct}
-            onClick={wizard.startLoan}
-          />
-          <ActionButton
-            label="Scout"
-            active={isScout}
-            disabled={!flags.canAct}
-            onClick={wizard.startScout}
-          />
-          <ActionButton
-            label="Pass"
-            active={isPass}
-            disabled={!flags.canAct}
-            onClick={wizard.startPass}
-          />
-        </div>
+    <section className="actions-banner" aria-label="Turn actions">
+      <div className="ci-section-heading">
+        <h2>{activeName ?? (flags.isMyTurn ? "Your turn" : "Turn actions")}</h2>
+        {wizardActive ? <button className="ci-text-button" type="button" aria-expanded={chooserOpen} onClick={() => setChooserOpen(v => !v)}>Change action</button>
+          : <span className="actions-banner__counter">{flags.actionsRemaining} {flags.actionsRemaining === 1 ? "action" : "actions"} left</span>}
       </div>
+      {!wizardActive || chooserOpen ? <div className="actions-banner__verbs">
+        {verbs.map(([label, description, start]) => <button key={label} type="button" className="ci-action-choice" disabled={paused || !flags.canAct} aria-pressed={activeName === label} title={ACTION_HELP[label]} onClick={() => { start(); setChooserOpen(false); }}>
+          <ActionIcon name={label} /><span><strong>{label}</strong><small>{description}</small></span>
+        </button>)}
+      </div> : null}
       <PromptStrip />
-      <div className="actions-banner__row actions-banner__row--controls">
-        <div className="actions-banner__controls">
-          <ActionButton
-            label="Reset selection"
-            disabled={!canReset}
-            onClick={wizard.reset}
-            tooltip="Clear this selection. Completed actions stay on the board."
-          />
-          <ActionButton
-            label="End Action"
-            variant="primary"
-            disabled={
-              !canEndScout &&
-              !canEndDevelop &&
-              !canEndBuild &&
-              !canEndNetwork &&
-              !canEndSell
-            }
-            onClick={wizard.endAction}
-          />
-          <ActionButton
-            label="Undo"
-            disabled={!canUndo || wizardActive || !flags.isMyTurn}
-            onClick={() => engine.undo()}
-            tooltip={
-              wizardActive
-                ? "Reset your selection first."
-                : !flags.isMyTurn
-                  ? "Only the active player can undo."
-                  : "Roll back your last action (within this turn only)."
-            }
-          />
-          <ActionButton
-            label="End Turn"
-            variant="primary"
-            disabled={!flags.canEndTurn}
-            onClick={onEndTurn}
-          />
-          <ActionButton
-            label="Recent actions"
-            variant="neutral"
-            onClick={() => setLogOpen(true)}
-            tooltip="Show the recent actions log."
-          />
-        </div>
-        {chips.length > 0 || issues.length > 0 || rejection.text !== null ? (
-          <div className="actions-banner__chips">
-            {chips.map((c) => (
-              <span key={c.key} className="actions-banner__chip">
-                {c.label}
-              </span>
-            ))}
-            {issues.map((label, idx) => (
-              <span
-                key={`issue-${idx}`}
-                className="actions-banner__chip actions-banner__chip--error"
-                role="alert"
-              >
-                ⚠ {label}
-              </span>
-            ))}
-            {rejection.text !== null ? (
-              <button
-                type="button"
-                className="actions-banner__chip actions-banner__chip--error actions-banner__chip--dismissable"
-                role="alert"
-                onClick={rejection.dismiss}
-                title="Click to dismiss"
-              >
-                ⚠ {rejection.text} ×
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+      {hint && !paused ? <p className="ci-commit-note">{hint}</p> : null}
+      {chips.length > 0 || issues.length > 0 || rejection.text !== null ? <div className="actions-banner__chips">
+        {chips.map(c => <span key={c.key} className="actions-banner__chip">{c.label}</span>)}
+        {issues.map((label, idx) => <span key={idx} className="actions-banner__chip actions-banner__chip--error" role="alert">{label}</span>)}
+        {rejection.text !== null ? <button type="button" className="actions-banner__chip actions-banner__chip--error" role="alert" onClick={rejection.dismiss} title="Dismiss error">{rejection.text} ×</button> : null}
+      </div> : null}
+      {wizardActive ? <button type="button" className="action-btn ci-open-board" onClick={onOpenBoard}>Open board</button> : null}
+      <NextIndustryPicker />
+      <HandPanel />
+      <div className="actions-banner__controls">
+        <ActionButton label="Reset selection" disabled={!canReset} onClick={wizard.reset} tooltip="Clear unfinished choices. Completed actions stay on the board." />
+        <ActionButton label="End Action" variant="primary" disabled={paused || !(canEndScout || canEndDevelop || canEndBuild || canEndNetwork || canEndSell)} onClick={wizard.endAction} />
+        <ActionButton label="Undo" disabled={paused || !canUndo || wizardActive || !flags.turnOpen} onClick={() => { if (!paused && flags.turnOpen) engine.undo(); }} tooltip={wizardActive ? "Reset your selection first." : "Roll back your last action within this turn."} />
+        <ActionButton label="End Turn" variant="primary" disabled={paused || !flags.canEndTurn} onClick={onEndTurn} />
       </div>
+      <button type="button" className="ci-text-button ci-recent-button" onClick={() => setLogOpen(true)}>Recent actions</button>
       <RecentActionsOverlay
         open={logOpen}
         onClose={() => setLogOpen(false)}
@@ -447,7 +350,7 @@ function prettyIndustry(name: string): string {
     .join(" ");
 }
 
-const ACTION_HELP: Readonly<Record<string, string>> = {
+export const ACTION_HELP: Readonly<Record<string, string>> = {
   Build: "Place an industry from your mat. Uses a card, money and required resources.",
   Network: "Lay a canal or rail link. Uses a card and the link’s cost.",
   Develop: "Remove one or two industry tiles from your mat. Uses a card and iron.",

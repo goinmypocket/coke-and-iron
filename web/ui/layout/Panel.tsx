@@ -22,8 +22,7 @@ export function Panel({
    *  contents are self-explanatory and the heading is just visual noise. */
   hideTitle?: boolean;
   emphasized?: boolean;
-  /** Override the neutral ink border (used by per-seat sub-panels in
-   * the players region to paint the seat's pawn colour). */
+  /** Accent the top edge with the seat's pawn colour. */
   borderColor?: string;
   children: ReactNode;
 }) {
@@ -34,7 +33,7 @@ export function Panel({
   ]
     .filter(Boolean)
     .join(" ");
-  const style = borderColor ? { borderColor } : undefined;
+  const style = borderColor ? { borderTopColor: borderColor } : undefined;
   return (
     <section className={className} data-panel-id={id} style={style}>
       {hideTitle ? null : (

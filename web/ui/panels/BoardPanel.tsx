@@ -17,7 +17,7 @@ import type {
   MerchantTileAccept,
   PlacedIndustryTile,
 } from "../../../engine";
-import { useMySeatId } from "../hooks/EngineProvider";
+import { useMySeatId, usePaused } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { BeerIcon } from "../icons/BeerIcon";
 import { CoalIcon } from "../icons/CoalIcon";
@@ -40,7 +40,7 @@ import {
   TileFace,
 } from "../tiles/TileFace";
 import { useWizard } from "../wizards/WizardProvider";
-import { IncomeLadder } from "./IncomeTrackerPanel";
+import { ReferenceTools } from "./ReferenceTools";
 
 const CANVAS = 900;
 // City bounding box scales to the slot count rather than padding to a
@@ -79,6 +79,7 @@ function slotCellPos(
 
 export function BoardPanel({ regionId }: { regionId?: string }) {
   const wizard = useWizard();
+  const paused = usePaused();
   const mySeatId = useMySeatId();
   const view = useGameState((s) => ({
     era: s.era,
@@ -131,8 +132,8 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
 
   const buildPick =
     wizard.state.phase === "AWAITING_BUILD_INPUTS" ? wizard.state.slot : null;
-  const slotsClickable = wizard.state.phase === "AWAITING_BUILD_INPUTS";
-  const buildMode = wizard.state.phase === "AWAITING_BUILD_INPUTS";
+  const slotsClickable = !paused && wizard.state.phase === "AWAITING_BUILD_INPUTS";
+  const buildMode = !paused && wizard.state.phase === "AWAITING_BUILD_INPUTS";
   // Slot narrowing: once the player has stashed / picked a card or
   // industry, dim slots the engine wouldn't accept anyway. Card with
   // a LOCATION constraint pins the legal city; industry pin narrows
@@ -162,7 +163,7 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
     return { cityName, industry };
   }, [wizard.state, myHand]);
 
-  const linesClickable = wizard.state.phase === "AWAITING_NETWORK_INPUTS";
+  const linesClickable = !paused && wizard.state.phase === "AWAITING_NETWORK_INPUTS";
   const linePicks = useMemo(() => {
     if (wizard.state.phase !== "AWAITING_NETWORK_INPUTS") {
       return new Set<number>();
@@ -192,7 +193,7 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
     wizard.state.phase === "AWAITING_BUILD_RESOURCES" &&
     wizard.state.ironPicks.length < wizard.state.ironNeed;
 
-  const sellMode = wizard.state.phase === "AWAITING_SELL_INPUTS";
+  const sellMode = !paused && wizard.state.phase === "AWAITING_SELL_INPUTS";
   const sellPickedTileIds = useMemo(
     () =>
       wizard.state.phase === "AWAITING_SELL_INPUTS"
@@ -206,12 +207,9 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
 
   return (
     <Panel id="board" title="Board" hideTitle>
-      <div className="ci-board-toolbar" id={regionId}><h2>Main board</h2></div>
+      <div className="ci-board-toolbar" id={regionId}><h2>Main board</h2><ReferenceTools /></div>
       <div className="ci-board-viewport" tabIndex={0} role="region" aria-label="Main board. Scroll sideways on narrow screens.">
       <div className="board-region">
-        <div className="board-region__income">
-          <IncomeLadder />
-        </div>
         <svg
           className="board-svg"
           viewBox={`0 0 ${CANVAS} ${CANVAS}`}
@@ -1219,7 +1217,7 @@ export function Markets({
       <MarketColumn
         market={coal}
         industry="COAL_MINE"
-        cubeColor="#1a1a1a"
+        cubeColor="#24332f"
         x={innerPadX}
         rowsTopY={coalTopY}
         iconY={iconY}
@@ -1231,7 +1229,7 @@ export function Markets({
       <MarketColumn
         market={iron}
         industry="IRON_WORKS"
-        cubeColor="#d97706"
+        cubeColor="#a26339"
         x={innerPadX + colW}
         rowsTopY={ironTopY}
         iconY={iconY}
@@ -1344,18 +1342,12 @@ function MarketColumn({
           </g>
         );
       })}
-      {/* Industry icon centred at the bottom of the column, aligned
-       * with the icon in the other column so they sit on a shared
-       * baseline regardless of how many rows each column has. */}
-      <image
-        href={INDUSTRY_ICON[industry]}
-        x={x + (colW - iconSize) / 2}
-        y={iconY}
-        width={iconSize}
-        height={iconSize}
-        preserveAspectRatio="xMidYMid meet"
-        opacity={glow ? 1 : 0.95}
-      />
+      {industry === "COAL_MINE"
+        ? <CoalIcon x={x + 4} y={iconY + 7} size={14} />
+        : <IronIcon x={x + 4} y={iconY + 7} size={14} />}
+      <text x={x + 24} y={iconY + iconSize - 7} fontSize={15} fill="var(--ink)">
+        {industry === "COAL_MINE" ? "Coal" : "Iron"}
+      </text>
     </g>
   );
 }
@@ -1384,7 +1376,7 @@ function SvgMoneyCoin({
         cx={cx}
         cy={cy}
         r={r}
-        fill="#d4a017"
+        fill="#fffdf4"
         stroke="#1a1a1a"
         strokeWidth={0.5}
       />
@@ -1583,7 +1575,7 @@ export function TurnOrderWidget({
   const X = position[0] - W / 2;
   const Y = position[1] - H / 2;
   const totalRounds = LAST_ROUND_BY_PLAYER_COUNT[playerCount] ?? round;
-  const eraLabel = era === "CANAL" ? "Canal Era" : "Rail Era";
+  const eraLabel = era === "CANAL" ? "Canal" : "Rail";
   const playerById = new Map(players.map((p) => [p.id, p]));
   return (
     <g
@@ -1609,7 +1601,7 @@ export function TurnOrderWidget({
         fontWeight={700}
         fill="#1a1a1a"
       >
-        {eraLabel}
+        Turn order
       </text>
       <text
         x={W / 2}
@@ -1619,7 +1611,7 @@ export function TurnOrderWidget({
         fontWeight={600}
         fill="var(--muted)"
       >
-        Round {round}/{totalRounds}
+        {eraLabel} {round}/{totalRounds} · Spent (£)
       </text>
       <line
         x1={6}
@@ -1650,8 +1642,8 @@ export function TurnOrderWidget({
                   y={0}
                   width={W - 4}
                   height={ROW_H}
-                  fill="#fde68a"
-                  stroke="#b45309"
+                  fill="var(--soft-tint)"
+                  stroke="var(--focus)"
                   strokeWidth={1.25}
                   rx={2}
                 />
@@ -1678,7 +1670,7 @@ export function TurnOrderWidget({
               y={ROW_H / 2 + 4}
               fontSize={isActive ? 14 : 13}
               fontWeight={isActive ? 800 : 600}
-              fill={isActive ? "#78350f" : "#1a1a1a"}
+              fill="var(--ink)"
             >
               {isActive ? `▶ ${p.displayName}` : p.displayName}
             </text>

@@ -1,4 +1,5 @@
 import { Modal } from "./Modal";
+import { usePaused } from "../hooks/EngineProvider";
 // =============================================================================
 // §5.4 Sell merchant picker — surfaces when a Sell submit hits a tile
 // with 2+ valid merchant slots (matching accept-list AND reachable
@@ -87,6 +88,7 @@ function ChoiceRow({
   };
   onPick: (opt: { merchantCityName: string; merchantSlotIndex: number }) => void;
 }) {
+  const paused = usePaused();
   const tile = useMemo(
     () => view.builtTiles.find((t) => t.id === tileId) ?? null,
     [view.builtTiles, tileId],
@@ -118,7 +120,7 @@ function ChoiceRow({
                 (isChosen ? " merchant-pick-btn--chosen" : "")
               }
               onClick={() => onPick(opt)}
-              disabled={chosen !== null}
+              disabled={paused || chosen !== null}
             >
               <strong>{opt.merchantCityName}</strong>
               <span className="merchant-pick-btn__sub">

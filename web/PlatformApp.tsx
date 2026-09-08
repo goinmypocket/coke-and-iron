@@ -9,7 +9,7 @@
 // existing UI already handles it via ViewerBanner / hidden hand.
 // =============================================================================
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { EngineProvider } from "./ui/hooks/EngineProvider";
 import {
@@ -25,7 +25,7 @@ import { SellMerchantPickerOverlay } from "./ui/overlays/SellMerchantPickerOverl
 import { ShortfallOverlay } from "./ui/overlays/ShortfallOverlay";
 import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { BoardPanel } from "./ui/panels/BoardPanel";
-import { HandPanel } from "./ui/panels/HandPanel";
+import { PromptStrip } from "./ui/affordances/PromptStrip";
 import { PlayersPanel } from "./ui/panels/PlayersPanel";
 import { StatisticsPanel } from "./ui/panels/StatisticsPanel";
 import { WizardProvider } from "./ui/wizards/WizardProvider";
@@ -59,6 +59,7 @@ function GameContent({ ctx }: Props): ReactNode {
   return (
     <EngineProvider
       engine={session.engine}
+      paused={session.paused}
       mySeatId={session.mySeatId}
       actualSeatId={session.actualSeatId}
       rejection={{
@@ -70,28 +71,12 @@ function GameContent({ ctx }: Props): ReactNode {
         <div className="app-shell">
           <TurnSummary paused={session.paused} />
           <ShortfallOverlay />
-          <nav className="ci-jump-links" aria-label="Game areas">
-            <a href={`#${regionId}-actions`}>Actions</a>
-            <a href={`#${regionId}-board`}>Board</a>
-            <a href={`#${regionId}-statistics`}>Statistics</a>
-            <a href={`#${regionId}-industries`}>Industries</a>
-          </nav>
           <ViewerBanner
             isSpectator={session.isSpectator}
             viewedSeatId={session.mySeatId}
             onPickSpectatorView={session.setSpectatorView}
           />
-          <div className="game-stack">
-            <div className="ci-board-column">
-              <BoardPanel regionId={`${regionId}-board`} />
-              <StatisticsPanel regionId={`${regionId}-statistics`} />
-            </div>
-            <div className="ci-play-rail">
-              <div className="ci-action-region" id={`${regionId}-actions`}><ActionsPanel /></div>
-              <HandPanel />
-              <div id={`${regionId}-industries`}><PlayersPanel /></div>
-            </div>
-          </div>
+          <GameWorkspace regionId={regionId} />
         </div>
         <EndGameOverlay />
         <EraRoundBanner />
@@ -102,4 +87,39 @@ function GameContent({ ctx }: Props): ReactNode {
       </WizardProvider>
     </EngineProvider>
   );
+}
+
+function GameWorkspace({ regionId }: { regionId: string }) {
+  const [area, setArea] = useState("turn");
+  const [detail, setDetail] = useState("statistics");
+  const openArea = (next: string) => {
+    setArea(next);
+    requestAnimationFrame(() => {
+      const target = document.getElementById(`${regionId}-${next}`);
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "start" });
+    });
+  };
+  return <div className="ci-workspace" data-area={area}>
+    <nav className="ci-area-nav" aria-label="Game areas">
+      {[["turn", "Turn"], ["board", "Board"], ["details", "Details"]].map(([id, label]) =>
+        <button key={id} type="button" aria-pressed={area === id} aria-controls={regionId + "-" + id} onClick={() => setArea(id!)}>{label}</button>)}
+    </nav>
+    <div className="game-stack">
+      <section className="ci-board-column" id={regionId + "-board"} aria-label="Board area" tabIndex={-1}>
+        <div className="ci-board-next"><PromptStrip /><button className="action-btn" onClick={() => openArea("turn")}>Your hand &amp; actions</button></div>
+        <BoardPanel regionId={regionId + "-map"} />
+      </section>
+      <div className="ci-play-rail" id={regionId + "-turn"} role="region" aria-label="Turn area" tabIndex={-1}>
+        <ActionsPanel onOpenBoard={() => openArea("board")} />
+      </div>
+      <section className="ci-table-details" id={regionId + "-details"} aria-label="Table details">
+        <nav className="ci-detail-nav" aria-label="Table details"><h2>Table details</h2>
+          {[["statistics", "Statistics"], ["industries", "Industries"]].map(([id, label]) => <button key={id} type="button" aria-pressed={detail === id} aria-controls={regionId + "-" + id} onClick={() => setDetail(id!)}>{label}</button>)}
+        </nav>
+        <div hidden={detail !== "statistics"}><StatisticsPanel regionId={regionId + "-statistics"} /></div>
+        <div hidden={detail !== "industries"} id={regionId + "-industries"}><PlayersPanel /></div>
+      </section>
+    </div>
+  </div>;
 }

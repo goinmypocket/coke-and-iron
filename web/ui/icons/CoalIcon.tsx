@@ -26,16 +26,16 @@ export function CoalIcon({
       y={y}
       viewBox="0 0 16 16"
       style={{ verticalAlign: "middle", flexShrink: 0, ...style }}
-      aria-label="Coal"
+      aria-label="Coal cube"
     >
       <rect
         x={1}
         y={1}
         width={14}
         height={14}
-        fill="#1a1a1a"
+        fill="#24332f"
         stroke="#1a1a1a"
-        strokeWidth={0.6}
+        strokeWidth={0.9}
       />
     </svg>
   );

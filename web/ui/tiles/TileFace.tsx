@@ -272,8 +272,8 @@ function CornerLevel({ level }: { level: number }) {
   );
 }
 
-/** N pointy-top hexagons joined edge-to-edge. When `alignRight`, the
- *  strip's right edge sits at `x`; otherwise its left edge does.
+/** One numbered VP hexagon. When `alignRight`, the badge's
+ *  right edge sits at `x`; otherwise its left edge does.
  *  Delegates to the shared LinkPointsIcon so the flipped tile face,
  *  the mat side column, and the merchant badges all render link
  *  points with identical geometry. */

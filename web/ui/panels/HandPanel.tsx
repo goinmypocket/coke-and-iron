@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Card, DistrictCity, IndustryName } from "../../../engine";
-import { useActualSeatId } from "../hooks/EngineProvider";
+import { useActualSeatId, usePaused } from "../hooks/EngineProvider";
 import { shallowEqual, useGameState } from "../hooks/useGameState";
 import { HandSizeIcon } from "../icons/HandSizeIcon";
 import { DISTRICT_FILL, INDUSTRY_ICON, INDUSTRY_LABEL } from "../industryIcons";
@@ -25,6 +25,7 @@ const EMPTY_HAND: readonly Card[] = [];
  */
 export function HandPanel() {
   const wizard = useWizard();
+  const paused = usePaused();
   // Spectators viewing through a player see that player's hand, but must
   // not be able to act for them. The hand to render is whatever seat the
   // server projected this view from — read it straight off the view so
@@ -57,7 +58,7 @@ export function HandPanel() {
     };
   }, shallowEqual);
   const isMyTurn =
-    view.canAct &&
+    !paused && view.canAct &&
     view.activeId !== null &&
     actualSeatId !== null &&
     view.activeId === actualSeatId &&

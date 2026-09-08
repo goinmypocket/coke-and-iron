@@ -1,22 +1,20 @@
+import { usePaused } from "../hooks/EngineProvider";
+import { canPickIndustry, nextIndustryTile } from "../interactionPolicy";
 import { svgButton } from "../affordances/svgButton";
 // =============================================================================
 // §11.3 Players panel — outer container with one sub-panel per seated
 // player.
 //
 // Mat layout: every industry column shows one row per fixed level. Each
-// row carries the *flipped* TileFace plus a side margin showing the
-// cost/coal/iron/era/etc. fields the flipped face drops, with a side
-// column for VP/income/link-points bonuses on the right. Only the
-// lowest level still in the stack is clickable. Manufacturer spans two
-// sub-columns (L1-5 / L6-8); every other industry is a single column.
+// row carries the tile face plus printed cost on the left and
+// industry VP, income steps and VP per adjacent link on the right.
+// Only the next available tile in the relevant stack is clickable.
 //
-// The whole mat is rendered as ONE SVG per seat with a viewBox in
-// fixed units (TILE = 40). The SVG's CSS width fills the seat
-// sub-panel; the viewBox means everything inside scales uniformly with
-// browser zoom and panel resize, with no overflow possible (containment
-// is enforced by SVG semantics, not by `overflow: hidden`).
+// Each industry is rendered as a separate SVG within one wrapping mat.
+// Columns wrap in the page flow; their minimum width keeps numbers
+// readable without an inner scrollbar or shrinking the entire mat.
 // =============================================================================
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { stepToLevel } from "../../../engine";
 import type {
   IndustryName,
@@ -30,16 +28,15 @@ import {
   INDUSTRY_LABEL as INDUSTRY_FULL_LABEL,
 } from "../industryIcons";
 import { CoalIcon } from "../icons/CoalIcon";
-import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
-import { HandSizeIcon } from "../icons/HandSizeIcon";
 import { IronIcon } from "../icons/IronIcon";
 import { LinkTileIcon } from "../icons/LinkTileIcon";
+import { VictoryPointsValue } from "../icons/VictoryPointsIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
-import { VictoryPointsIcon } from "../icons/VictoryPointsIcon";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
 import { SIDE_COL_W, TileSideColumn } from "../tiles/TileSideColumn";
 import { useWizard } from "../wizards/WizardProvider";
+import { IndustryReference } from "./IndustryReference";
 
 // Mat geometry in viewBox units (same scale as TILE on the board).
 // ROW_H is intentionally a bit taller than TILE so the side-column
@@ -55,18 +52,10 @@ const ROW_PAD = (ROW_H - TILE) / 2;                    // 6
 const SIDE_W = SIDE_COL_W;
 const COST_W = SIDE_W;
 const COL_W = COST_W + TILE + SIDE_W;
-const LABEL_BAND = 18;                                 // industry icon + name strip
-// Physical gap between adjacent industry columns. Replaces the old
-// separator line — visually separating industries via whitespace
-// reads cleaner than a hairline rule.
-const COL_GAP = 10;
-
 interface IndustryColumnSpec {
   industry: IndustryName;
   label: string;
   levels: readonly number[];
-  // Manufacturer only: split levels into two side-by-side sub-columns.
-  doubleColSplitAfter?: number;
 }
 
 const INDUSTRY_COLUMNS: readonly IndustryColumnSpec[] = [
@@ -78,26 +67,9 @@ const INDUSTRY_COLUMNS: readonly IndustryColumnSpec[] = [
     industry: "MANUFACTURER",
     label: "Manufacturer",
     levels: [1, 2, 3, 4, 5, 6, 7, 8],
-    doubleColSplitAfter: 5,
   },
   { industry: "POTTERY", label: "Pottery", levels: [1, 2, 3, 4, 5] },
 ];
-
-// Maximum visible levels in any single column (drives mat height).
-const MAX_VISIBLE_LEVELS = INDUSTRY_COLUMNS.reduce((m, c) => {
-  const visible = c.doubleColSplitAfter ?? c.levels.length;
-  return Math.max(m, visible);
-}, 0);
-
-// Total horizontal extent of the mat: every column is COL_W (double
-// columns count twice), plus one COL_GAP between every adjacent pair
-// of industries.
-const MAT_W =
-  INDUSTRY_COLUMNS.reduce(
-    (sum, c) => sum + (c.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W),
-    0,
-  ) + COL_GAP * (INDUSTRY_COLUMNS.length - 1);
-const MAT_H = MAX_VISIBLE_LEVELS * ROW_H + LABEL_BAND;
 
 export function PlayersPanel() {
   const turnOrder = useGameState((s) => s.turnOrder, shallowEqual);
@@ -135,6 +107,8 @@ function PlayerSubPanel({
   isViewer: boolean;
 }) {
   const wizard = useWizard();
+  const paused = usePaused();
+  const [matView, setMatView] = useState(false);
   const view = useGameState((s) => {
     const p = s.players.find((pp) => pp.id === seatId);
     if (!p) return null;
@@ -156,13 +130,14 @@ function PlayerSubPanel({
 
   if (!view) return null;
 
-  const wantingIndustry =
+  const participating = isViewer && (
     (wizard.state.phase === "AWAITING_DEVELOP_INPUTS" &&
       wizard.state.developSeatId === seatId) ||
     (wizard.state.phase === "AWAITING_BUILD_INPUTS" && view.isActive) ||
-    (wizard.state.phase === "AWAITING_SELL_GLOUCESTER" && view.isActive);
+    (wizard.state.phase === "AWAITING_SELL_GLOUCESTER" && view.isActive));
+  const wantingIndustry = !paused && participating;
   const pickCounts = countBy(
-    wizard.state.phase === "AWAITING_DEVELOP_INPUTS"
+    !participating ? [] : wizard.state.phase === "AWAITING_DEVELOP_INPUTS"
       ? wizard.state.industries
       : wizard.state.phase === "AWAITING_SELL_GLOUCESTER"
         ? wizard.state.industries
@@ -187,17 +162,27 @@ function PlayerSubPanel({
         era={view.era}
         pawnColor={view.pawnColor}
       />
-      <p className="ci-mat-hint">Scroll sideways to see all industries.</p>
-      <div className="ci-mat-viewport" tabIndex={0} role="region" aria-label={`${view.name} industry tiles. Scroll to explore.`}>
+      <div className="ci-mat-view" role="group" aria-label={`${view.name} reference view`}>
+        <button type="button" aria-pressed={!matView} onClick={() => setMatView(false)}>Industry details</button>
+        <button type="button" aria-pressed={matView} onClick={() => setMatView(true)}>Full mat</button>
+      </div>
+      <div hidden={matView}><IndustryReference playerName={view.name} stacks={view.stacks} catalogue={view.tileCatalogue} era={view.era}
+        building={wizard.state.phase === "AWAITING_BUILD_INPUTS"} wantingIndustry={wantingIndustry} pickCounts={pickCounts}
+        onPick={industry => wizard.pickIndustry(seatId, industry)} /></div>
+      <div hidden={!matView}>
+      <p className="ci-mat-hint">All industries in one mat. Each row shows build cost on the left; industry VP, income steps and VP per adjacent link on the right. Use Industry details for the text reference.</p>
+      <div className="ci-mat-viewport" role="region" aria-label={`${view.name} industry tiles`}>
       <MatSvg
         stacks={view.stacks}
         tileCatalogue={view.tileCatalogue}
         pawnColor={view.pawnColor}
         era={view.era}
+        building={wizard.state.phase === "AWAITING_BUILD_INPUTS"}
         wantingIndustry={wantingIndustry}
         pickCounts={pickCounts}
         onPickIndustry={(ind) => wizard.pickIndustry(seatId, ind)}
       />
+      </div>
       </div>
     </Panel>
   );
@@ -232,27 +217,22 @@ function SeatStats({
     {
       key: "money",
       title: "Money",
-      node: <MoneyCoin amount={money} size={STAT_ICON_SIZE} />,
+      node: <strong>£{money}</strong>,
     },
     {
       key: "vp",
       title: "Scored victory points",
-      node: <VictoryPointsIcon amount={vp} size={STAT_ICON_SIZE} />,
+      node: <strong><VictoryPointsValue amount={vp} /></strong>,
     },
     {
       key: "income",
       title: "Current income level",
-      node: (
-        <CurrentIncomeIcon
-          amount={stepToLevel(incomeStep)}
-          size={STAT_ICON_SIZE}
-        />
-      ),
+      node: <strong>£{stepToLevel(incomeStep)}</strong>,
     },
     {
       key: "hand",
       title: "Cards in hand",
-      node: <HandSizeIcon amount={handSize} size={STAT_ICON_SIZE} />,
+      node: <strong>{handSize}</strong>,
     },
     {
       key: "links",
@@ -282,6 +262,7 @@ function MatSvg({
   pawnColor,
   era,
   wantingIndustry,
+  building,
   pickCounts,
   onPickIndustry,
 }: {
@@ -290,68 +271,23 @@ function MatSvg({
   pawnColor: string;
   era: "CANAL" | "RAIL";
   wantingIndustry: boolean;
+  building: boolean;
   pickCounts: ReadonlyMap<IndustryName, number>;
   onPickIndustry: (ind: IndustryName) => void;
 }) {
-  // Walk columns left-to-right, accumulating x offsets. Single columns
-  // advance by COL_W; doubles advance by 2 * COL_W. Adjacent columns
-  // are separated by COL_GAP units of empty space — no separator line,
-  // just whitespace. The label band sits in the bottom LABEL_BAND
-  // units of the viewBox.
-  let x = 0;
-  const columns: { x: number; w: number; spec: IndustryColumnSpec }[] = [];
-  for (let i = 0; i < INDUSTRY_COLUMNS.length; i++) {
-    const spec = INDUSTRY_COLUMNS[i]!;
-    const w = spec.doubleColSplitAfter !== undefined ? COL_W * 2 : COL_W;
-    if (i > 0) x += COL_GAP;
-    columns.push({ x, w, spec });
-    x += w;
-  }
-  return (
-    <svg
-      className="mat-svg"
-      viewBox={`0 0 ${MAT_W} ${MAT_H}`}
-      preserveAspectRatio="xMidYMid meet"
-      // MAT_W is the SVG's viewBox width. Pass it to CSS as a custom
-      // property so .mat-svg can size the rendered SVG to (MAT_W / 900)
-      // × --board-edge — that ratio is the only way mat tiles render
-      // at the same on-screen px size as board tiles (board viewBox =
-      // 900). Adding column gaps grew MAT_W; this var keeps parity.
-      style={{ "--mat-w-units": MAT_W } as CSSProperties}
-    >
-      {columns.map((col) => (
-        <g key={col.spec.industry} transform={`translate(${col.x}, 0)`}>
-          <IndustryColumnSvg
-            spec={col.spec}
-            stack={stacks[col.spec.industry]}
-            tileCatalogue={tileCatalogue}
-            pawnColor={pawnColor}
-            era={era}
-            pickCount={pickCounts.get(col.spec.industry) ?? 0}
-            wantingIndustry={wantingIndustry}
-            onPick={() => onPickIndustry(col.spec.industry)}
-          />
-          <ColumnLabel
-            industry={col.spec.industry}
-            label={col.spec.label}
-            width={col.w}
-          />
-        </g>
-      ))}
-    </svg>
-  );
+  return <div className="ci-mat-industries">
+    {INDUSTRY_COLUMNS.map(column => <section className="ci-mat-industry" key={column.industry} aria-label={INDUSTRY_FULL_LABEL[column.industry]}>
+      <h3><img src={INDUSTRY_ICON[column.industry]} alt="" width={24} height={24} />{INDUSTRY_FULL_LABEL[column.industry]}</h3>
+      <svg className="mat-svg" viewBox={`0 0 ${COL_W} ${column.levels.length * ROW_H}`}>
+        <IndustryColumnSvg spec={column} stack={stacks[column.industry]} tileCatalogue={tileCatalogue}
+          pawnColor={pawnColor} era={era} pickCount={pickCounts.get(column.industry) ?? 0}
+          building={building} wantingIndustry={wantingIndustry} onPick={() => onPickIndustry(column.industry)} />
+      </svg>
+    </section>)}
+  </div>;
 }
 
-function IndustryColumnSvg({
-  spec,
-  stack,
-  tileCatalogue,
-  pawnColor,
-  era,
-  pickCount,
-  wantingIndustry,
-  onPick,
-}: {
+function IndustryColumnSvg({ spec, stack, tileCatalogue, pawnColor, era, pickCount, wantingIndustry, building, onPick }: {
   spec: IndustryColumnSpec;
   stack: readonly number[];
   tileCatalogue: readonly IndustryTileSpec[];
@@ -359,91 +295,20 @@ function IndustryColumnSvg({
   era: "CANAL" | "RAIL";
   pickCount: number;
   wantingIndustry: boolean;
+  building: boolean;
   onPick: () => void;
 }) {
   const counts = levelCounts(stack, tileCatalogue);
-  const nextLevel = nextPopLevel(stack, tileCatalogue);
-  const nextSpec =
-    nextLevel === null
-      ? null
-      : specForLevel(spec.industry, nextLevel, tileCatalogue);
-  const clickable =
-    wantingIndustry && nextSpec !== null && !nextSpec.lightBulb;
-
-  // Render levels highest-at-top so L1 sits at the bottom (where the
-  // engine pops from). Manufacturer's right sub-column has L8 at top
-  // and L6 at bottom, with two ghost rows above L8 so its bottom row
-  // shares a baseline with L1 in the left sub-column.
-  if (spec.doubleColSplitAfter !== undefined) {
-    const split = spec.doubleColSplitAfter;
-    const leftLevels = spec.levels.slice(0, split).reverse(); // L5..L1
-    const rightLevels = spec.levels.slice(split).reverse();   // L8..L6
-    const leftRows = leftLevels.length;
-    const rightGhosts = leftRows - rightLevels.length;
-    return (
-      <g>
-        {leftLevels.map((lv, i) => (
-          <MatLevelRowSvg
-            key={`L${lv}`}
-            x={0}
-            y={i * ROW_H}
-            level={lv}
-            count={counts.get(lv) ?? 0}
-            spec={specForLevel(spec.industry, lv, tileCatalogue)}
-            pawnColor={pawnColor}
-            era={era}
-            isNext={lv === nextLevel}
-            pickCount={lv === nextLevel ? pickCount : 0}
-            clickable={clickable && lv === nextLevel}
-            onClick={
-              clickable && lv === nextLevel ? onPick : undefined
-            }
-          />
-        ))}
-        {rightLevels.map((lv, i) => (
-          <MatLevelRowSvg
-            key={`R${lv}`}
-            x={COL_W}
-            y={(i + rightGhosts) * ROW_H}
-            level={lv}
-            count={counts.get(lv) ?? 0}
-            spec={specForLevel(spec.industry, lv, tileCatalogue)}
-            pawnColor={pawnColor}
-            era={era}
-            isNext={lv === nextLevel}
-            pickCount={lv === nextLevel ? pickCount : 0}
-            clickable={clickable && lv === nextLevel}
-            onClick={
-              clickable && lv === nextLevel ? onPick : undefined
-            }
-          />
-        ))}
-      </g>
-    );
-  }
-  // Single-column industry.
-  const reversed = [...spec.levels].reverse();
-  const ghosts = MAX_VISIBLE_LEVELS - reversed.length;
-  return (
-    <g>
-      {reversed.map((lv, i) => (
-        <MatLevelRowSvg
-          key={lv}
-          x={0}
-          y={(i + ghosts) * ROW_H}
-          level={lv}
-          count={counts.get(lv) ?? 0}
-          spec={specForLevel(spec.industry, lv, tileCatalogue)}
-          pawnColor={pawnColor}
-          era={era}
-          isNext={lv === nextLevel}
-          pickCount={lv === nextLevel ? pickCount : 0}
-          clickable={clickable && lv === nextLevel}
-          onClick={clickable && lv === nextLevel ? onPick : undefined}
-        />
-      ))}
-    </g>
-  );
+  const selected = levelCounts(stack.slice(0, pickCount), tileCatalogue);
+  const nextSpec = nextIndustryTile(stack, tileCatalogue, building, pickCount);
+  const nextLevel = nextSpec?.level ?? null;
+  const clickable = wantingIndustry && canPickIndustry(nextSpec, building);
+  return <g>{[...spec.levels].reverse().map((level, index) => <MatLevelRowSvg
+    key={level} x={0} y={index * ROW_H} level={level} count={counts.get(level) ?? 0}
+    spec={specForLevel(spec.industry, level, tileCatalogue)} pawnColor={pawnColor} era={era}
+    isNext={level === nextLevel} pickCount={selected.get(level) ?? 0}
+    clickable={clickable && level === nextLevel} onClick={clickable && level === nextLevel ? onPick : undefined}
+  />)}</g>;
 }
 
 function MatLevelRowSvg({
@@ -600,49 +465,6 @@ function CostStack({ spec }: { spec: IndustryTileSpec }) {
   );
 }
 
-function ColumnLabel({
-  industry,
-  label,
-  width,
-}: {
-  industry: IndustryName;
-  label: string;
-  width: number;
-}) {
-  // Label band sits at the bottom of the viewBox: industry icon on the
-  // left, label text to its right, both centred horizontally.
-  const y = MAX_VISIBLE_LEVELS * ROW_H;
-  const iconSize = LABEL_BAND - 2;
-  const labelFontSize = LABEL_BAND * 0.62;
-  // Approximate text width so we can centre icon + text together.
-  const textWidth = label.length * labelFontSize * 0.5;
-  const totalW = iconSize + 2 + textWidth;
-  const startX = (width - totalW) / 2;
-  return (
-    <g transform={`translate(0, ${y})`}>
-      <image
-        href={INDUSTRY_ICON[industry]}
-        x={startX}
-        y={1}
-        width={iconSize}
-        height={iconSize}
-        preserveAspectRatio="xMidYMid meet"
-        aria-label={INDUSTRY_FULL_LABEL[industry]}
-      />
-      <text
-        x={startX + iconSize + 2}
-        y={LABEL_BAND - 3}
-        fontSize={labelFontSize}
-        fontWeight={600}
-        fill="var(--muted)"
-        style={{ textTransform: "uppercase" }}
-      >
-        {label}
-      </text>
-    </g>
-  );
-}
-
 function matCapacityFor(
   spec: IndustryTileSpec,
   era: "CANAL" | "RAIL",
@@ -689,13 +511,4 @@ function specForLevel(
   return (
     catalogue.find((s) => s.industry === industry && s.level === level) ?? null
   );
-}
-
-function nextPopLevel(
-  stack: readonly number[],
-  catalogue: readonly IndustryTileSpec[],
-): number | null {
-  const idx = stack[0];
-  if (idx === undefined) return null;
-  return catalogue[idx]?.level ?? null;
 }
