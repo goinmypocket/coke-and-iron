@@ -136,6 +136,7 @@ export interface PlayerView {
   // ---- Board live state (public) ----
   readonly builtTiles: readonly PlacedIndustryTile[];
   readonly developedLinks: readonly PlacedLinkTile[];
+  readonly scoredEras: NonNullable<GameState["scoredEras"]>;
   readonly merchantSlots: readonly MerchantSlot[];
   readonly nextTileId: number;
 
@@ -212,6 +213,7 @@ export function projectFor(
     ironMarket: state.ironMarket,
     builtTiles: state.builtTiles,
     developedLinks: state.developedLinks,
+    scoredEras: state.scoredEras ?? [],
     merchantSlots: state.merchantSlots,
     nextTileId: state.nextTileId,
     autoEndTurn: state.autoEndTurn,

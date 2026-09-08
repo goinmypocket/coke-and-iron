@@ -27,6 +27,7 @@ import { ActionsPanel } from "./ui/panels/ActionsPanel";
 import { BoardPanel } from "./ui/panels/BoardPanel";
 import { HandPanel } from "./ui/panels/HandPanel";
 import { PlayersPanel } from "./ui/panels/PlayersPanel";
+import { StatisticsPanel } from "./ui/panels/StatisticsPanel";
 import { WizardProvider } from "./ui/wizards/WizardProvider";
 
 import "./styles/reset.css";
@@ -72,6 +73,7 @@ function GameContent({ ctx }: Props): ReactNode {
           <nav className="ci-jump-links" aria-label="Game areas">
             <a href={`#${regionId}-actions`}>Actions</a>
             <a href={`#${regionId}-board`}>Board</a>
+            <a href={`#${regionId}-statistics`}>Statistics</a>
             <a href={`#${regionId}-industries`}>Industries</a>
           </nav>
           <ViewerBanner
@@ -80,7 +82,10 @@ function GameContent({ ctx }: Props): ReactNode {
             onPickSpectatorView={session.setSpectatorView}
           />
           <div className="game-stack">
-            <BoardPanel regionId={`${regionId}-board`} />
+            <div className="ci-board-column">
+              <BoardPanel regionId={`${regionId}-board`} />
+              <StatisticsPanel regionId={`${regionId}-statistics`} />
+            </div>
             <div className="ci-play-rail">
               <div className="ci-action-region" id={`${regionId}-actions`}><ActionsPanel /></div>
               <HandPanel />

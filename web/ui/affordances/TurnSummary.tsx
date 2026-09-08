@@ -25,7 +25,7 @@ export function TurnSummary({ paused }: { paused: boolean }) {
         {view.me ? <dl className="ci-resource-summary">
           <div><dt>Money</dt><dd>£{view.me.money}</dd></div>
           <div><dt>Income</dt><dd>£{stepToLevel(view.me.incomeStep)}</dd></div>
-          <div><dt>VP</dt><dd>{view.me.vp}</dd></div>
+          <div><dt>{view.phase === "GAME_OVER" ? "Final VP" : "Scored VP"}</dt><dd>{view.me.vp}</dd></div>
         </dl> : null}
       </div>
     </header>

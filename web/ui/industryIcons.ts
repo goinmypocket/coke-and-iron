@@ -5,12 +5,12 @@
 // inside HTML.
 // =============================================================================
 
-import iconBrewery from "../../assets/industry_icons/icon_beer.svg";
-import iconCoal from "../../assets/industry_icons/icon_coal.svg";
-import iconCotton from "../../assets/industry_icons/icon_cotton.svg";
-import iconIron from "../../assets/industry_icons/icon_iron.svg";
-import iconManufacturer from "../../assets/industry_icons/icon_manufacturer.svg";
-import iconPottery from "../../assets/industry_icons/icon_pottery.svg";
+import iconBrewery from "./icons/industry/brewery.svg";
+import iconCoal from "./icons/industry/coal.svg";
+import iconCotton from "./icons/industry/cotton.svg";
+import iconIron from "./icons/industry/iron.svg";
+import iconManufacturer from "./icons/industry/manufacturer.svg";
+import iconPottery from "./icons/industry/pottery.svg";
 import type { DistrictTag, IndustryName } from "../../engine";
 
 export const INDUSTRY_ICON: Readonly<Record<IndustryName, string>> = {

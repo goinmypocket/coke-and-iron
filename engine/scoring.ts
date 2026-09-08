@@ -9,11 +9,21 @@
 // =============================================================================
 
 import type {
+  BoardScore,
   GameState,
   PlacedIndustryTile,
   PlacedLinkTile,
   PlayerId,
 } from "./types";
+
+/** This seam accepts only public board fields, including redacted PlayerViews. */
+type ScoringBoard = Pick<GameState, "lines" | "merchantCities" | "tileCatalogue"> & {
+  readonly builtTiles: readonly PlacedIndustryTile[];
+  readonly developedLinks: readonly PlacedLinkTile[];
+};
+type ScoringState = ScoringBoard & Pick<GameState, "phase" | "scoredEras"> & {
+  readonly players: readonly { readonly id: PlayerId; readonly vp: number }[];
+};
 
 /**
  * §6.1 — a link tile's VP is the sum of each endpoint's link-point
@@ -23,7 +33,7 @@ import type {
  *     industry tiles.
  */
 export function scoreLinkTileVp(
-  state: GameState,
+  state: ScoringBoard,
   link: PlacedLinkTile,
 ): number {
   const line = state.lines[link.lineIndex];
@@ -35,7 +45,7 @@ export function scoreLinkTileVp(
   return total;
 }
 
-function linkPointContribution(state: GameState, city: string): number {
+function linkPointContribution(state: ScoringBoard, city: string): number {
   if (state.merchantCities.some((m) => m.name === city)) return 2;
   let total = 0;
   for (const tile of state.builtTiles) {
@@ -48,7 +58,7 @@ function linkPointContribution(state: GameState, city: string): number {
 
 /** §6.2 — a flipped industry tile scores its printed VP. Unflipped: 0. */
 export function scoreFlippedIndustryVp(
-  state: GameState,
+  state: ScoringBoard,
   tile: PlacedIndustryTile,
 ): number {
   if (!tile.flipped) return 0;
@@ -68,6 +78,7 @@ export function applyScoring(state: GameState): {
   gainedByPlayer: Map<PlayerId, number>;
 } {
   const gained = new Map<PlayerId, number>();
+  const breakdown = boardScores(state);
 
   for (const link of state.developedLinks) {
     const vp = scoreLinkTileVp(state, link);
@@ -82,5 +93,46 @@ export function applyScoring(state: GameState): {
     ...p,
     vp: p.vp + (gained.get(p.id) ?? 0),
   }));
-  return { state: { ...state, players }, gainedByPlayer: gained };
+  return {
+    state: {
+      ...state,
+      players,
+      scoredEras: [...(state.scoredEras ?? []), { era: state.era, players: breakdown }],
+    },
+    gainedByPlayer: gained,
+  };
+}
+
+function boardScores(state: ScoringState): BoardScore[] {
+  return state.players.map((player) => ({
+    playerId: player.id,
+    industry: state.builtTiles.reduce((total, tile) =>
+      total + (tile.owner === player.id ? scoreFlippedIndustryVp(state, tile) : 0), 0),
+    links: state.developedLinks.reduce((total, link) =>
+      total + (link.owner === player.id ? scoreLinkTileVp(state, link) : 0), 0),
+  }));
+}
+
+/** Awarded points and the additional points this public board would score now.
+ * Other is a signed net adjustment: merchant VP bonuses less actual VP lost
+ * to debt (including the existing zero floor). No hypothetical future flips.
+ * Retained Rail tiles/links are already scored at GAME_OVER. */
+export function scoringSummary(state: ScoringState) {
+  const current = state.phase === "GAME_OVER" ? null : boardScores(state);
+  return state.players.map((player) => {
+    let industry = 0;
+    let links = 0;
+    for (const era of state.scoredEras ?? []) {
+      const score = era.players.find((p) => p.playerId === player.id);
+      industry += score?.industry ?? 0;
+      links += score?.links ?? 0;
+    }
+    const projection = current?.find((p) => p.playerId === player.id) ?? null;
+    return {
+      playerId: player.id,
+      scored: { industry, links, other: player.vp - industry - links, total: player.vp },
+      projection,
+      totalIfScoredNow: player.vp + (projection?.industry ?? 0) + (projection?.links ?? 0),
+    };
+  });
 }

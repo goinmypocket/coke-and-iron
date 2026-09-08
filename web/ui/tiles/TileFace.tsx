@@ -108,7 +108,7 @@ function FlippedFace({
   spec: IndustryTileSpec;
   ownerColor: string;
 }) {
-  const topColor = ownerColor;
+  const topColor = mix(ownerColor, "#f7f6ef", 0.7);
   const bottomColor = mix(ownerColor, "#fffdf6", 0.55);
   return (
     <g transform={`scale(${TILE_SCALE})`}>
@@ -302,7 +302,7 @@ function CenterIcon({
   industry: IndustryName;
   y: number;
 }) {
-  // The redesigned 3D industry icons read clearly when bumped from the
+  // The simple industry icons read clearly when bumped from the
   // historical 0.42 ratio to 0.55, leaving room for the corner level
   // glyph (TL), beer-cost cubes (TR), and resource-cube stack (BR) on
   // the unflipped face.
@@ -359,6 +359,11 @@ function mix(a: string, b: string, ratio: number): string {
 }
 
 function parseHex(s: string): [number, number, number] | null {
+  // Normalize the default CSS colour names before mixing a quiet paper tint.
+  const named: Readonly<Record<string, string>> = {
+    red: "#a44a42", yellow: "#ae8834", green: "#45765c", blue: "#476c9c",
+  };
+  s = named[s] ?? s;
   const m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
   if (!m) return null;
   const h = m[1]!;

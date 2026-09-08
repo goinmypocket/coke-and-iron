@@ -1,31 +1,11 @@
 import { svgButton } from "../affordances/svgButton";
 // =============================================================================
-// §11.2 Main Board — read-only render at this milestone.
-//
-// Renders the 900x900 board as an SVG with viewBox so the whole canvas
-// scales into the panel. Layers (back to front):
-//
-//   1. Lines           — canal (blue) prominent in CANAL era, rail
-//                        (brown) prominent in RAIL era. Triple links
-//                        connect every endpoint to the centroid.
-//   2. District cities — labelled rectangles with one cell per slot
-//                        showing the slot's accept-list as compact
-//                        glyphs (industry initials).
-//   3. Farm Brewery    — same shape as district cities, taupe colour.
-//   4. Merchant cities — D shapes pinned to the canvas edge nearest
-//                        their position; bonus badge + slot count
-//                        underneath.
-//   5. Built tiles     — small overlay boxes anchored to the slot;
-//                        flipped tiles render with a strike-through.
-//   6. Markets widget  — bottom-right corner; live cube counts +
-//                        next buy price for coal and iron.
-//
-// Click handlers / wizard wiring deferred — this milestone is purely
-// informational so players can SEE the board while the existing
-// card-only wizards run.
+// §11.2 Main board. Routes sit behind cities, tiles, markets and labels.
+// The SVG uses a shared 900×900 coordinate system. Wizard interactions
+// have transparent hit strokes and visible focus on the route itself.
 // =============================================================================
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type {
   DistrictCity,
   Era,
@@ -98,7 +78,6 @@ function slotCellPos(
 }
 
 export function BoardPanel({ regionId }: { regionId?: string }) {
-  const [zoomed, setZoomed] = useState(false);
   const wizard = useWizard();
   const mySeatId = useMySeatId();
   const view = useGameState((s) => ({
@@ -227,9 +206,9 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
 
   return (
     <Panel id="board" title="Board" hideTitle>
-      <div className="ci-board-toolbar" id={regionId}><h2>Main board</h2><button type="button" className="action-btn" aria-pressed={zoomed} onClick={() => setZoomed(value => !value)}>{zoomed ? "Fit board" : "Enlarge board"}</button></div>
-      <div className="ci-board-viewport" tabIndex={0} role="region" aria-label="Main board. Scroll to explore when enlarged.">
-      <div className={`board-region${zoomed ? " board-region--zoomed" : ""}`}>
+      <div className="ci-board-toolbar" id={regionId}><h2>Main board</h2></div>
+      <div className="ci-board-viewport" tabIndex={0} role="region" aria-label="Main board. Scroll sideways on narrow screens.">
+      <div className="board-region">
         <div className="board-region__income">
           <IncomeLadder />
         </div>
@@ -238,7 +217,7 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
           viewBox={`0 0 ${CANVAS} ${CANVAS}`}
           preserveAspectRatio="xMidYMid meet"
         >
-        <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="var(--paper)" />
+        <rect x="0" y="0" width={CANVAS} height={CANVAS} fill="var(--board-paper)" />
         <Lines
           lines={view.lines}
           era={view.era}
@@ -334,7 +313,7 @@ export function BoardPanel({ regionId }: { regionId?: string }) {
         </svg>
       </div>
       </div>
-      <div className="ci-board-legend"><span><i className="ci-canal-key" />Canal</span><span><i className="ci-rail-key" />Rail</span><span>Enlarge for a closer look. Scroll to explore.</span></div>
+      <div className="ci-board-legend"><span><i className="ci-canal-key" />Canal</span><span><i className="ci-rail-key" />Rail</span><span className="ci-board-pan-hint">Scroll sideways to explore the board.</span></div>
     </Panel>
   );
 }
@@ -382,22 +361,17 @@ function buildCityBBoxes(
   }
   // Merchant: cluster centred horizontally on position; vertical
   // content runs from the slot-row top (-totalH/2 in local frame)
-  // down to the bottom of the link-points badge below the name.
+  // down to the name below the bonus/link-point row.
   for (const c of merchants) {
     const slotCount = Math.max(c.slotCount, 1);
     const clusterW = slotCount * TILE;
     const totalH = TILE + BEER_BOX + 2;
-    // Local frame: slot-row top at 0, bonus badge at TILE+BEER_BOX+14,
-    // name banner ~18 below that, link badge ~16 below the name. The
-    // badge half-extent is MERCHANT_BADGE_SIZE / 2 below its centre.
-    const localBonusY = TILE + BEER_BOX + 14;
-    const localNameY = localBonusY + 18;
-    const localLinkY = localNameY + 16;
-    const localBottom = localLinkY + MERCHANT_BADGE_SIZE / 2;
+    const localBottom = merchantRows.nameTop + CITY_BANNER_HEIGHT;
+    const footprintW = Math.max(clusterW, cityBannerWidth(c.name), merchantBadgeLayout(c).width);
     const [cx, cy] = c.position;
     m.set(c.name, {
-      minX: cx - clusterW / 2,
-      maxX: cx + clusterW / 2,
+      minX: cx - footprintW / 2,
+      maxX: cx + footprintW / 2,
       minY: cy - totalH / 2,
       maxY: cy - totalH / 2 + localBottom,
     });
@@ -495,7 +469,7 @@ export function DistrictCityShape({
               y={0}
               width={TILE}
               height={TILE}
-              fill={isOccupied ? "transparent" : "#fffdf6"}
+              fill={isOccupied ? "transparent" : "var(--board-tile)"}
               stroke={isPicked ? "var(--warm-gold)" : fill}
               strokeWidth={isPicked ? 2 : 0.8}
             />
@@ -641,21 +615,18 @@ export function MerchantCityShape({
   // Layout (top → bottom):
   //   - row of D-slots (TILE × TILE each)
   //   - beer indicator below each slot
-  //   - bonus badge (the rewards offered for selling here)
-  //   - city name
-  //   - link-points badge (one LinkPointsIcon per link point — 2 for
-  //     every merchant per §2.4, rendered as connected hexes)
+  //   - bonus and link-point badges, side by side
+  //   - city name, with a clear gap below both badges
   // Inactive cities show empty D frames + empty beer placeholders.
   const slotCount = Math.max(city.slotCount, 1);
   const clusterW = slotCount * TILE;
   const totalH = TILE + BEER_BOX + 2;
+  const badges = merchantBadgeLayout(city);
   // Vertical offsets relative to the slot row's top-left (0, 0):
-  const BONUS_BADGE_Y = TILE + BEER_BOX + 14;
-  const NAME_Y = BONUS_BADGE_Y + 18;
-  const LINK_BADGE_Y = NAME_Y + 16;
   return (
     <g
       className={"board-merchant" + (active ? "" : " board-merchant--inactive")}
+      data-merchant={city.name}
       transform={`translate(${x - clusterW / 2}, ${y - totalH / 2})`}
     >
       {Array.from({ length: slotCount }).map((_, i) => {
@@ -670,13 +641,11 @@ export function MerchantCityShape({
           </g>
         );
       })}
-      <g transform={`translate(${clusterW / 2}, ${BONUS_BADGE_Y})`}>
+      <g transform={`translate(${clusterW / 2 + badges.bonusX}, ${merchantRows.bonusY})`}>
         <BonusBadge bonus={city.bonus} value={city.bonusValue} />
       </g>
-      {/* City name is rendered as a banner in the front-layer
-       * CityBanners pass; merchant link points sit just below where
-       * the name lives, so we still reserve the NAME_Y row. */}
-      <g transform={`translate(${clusterW / 2}, ${LINK_BADGE_Y})`}>
+      {/* Bonus and link points share a row; the name has its own row below. */}
+      <g className="board-merchant__link-points" transform={`translate(${clusterW / 2 + badges.linkX}, ${merchantRows.bonusY})`}>
         <LinkPointsBadge count={city.linkPoints} />
       </g>
     </g>
@@ -704,8 +673,8 @@ function DSlot({ accept }: { accept: MerchantTileAccept | null }) {
     <g>
       <path
         d={path}
-        fill="#e5d9b4"
-        stroke="#7d6a3a"
+        fill="var(--merchant-tile)"
+        stroke="#776d52"
         strokeWidth={0.9}
       />
       {empty ? null : <SlotAcceptDisplay accept={accept} />}
@@ -846,7 +815,7 @@ function BonusBadge({
   );
 }
 
-/** Merchant link-points badge — N pointy-top hexes joined edge-to-edge,
+/** Merchant link-points badge — N connected-pair symbols,
  *  centred on (0, 0). Delegates to the shared LinkPointsIcon so the
  *  merchant badges and the tile-face / mat link cascades all share
  *  geometry (one source of truth). */
@@ -928,11 +897,11 @@ export function Lines({
           ownerId !== undefined ? pawnColorById.get(ownerId) : undefined;
         const isPicked = pickedLineIndices.has(i);
         const stroke = isPicked
-          ? "var(--warm-gold)"
+          ? "var(--focus)"
           : line.era === "CANAL"
-            ? "#5e8fc7"
-            : "#9c7656";
-        const opacity = isEra ? 0.85 : 0.18;
+            ? "var(--canal-line)"
+            : "var(--rail-line)";
+        const opacity = isEra ? 1 : 0.24;
         const width = isPicked ? 6 : isEra ? 4 : 2.5;
         const clickable = linesClickable && isEra && !developed;
         const handleClick = clickable ? () => onLineClick(i) : undefined;
@@ -984,6 +953,7 @@ export function Lines({
           return (
             <g key={i} className={groupClass} onClick={handleClick} {...svgButton(`${line.era === "CANAL" ? "Canal" : "Rail"}: ${line.endpoints.join(" to ")}`, handleClick, isPicked)}>
               <line
+                className="board-line__route"
                 x1={points[0]![0]}
                 y1={points[0]![1]}
                 x2={points[1]![0]}
@@ -992,6 +962,7 @@ export function Lines({
                 strokeOpacity={opacity}
                 strokeWidth={width}
                 strokeLinecap="round"
+                strokeDasharray={line.era === "RAIL" ? "9 5" : undefined}
               />
               {developed && ownerColor ? (
                 <LinkToken
@@ -1003,14 +974,16 @@ export function Lines({
                 />
               ) : null}
               {clickable ? (
-                // Wider invisible hit-rect for easier clicking.
+                // Wide transparent stroke follows the route; never painted.
                 <line
+                  className="board-line__hit"
                   x1={points[0]![0]}
                   y1={points[0]![1]}
                   x2={points[1]![0]}
                   y2={points[1]![1]}
                   stroke="transparent"
                   strokeWidth={24}
+                  vectorEffect="non-scaling-stroke"
                   strokeLinecap="round"
                 />
               ) : null}
@@ -1026,6 +999,7 @@ export function Lines({
           <g key={i} className={groupClass} onClick={handleClick} {...svgButton(`${line.era === "CANAL" ? "Canal" : "Rail"}: ${line.endpoints.join(" to ")}`, handleClick, isPicked)}>
             {points.map((p, j) => (
               <line
+                className="board-line__route"
                 key={j}
                 x1={p[0]}
                 y1={p[1]}
@@ -1035,6 +1009,7 @@ export function Lines({
                 strokeOpacity={opacity}
                 strokeWidth={width}
                 strokeLinecap="round"
+                strokeDasharray={line.era === "RAIL" ? "9 5" : undefined}
               />
             ))}
             <circle
@@ -1050,6 +1025,7 @@ export function Lines({
             {clickable
               ? points.map((p, j) => (
                   <line
+                    className="board-line__hit"
                     key={`hit-${j}`}
                     x1={p[0]}
                     y1={p[1]}
@@ -1057,6 +1033,7 @@ export function Lines({
                     y2={cy}
                     stroke="transparent"
                     strokeWidth={24}
+                    vectorEffect="non-scaling-stroke"
                     strokeLinecap="round"
                   />
                 ))
@@ -1444,6 +1421,23 @@ const CITY_BANNER_PAD_X = 5;
 // black-on-light-gray, both for legibility.
 const MERCHANT_BANNER_FILL = "#d8d8d8";
 
+const cityBannerWidth = (name: string) => name.length * CITY_BANNER_CHAR_W + CITY_BANNER_PAD_X * 2;
+// All merchant layers and link-token clearance share these row measurements.
+const merchantBonusY = TILE + BEER_BOX + 14;
+const merchantNameTop = merchantBonusY + MERCHANT_BADGE_SIZE / 2 + 6;
+const merchantRows = {
+  bonusY: merchantBonusY,
+  nameTop: merchantNameTop,
+};
+
+function merchantBadgeLayout(city: MerchantCity) {
+  const bonusCount = city.bonus === "DEVELOP" ? Math.max(1, city.bonusValue) : 1;
+  const bonusWidth = bonusCount * MERCHANT_BADGE_SIZE + (bonusCount - 1) * 1.5;
+  const linkWidth = linkPointsIconWidth(city.linkPoints, MERCHANT_BADGE_SIZE);
+  const width = bonusWidth + 8 + linkWidth;
+  return { width, bonusX: -width / 2 + bonusWidth / 2, linkX: width / 2 - linkWidth / 2 };
+}
+
 export function CityBanners({
   districtCities,
   merchantCities,
@@ -1472,13 +1466,9 @@ export function CityBanners({
       })}
       {merchantCities.map((m) => {
         const totalH = TILE + BEER_BOX + 2;
-        // Mirror the merchant layout in MerchantCityShape: bonus badge
-        // sits at TILE+BEER_BOX+14 below local origin; the name banner
-        // takes the slot 18u below that.
-        const localBonusY = TILE + BEER_BOX + 14;
-        const localNameY = localBonusY + 18;
+        // Share footer geometry with MerchantCityShape and token clearance.
         const cx = m.position[0];
-        const topY = m.position[1] - totalH / 2 + localNameY - CITY_BANNER_HEIGHT / 2;
+        const topY = m.position[1] - totalH / 2 + merchantRows.nameTop;
         return (
           <CityBanner
             key={m.name}
@@ -1514,10 +1504,10 @@ function CityBanner({
   // name. We deliberately don't pad the banner out to the city body /
   // merchant cluster width: stretching it makes the centred text look
   // smaller in big cities even though the font-size hasn't changed.
-  const bannerW = text.length * CITY_BANNER_CHAR_W + CITY_BANNER_PAD_X * 2;
+  const bannerW = cityBannerWidth(text);
   const x = cx - bannerW / 2;
   return (
-    <g transform={`translate(${x}, ${topY})`}>
+    <g data-city-label={text} transform={`translate(${x}, ${topY})`}>
       <rect
         x={0}
         y={0}
