@@ -672,7 +672,7 @@ function DSlot({ accept }: { accept: MerchantTileAccept | null }) {
       <path
         d={path}
         fill="var(--merchant-tile)"
-        stroke="#776d52"
+        stroke="#777777"
         strokeWidth={0.9}
       />
       {empty ? null : <SlotAcceptDisplay accept={accept} />}
@@ -741,7 +741,7 @@ function BeerIndicator({ hasBeer }: { hasBeer: boolean }) {
       width={BEER_BOX}
       height={BEER_BOX}
       fill="transparent"
-      stroke="#7d6a3a"
+      stroke="#777777"
       strokeWidth={0.7}
       opacity={0.55}
     />
@@ -1210,14 +1210,14 @@ export function Markets({
         y={0}
         width={widgetW}
         height={widgetH}
-        fill={anyGlow ? "#fff7e0" : "#fffdf6"}
+        fill={anyGlow ? "#ededed" : "#ffffff"}
         stroke={anyGlow ? "var(--warm-gold)" : "#1a1a1a"}
         strokeWidth={anyGlow ? 2 : 1}
       />
       <MarketColumn
         market={coal}
         industry="COAL_MINE"
-        cubeColor="#24332f"
+        cubeColor="#222222"
         x={innerPadX}
         rowsTopY={coalTopY}
         iconY={iconY}
@@ -1324,7 +1324,7 @@ function MarketColumn({
               y={rowY - cubeSize / 2}
               width={cubeSize}
               height={cubeSize}
-              fill={row.cubes > 0 ? cubeColor : "#fffdf6"}
+              fill={row.cubes > 0 ? cubeColor : "#ffffff"}
               stroke="#1a1a1a"
               strokeWidth={0.6}
               strokeDasharray={row.isOverflow ? "1.4 1.4" : undefined}
@@ -1334,7 +1334,7 @@ function MarketColumn({
               y={rowY - cubeSize / 2}
               width={cubeSize}
               height={cubeSize}
-              fill={row.cubes > 1 ? cubeColor : "#fffdf6"}
+              fill={row.cubes > 1 ? cubeColor : "#ffffff"}
               stroke="#1a1a1a"
               strokeWidth={0.6}
               strokeDasharray={row.isOverflow ? "1.4 1.4" : undefined}
@@ -1376,7 +1376,7 @@ function SvgMoneyCoin({
         cx={cx}
         cy={cy}
         r={r}
-        fill="#fffdf4"
+        fill="#ffffff"
         stroke="#1a1a1a"
         strokeWidth={0.5}
       />
@@ -1587,7 +1587,7 @@ export function TurnOrderWidget({
         y={0}
         width={W}
         height={H}
-        fill="#fafaf7"
+        fill="#ffffff"
         stroke="#1a1a1a"
         strokeWidth={1}
         rx={4}

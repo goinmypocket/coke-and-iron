@@ -16,7 +16,7 @@ const HEX_POINTS = (() => {
 })();
 
 const VP_BG = "#ffffff";
-const VP_INK = "#24332f";
+const VP_INK = "#222222";
 
 export function VictoryPointsIcon({
   amount,

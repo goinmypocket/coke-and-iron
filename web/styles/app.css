@@ -1,17 +1,17 @@
 .ci-game {
-  --ink: #282b2a;
-  --paper: #f6f3ed;
-  --board-paper: #eae9e2;
-  --board-tile: #f7f6f0;
-  --merchant-tile: #ded8c6;
+  --ink: #222222;
+  --paper: #ffffff;
+  --board-paper: #f0f0f0;
+  --board-tile: #ffffff;
+  --merchant-tile: #e0e0e0;
   --canal-line: #436b86;
   --rail-line: #806044;
   --panel-bg: #ffffff;
-  --warm-gold: #936737;
-  --focus: #92512f;
-  --muted: #626762;
-  --soft-tint: #f2e8df;
-  --ci-border: #d5d4cb;
+  --warm-gold: #222222;
+  --focus: #222222;
+  --muted: #666666;
+  --soft-tint: #ededed;
+  --ci-border: #d0d0d0;
 
   /* ---------- Geometry knobs ----------
    *
@@ -551,7 +551,7 @@
 }
 .ci-game .board-slot--clickable.board-slot--occupied:hover rect {
   /* hover hint that this is an overbuild candidate, not a free pick */
-  fill: #ead7a3;
+  fill: #dedede;
 }
 .ci-game .board-line--clickable {
   cursor: pointer;
@@ -586,7 +586,7 @@
 .ci-game .board-tile__resource {
   font-size: 7px;
   font-weight: 700;
-  fill: #fffdf6;
+  fill: #ffffff;
 }
 .ci-game .board-markets__title {
   font-size: 11px;
@@ -953,7 +953,7 @@
   width: var(--income-row-h);
   height: var(--income-row-h);
   background: #2a2a2a;
-  color: #e5d9b4;
+  color: #ffffff;
   border: 1px solid #1a1a1a;
   box-sizing: border-box;
 }
@@ -1297,12 +1297,12 @@
   /* Visually demoted button for non-game actions (e.g., the Log
    * toggle). Grey palette so it reads as "tool / utility" alongside
    * the cream-paper game verbs without competing for attention. */
-  background: #d8d6d2;
+  background: #d8d8d8;
   border-color: #6a6a6a;
   color: #2a2a2a;
 }
 .ci-game .action-btn--neutral:hover:not(:disabled) {
-  background: #c4c2be;
+  background: #c4c4c4;
 }
 
 /* Fit the board on narrow screens without shrinking the document's
@@ -1378,7 +1378,7 @@
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
   background: var(--paper);
-  border: 1px solid #ddd9cc;
+  border: 1px solid #d0d0d0;
   border-radius: 0.35rem;
 }
 
@@ -1400,7 +1400,7 @@
 .ci-game .lobby-seat__name,
 .ci-game .lobby-seat__color {
   padding: 0.3rem 0.5rem;
-  border: 1px solid #c8c4b6;
+  border: 1px solid #858585;
   border-radius: 0.25rem;
   background: white;
   font-size: 0.95rem;
@@ -1408,7 +1408,7 @@
 
 .ci-game .lobby-seat__name:disabled,
 .ci-game .lobby-seat__color:disabled {
-  background: #f0eee6;
+  background: #f0f0f0;
   color: var(--muted);
 }
 

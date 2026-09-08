@@ -34,7 +34,7 @@ export function IncomeGainedIcon({
        *  Money icons. */}
       <path
         d="M 8 1 L 14 7 L 13 7 L 13 14 L 3 14 L 3 7 L 2 7 Z"
-        fill="#f3f6f1"
+        fill="#ffffff"
         stroke="#1a1a1a"
         strokeWidth={1}
         strokeLinejoin="round"
