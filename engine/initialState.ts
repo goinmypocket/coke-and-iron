@@ -178,6 +178,7 @@ export function initialState(
 
     builtTiles: [],
     developedLinks: [],
+    scoredEras: [],
     merchantSlots,
     nextTileId: 0,
 

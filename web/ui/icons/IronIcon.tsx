@@ -28,7 +28,7 @@ export function IronIcon({
         y={1}
         width={14}
         height={14}
-        fill="#d97706"
+        fill="#ad7040"
         stroke="#1a1a1a"
         strokeWidth={0.6}
       />

@@ -1,24 +1,18 @@
-// Link tile glyph: a player-coloured rounded rectangle with the
-// canal or rail asset embedded inside. Used for:
+// Link tile glyph: a plain boat or rail with a player-coloured end.
+// Used for:
 //   - the link-supply count on the player stats bar
 //   - developed canal / rail tokens on the board (placed at the
 //     midpoint of a 2-endpoint link, optionally rotated to align
 //     with the line; placed unrotated at the centroid of a triple
 //     link).
 //
-// The asset SVGs (assets/link_icons/) are detailed line-art that
-// reads against any pawn-colour background.
 
 import type { CSSProperties } from "react";
-import canalIcon from "../../../assets/link_icons/canal.svg";
-import railIcon from "../../../assets/link_icons/rail.svg";
 
 type Era = "CANAL" | "RAIL";
 
-const CANAL_HREF = canalIcon;
-const RAIL_HREF = railIcon;
 
-// Tile aspect: 2 : 1 (matches the canal / rail asset viewBoxes).
+// Shared tile geometry for supply counts and rotated board tokens.
 const TILE_VB_W = 32;
 const TILE_VB_H = 14;
 
@@ -63,18 +57,18 @@ export function LinkTileIcon({
         height={TILE_VB_H - 1.2}
         rx={2}
         ry={2}
-        fill={color}
+        fill="#f7f6ef"
         stroke="#1a1a1a"
         strokeWidth={0.8}
       />
-      <image
-        href={era === "CANAL" ? CANAL_HREF : RAIL_HREF}
-        x={2}
-        y={1}
-        width={TILE_VB_W - 4}
-        height={TILE_VB_H - 2}
-        preserveAspectRatio="xMidYMid meet"
-      />
+      <rect x={1} y={1} width={4} height={12} rx={1} fill={color} />
+      {era === "CANAL" ? (
+        <path d="M8 8h21l-3 3H11ZM13 7V4h10v3" fill="#3d5357" />
+      ) : (
+        <g fill="none" stroke="#3d5357" strokeWidth={1.5}>
+          <path d="M10 3v8M26 3v8M10 4h16M10 7h16M10 10h16" />
+        </g>
+      )}
     </svg>
   );
   if (angle === 0 || x === undefined || y === undefined) return tile;

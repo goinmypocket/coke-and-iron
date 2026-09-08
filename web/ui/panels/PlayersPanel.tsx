@@ -236,7 +236,7 @@ function SeatStats({
     },
     {
       key: "vp",
-      title: "Victory points",
+      title: "Scored victory points",
       node: <VictoryPointsIcon amount={vp} size={STAT_ICON_SIZE} />,
     },
     {
@@ -269,7 +269,7 @@ function SeatStats({
     <div className="seat-stats">
       {stats.map((s) => (
         <span key={s.key} className="seat-stats__item" title={s.title}>
-          {s.node}<span className="seat-stats__label">{s.key === "income" ? "Income" : s.key === "vp" ? "VP" : s.key === "hand" ? "Cards" : s.key === "links" ? "Links" : "Money"}</span>
+          {s.node}<span className="seat-stats__label">{s.key === "income" ? "Income" : s.key === "vp" ? "Scored VP" : s.key === "hand" ? "Cards" : s.key === "links" ? "Links" : "Money"}</span>
         </span>
       ))}
     </div>

@@ -416,6 +416,9 @@ export interface GameState {
   // -- Board live state --
   builtTiles: PlacedIndustryTile[];
   developedLinks: PlacedLinkTile[];
+  /** Public scoring telemetry, rebuilt by replay. Optional for older in-memory
+   * fixtures; never used to decide rules, ranking, or awarded VP. */
+  readonly scoredEras?: readonly ScoredEra[];
   merchantSlots: MerchantSlot[];
   /** Monotonically increasing counter used to stamp a unique, replay-stable
    * id onto each PlacedIndustryTile at Build time. Starts at 0, increments
@@ -432,6 +435,17 @@ export interface GameState {
    * is rejected; the head player must dispatch RESOLVE_SHORTFALL until
    * their entry pops, then the next player resolves theirs, and so on. */
   pendingShortfalls: ShortfallEntry[];
+}
+
+export interface BoardScore {
+  readonly playerId: PlayerId;
+  readonly industry: number;
+  readonly links: number;
+}
+
+export interface ScoredEra {
+  readonly era: Era;
+  readonly players: readonly BoardScore[];
 }
 
 /** One queued shortfall — the player owes `owed` after handing over all

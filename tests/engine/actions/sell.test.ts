@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { scoringSummary } from "../../../engine/scoring";
 import { Engine, initialState } from "../../../engine";
 import type {
   Card,
@@ -388,6 +389,10 @@ describe("§5.4 Sell — happy paths", () => {
     });
     expect(r.ok).toBe(true);
     expect(engine.getState().players[id]!.vp).toBe(beforeVp + 4);
+    const points = scoringSummary(engine.getState()).find((p) => p.playerId === id)!;
+    expect(points.scored.other).toBe(4);
+    expect(points.scored.industry).toBe(0);
+    expect(points.projection!.industry).toBeGreaterThan(0);
   });
 
   it("Gloucester DEVELOP bonus queues a pending develop per beer consumed", () => {

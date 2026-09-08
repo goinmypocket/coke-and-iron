@@ -1,8 +1,13 @@
 .ci-game {
   --ink: #282b2a;
   --paper: #f6f3ed;
+  --board-paper: #eae9e2;
+  --board-tile: #f7f6f0;
+  --merchant-tile: #ded8c6;
+  --canal-line: #436b86;
+  --rail-line: #806044;
   --panel-bg: #ffffff;
-  --warm-gold: #c79b3f;
+  --warm-gold: #936737;
   --focus: #92512f;
   --muted: #626762;
   --soft-tint: #f2e8df;

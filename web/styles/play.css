@@ -16,6 +16,25 @@
 .ci-game .ci-resource-summary dd { font-size: 18px; font-weight: 650; }
 .ci-game .game-stack { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr); gap: 20px; padding: 0; align-items: start; }
 .ci-game .ci-play-rail { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.ci-game .ci-board-column { min-width: 0; display: grid; gap: 16px; }
+.ci-game .ci-statistics { padding: 16px; background: var(--panel-bg); border: 1px solid var(--ci-border); border-radius: 10px; scroll-margin-top: 16px; }
+.ci-game .ci-statistics .ci-section-heading > span { font-size: 12px; color: var(--muted); }
+.ci-game .ci-statistics__hint { margin: 10px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.ci-game .ci-statistics__players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ci-game .ci-score-card { border: 1px solid var(--ci-border); border-radius: 6px; padding: 12px; min-width: 0; background: #faf9f5; }
+.ci-game .ci-score-card h3 { display: flex; align-items: center; gap: 7px; font-size: 14px; overflow-wrap: anywhere; }
+.ci-game .ci-score-card__totals { display: flex; justify-content: space-between; gap: 12px; margin: 12px 0; }
+.ci-game .ci-score-card__totals dt { font-size: 11px; color: var(--muted); }
+.ci-game .ci-score-card__totals dd { margin: 0; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ci-game .ci-score-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.ci-game .ci-score-table :is(th, td) { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--ci-border); }
+.ci-game .ci-score-table th:first-child { text-align: left; font-weight: 500; }
+.ci-game .ci-score-table thead th { color: var(--muted); font-size: 11px; font-weight: 500; }
+.ci-game .ci-score-table caption { text-align: left; font-weight: 600; padding: 12px 0 4px; }
+.ci-game .ci-score-card__economy, .ci-game .ci-score-card__board { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 8px; }
+.ci-game .ci-score-card__board { margin-top: 2px; }
+.ci-game .ci-score-history summary { cursor: pointer; padding: 10px 0; font-size: 13px; }
+.ci-game .ci-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .ci-game .panel { border: 1px solid var(--ci-border); border-radius: 10px; min-width: 0; overflow: hidden; }
 .ci-game .panel__title { padding: 10px 12px; background: #fff; border-color: var(--ci-border); font-size: 13px; line-height: 1.4; }
 .ci-game .panel__content { overflow: visible; padding: 10px; }
@@ -23,13 +42,13 @@
 .ci-game .ci-board-toolbar { padding: 10px 14px; border-bottom: 1px solid var(--ci-border); }
 .ci-game .ci-board-viewport { width: 100%; overflow: auto; overscroll-behavior: contain; container-type: inline-size; }
 .ci-game .board-region { --board-edge: calc((100cqw - 4px) / 1.125); --income-row-h: calc(var(--board-edge) / 32); width: max-content; gap: 0; }
-.ci-game .board-region--zoomed { --board-edge: max(900px, calc((100cqw - 4px) / 1.125)); }
 .ci-game .board-region__income { background: #fff; }
 .ci-game .board-svg { flex-shrink: 0; }
 .ci-game .ci-board-legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; padding: 10px 14px; border-top: 1px solid var(--ci-border); }
 .ci-game .ci-board-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.ci-game .ci-board-legend i { width: 20px; border-top: 2px solid #4176af; }
-.ci-game .ci-board-legend .ci-rail-key { border-top: 2px dashed #896244; }
+.ci-game .ci-board-legend i { width: 20px; border-top: 2px solid var(--canal-line); }
+.ci-game .ci-board-legend .ci-rail-key { border-top: 2px dashed var(--rail-line); }
+.ci-game .ci-board-legend .ci-board-pan-hint { display: none; }
 .ci-game .actions-banner { padding: 16px; border: 1px solid var(--ci-border); border-radius: 10px; background: var(--panel-bg); gap: 12px; }
 .ci-game .actions-banner__row { justify-content: flex-start; gap: 10px; }
 .ci-game .actions-banner__row--verbs { flex-direction: column; align-items: stretch; }
@@ -78,7 +97,10 @@
 .ci-game .mat-row--clickable > rect:first-child { stroke: var(--focus); stroke-width: 1; }
 .ci-game .mat-row--clickable:hover > rect:first-child, .ci-game .mat-row--clickable:focus-visible > rect:first-child { fill: var(--soft-tint); stroke-width: 2; }
 .ci-game .board-slot--clickable:focus-visible rect, .ci-game .board-tile--clickable:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
-.ci-game .board-line--clickable:focus-visible line:not([stroke="transparent"]) { stroke: var(--focus); stroke-width: 6; }
+.ci-game .board-line:focus-visible { outline: none; }
+.ci-game .board-line--clickable:is(:hover, :focus-visible) > .board-line__route { stroke: var(--focus); stroke-width: 6; stroke-opacity: 1; }
+.ci-game .board-line--clickable:focus-visible > .board-line__route { stroke-dasharray: 10 4; }
+.ci-game .board-line__hit { stroke: transparent; pointer-events: stroke; }
 .ci-game .viewer-banner { padding: 10px 14px; border: 1px solid var(--ci-border); border-radius: 8px; background: #fff; }
 .ci-game .viewer-banner__chip, .ci-game .viewer-banner__clear { min-height: 40px; padding: 8px 12px; border-radius: 5px; }
 .ci-game .ci-dialog { position: fixed; margin: auto; padding: 24px; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 32px); overflow: auto; color: var(--ink); background: #fff; border: 1px solid var(--ci-border); border-radius: 12px; box-shadow: 0 18px 70px #18201933; font: inherit; }
@@ -115,6 +137,10 @@
   .ci-game .hand-banner__cards { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
 @container (max-width: 600px) {
+  .ci-game .board-region { --board-edge: 720px; }
+  .ci-game .ci-board-legend .ci-board-pan-hint { display: inline; }
+  .ci-game .ci-statistics__players { grid-template-columns: minmax(0, 1fr); }
+  .ci-game .ci-jump-links { gap: 0; flex-wrap: wrap; }
   .ci-game .app-shell { padding: 10px; }
   .ci-game .actions-banner, .ci-game .hand-banner { padding: 12px; }
   .ci-game .actions-banner__verbs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
