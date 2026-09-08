@@ -15,6 +15,8 @@ export interface GameDefinition<Save = unknown> {
   readonly displayName: string;
   readonly minPlayers: number;
   readonly maxPlayers: number;
+  /** Opt in to claiming a subset of playable seats at hotseat creation. */
+  readonly supportsHotseatPlayerCount?: boolean;
   readonly supportsSpectators: boolean;
   readonly optionsSchema: OptionsSchema;
   createSession(opts: CreateOpts): GameSession<Save>;

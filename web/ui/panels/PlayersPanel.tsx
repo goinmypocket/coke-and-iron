@@ -14,7 +14,7 @@ import { svgButton } from "../affordances/svgButton";
 // Columns wrap in the page flow; their minimum width keeps numbers
 // readable without an inner scrollbar or shrinking the entire mat.
 // =============================================================================
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { stepToLevel } from "../../../engine";
 import type {
   IndustryName,
@@ -32,6 +32,8 @@ import { IronIcon } from "../icons/IronIcon";
 import { LinkTileIcon } from "../icons/LinkTileIcon";
 import { VictoryPointsValue } from "../icons/VictoryPointsIcon";
 import { MoneyCoin } from "../icons/MoneyCoin";
+import { CurrentIncomeIcon } from "../icons/CurrentIncomeIcon";
+import { HandSizeIcon } from "../icons/HandSizeIcon";
 import { Panel } from "../layout/Panel";
 import { TILE, TileFace } from "../tiles/TileFace";
 import { SIDE_COL_W, TileSideColumn } from "../tiles/TileSideColumn";
@@ -108,7 +110,6 @@ function PlayerSubPanel({
 }) {
   const wizard = useWizard();
   const paused = usePaused();
-  const [matView, setMatView] = useState(false);
   const view = useGameState((s) => {
     const p = s.players.find((pp) => pp.id === seatId);
     if (!p) return null;
@@ -150,7 +151,7 @@ function PlayerSubPanel({
   return (
     <Panel
       id={`player_${seatId + 1}`}
-      title={`${view.name}${isViewer ? " · your industries" : " · industries"}${view.isActive ? " · active" : ""}`}
+      title={`${view.name}${isViewer ? " · your player board" : " · player board"}${view.isActive ? " · active" : ""}`}
       borderColor={view.pawnColor}
     >
       <SeatStats
@@ -162,15 +163,7 @@ function PlayerSubPanel({
         era={view.era}
         pawnColor={view.pawnColor}
       />
-      <div className="ci-mat-view" role="group" aria-label={`${view.name} reference view`}>
-        <button type="button" aria-pressed={!matView} onClick={() => setMatView(false)}>Industry details</button>
-        <button type="button" aria-pressed={matView} onClick={() => setMatView(true)}>Full mat</button>
-      </div>
-      <div hidden={matView}><IndustryReference playerName={view.name} stacks={view.stacks} catalogue={view.tileCatalogue} era={view.era}
-        building={wizard.state.phase === "AWAITING_BUILD_INPUTS"} wantingIndustry={wantingIndustry} pickCounts={pickCounts}
-        onPick={industry => wizard.pickIndustry(seatId, industry)} /></div>
-      <div hidden={!matView}>
-      <p className="ci-mat-hint">All industries in one mat. Each row shows build cost on the left; industry VP, income steps and VP per adjacent link on the right. Use Industry details for the text reference.</p>
+      <p className="ci-mat-hint">All industries in one mat. Each row shows build cost on the left; industry VP, income steps and VP per adjacent link on the right.</p>
       <div className="ci-mat-viewport" role="region" aria-label={`${view.name} industry tiles`}>
       <MatSvg
         stacks={view.stacks}
@@ -183,7 +176,12 @@ function PlayerSubPanel({
         onPickIndustry={(ind) => wizard.pickIndustry(seatId, ind)}
       />
       </div>
-      </div>
+      <details className="ci-mat-help">
+        <summary>Tile reference &amp; explanations</summary>
+        <IndustryReference playerName={view.name} stacks={view.stacks} catalogue={view.tileCatalogue} era={view.era}
+          building={wizard.state.phase === "AWAITING_BUILD_INPUTS"} wantingIndustry={wantingIndustry} pickCounts={pickCounts}
+          onPick={industry => wizard.pickIndustry(seatId, industry)} />
+      </details>
     </Panel>
   );
 }
@@ -217,7 +215,7 @@ function SeatStats({
     {
       key: "money",
       title: "Money",
-      node: <strong>£{money}</strong>,
+      node: <MoneyCoin amount={money} size={STAT_ICON_SIZE} />,
     },
     {
       key: "vp",
@@ -227,12 +225,12 @@ function SeatStats({
     {
       key: "income",
       title: "Current income level",
-      node: <strong>£{stepToLevel(incomeStep)}</strong>,
+      node: <CurrentIncomeIcon amount={stepToLevel(incomeStep)} size={STAT_ICON_SIZE} />,
     },
     {
       key: "hand",
       title: "Cards in hand",
-      node: <strong>{handSize}</strong>,
+      node: <HandSizeIcon amount={handSize} size={STAT_ICON_SIZE} />,
     },
     {
       key: "links",

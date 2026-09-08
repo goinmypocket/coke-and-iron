@@ -84,8 +84,8 @@
 .ci-game .ci-table-details { min-width: 0; grid-column: 1 / -1; padding: 0 16px; border: 1px solid var(--ci-border); border-radius: 10px; background: #fff; }
 .ci-game .ci-detail-nav { display: flex; align-items: center; gap: 8px 20px; border-bottom: 1px solid var(--ci-border); }
 .ci-game .ci-detail-nav h2 { font-size: 14px; margin-right: 8px; }
-.ci-game .ci-detail-nav button { min-height: 44px; padding: 10px 4px; background: none; color: var(--muted); border: 0; border-bottom: 3px solid transparent; font-size: 13px; }
-.ci-game .ci-detail-nav button[aria-pressed="true"] { color: var(--focus); border-bottom-color: var(--focus); font-weight: 650; }
+.ci-game .ci-table-statistics > summary, .ci-game .ci-mat-help > summary { min-height: 44px; padding: 12px 0; cursor: pointer; color: var(--focus); font-size: 13px; }
+.ci-game .ci-mat-help { margin-top: 12px; }
 .ci-game .ci-statistics { padding: 16px 0; scroll-margin-top: 12px; }
 .ci-game .ci-statistics .ci-section-heading > span { font-size: 12px; color: var(--muted); }
 .ci-game .ci-statistics__hint { margin: 8px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
@@ -159,9 +159,6 @@
 .ci-game .endgame-overlay__table .pawn-swatch { margin-right: 6px; }
 .ci-game .ci-result-reason { display: block; color: var(--muted); font-size: 12px; }
 .ci-game .seat-stats__item strong { font-size: 16px; }
-.ci-game .ci-mat-view { display: flex; gap: 4px; padding: 4px; background: #edf3eb; border-radius: 6px; width: fit-content; margin-bottom: 14px; }
-.ci-game .ci-mat-view button { min-height: 38px; padding: 7px 12px; border: 1px solid transparent; border-radius: 4px; color: var(--muted); background: none; font-size: 13px; }
-.ci-game .ci-mat-view button[aria-pressed="true"] { color: var(--focus); border-color: #93a899; background: #fff; font-weight: 600; }
 .ci-game .ci-reference-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 14px; }
 .ci-game .ci-reference-selector select { color: var(--ink); background: #fff; min-height: 42px; border: 1px solid #89968e; border-radius: 6px; padding: 8px 32px 8px 10px; font: inherit; }
 .ci-game .ci-industry-levels { display: grid; gap: 10px; }

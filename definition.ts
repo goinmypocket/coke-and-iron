@@ -20,6 +20,7 @@ export const def: GameDefinition<CokeAndIronSave> = {
   displayName: "Coke and Iron",
   minPlayers: 2,
   maxPlayers: 4,
+  supportsHotseatPlayerCount: true,
   supportsSpectators: true,
   optionsSchema: [
     {

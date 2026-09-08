@@ -91,7 +91,6 @@ function GameContent({ ctx }: Props): ReactNode {
 
 function GameWorkspace({ regionId }: { regionId: string }) {
   const [area, setArea] = useState("turn");
-  const [detail, setDetail] = useState("statistics");
   const openArea = (next: string) => {
     setArea(next);
     requestAnimationFrame(() => {
@@ -102,7 +101,7 @@ function GameWorkspace({ regionId }: { regionId: string }) {
   };
   return <div className="ci-workspace" data-area={area}>
     <nav className="ci-area-nav" aria-label="Game areas">
-      {[["turn", "Turn"], ["board", "Board"], ["details", "Details"]].map(([id, label]) =>
+      {[["turn", "Turn"], ["board", "Board"], ["details", "Player boards"]].map(([id, label]) =>
         <button key={id} type="button" aria-pressed={area === id} aria-controls={regionId + "-" + id} onClick={() => setArea(id!)}>{label}</button>)}
     </nav>
     <div className="game-stack">
@@ -113,12 +112,13 @@ function GameWorkspace({ regionId }: { regionId: string }) {
       <div className="ci-play-rail" id={regionId + "-turn"} role="region" aria-label="Turn area" tabIndex={-1}>
         <ActionsPanel onOpenBoard={() => openArea("board")} />
       </div>
-      <section className="ci-table-details" id={regionId + "-details"} aria-label="Table details">
-        <nav className="ci-detail-nav" aria-label="Table details"><h2>Table details</h2>
-          {[["statistics", "Statistics"], ["industries", "Industries"]].map(([id, label]) => <button key={id} type="button" aria-pressed={detail === id} aria-controls={regionId + "-" + id} onClick={() => setDetail(id!)}>{label}</button>)}
-        </nav>
-        <div hidden={detail !== "statistics"}><StatisticsPanel regionId={regionId + "-statistics"} /></div>
-        <div hidden={detail !== "industries"} id={regionId + "-industries"}><PlayersPanel /></div>
+      <section className="ci-table-details" id={regionId + "-details"} aria-label="Player boards" tabIndex={-1}>
+        <header className="ci-detail-nav"><h2>Player boards</h2></header>
+        <details className="ci-table-statistics">
+          <summary>Table statistics</summary>
+          <StatisticsPanel regionId={regionId + "-statistics"} />
+        </details>
+        <div id={regionId + "-industries"}><PlayersPanel /></div>
       </section>
     </div>
   </div>;
